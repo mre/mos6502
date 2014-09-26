@@ -50,18 +50,26 @@ pub bitflags! {
     }
 }
 
+#[allow(non_snake_case)]
 pub struct Machine {
-     A : u8,
-     X : u8,
-     Y : u8,
-    SP : u8,
-     P : ProcessorStatus,
-    PC : u16,
+    pub  A : u8,
+    pub  X : u8,
+    pub  Y : u8,
+    pub SP : u8,
+    pub  P : ProcessorStatus,
+    pub PC : u16,
 }
 
 impl Machine {
     pub fn new() -> Machine {
-        Machine { A: 0, X: 0, Y: 0, SP: 0, P: ProcessorStatus::empty(), PC: 0 }
+        Machine {
+            A: 0,
+            X: 0,
+            Y: 0,
+            SP: 0,
+            P: ProcessorStatus::empty(),
+            PC: 0
+        }
     }
 }
 

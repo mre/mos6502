@@ -25,15 +25,5 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-pub use machine::ProcessorStatus;
-pub use machine::Machine;
-pub use machine::StackPointer;
-pub use machine::STACK_POINTER_IN_MEMORY_LO;
-pub use machine::STACK_POINTER_IN_MEMORY_HI;
-pub use machine::MemoryAddr;
-pub use machine::stack_pointer_to_addr;
-pub use machine::Instruction;
-pub use machine::AddressingMode;
-
-mod machine;
+pub mod machine;
 

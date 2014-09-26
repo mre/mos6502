@@ -56,7 +56,7 @@ Cargo.lock
 /*-*-*/
 /Makefile
 /doc
-/target/
+target/
 /test/
 /tmp/
 TAGS

@@ -27,14 +27,11 @@
 
 [package]
 
-name = "6502-rs"
+name = "machine6502"
 version = "0.0.1"
 authors = ["The 6502-rs Developers"]
 
-[[bin]]
-name = "6502-rs"
-path = "src/exe/main.rs"
-
-[dependencies.defs6502]
-path="src/defs6502"
+[lib]
+name = "machine6502"
+path = "src/machine6502/lib.rs"
 

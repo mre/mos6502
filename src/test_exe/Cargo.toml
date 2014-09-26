@@ -26,11 +26,14 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 [package]
-name = "defs6502"
+name = "test_exe"
 version = "0.0.1"
 authors = [ "The 6502-rs Developers" ]
 
-[lib]
-name = "defs6502"
-path = "lib.rs"
+[[bin]]
+name = "test_exe"
+path = "main.rs"
+
+[dependencies.machine6502]
+path="../../"
 

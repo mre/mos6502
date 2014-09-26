@@ -25,9 +25,9 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-extern crate defs6502;
+extern crate machine6502;
 
-use defs6502::Machine;
+use machine6502::machine::Machine;
 
 fn main() {
     let _q = Machine::new();
