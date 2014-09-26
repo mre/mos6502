@@ -25,6 +25,8 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+extern crate std;
+
 // Abbreviations
 //
 // General
@@ -76,19 +78,49 @@ impl Machine {
     }
 }
 
+#[deriving(PartialEq, Eq, PartialOrd, Ord)]
 pub struct StackPointer(u8);
 
-pub static STACK_POINTER_IN_MEMORY_LO : u16 = 0x0100;
-pub static STACK_POINTER_IN_MEMORY_HI : u16 = 0x01FF;
+#[deriving(PartialEq, Eq, PartialOrd, Ord)]
+pub struct Addr(u16);
 
-pub struct MemoryAddr(u16);
+#[deriving(PartialEq, Eq, PartialOrd, Ord)]
+pub struct AddrDiff(u16);
 
-pub fn stack_pointer_to_addr(StackPointer(x) : StackPointer) -> MemoryAddr
-{
-	MemoryAddr(x as u16 + STACK_POINTER_IN_MEMORY_HI)
+// The idea here is that it doesn't make sense to add two addresses, but it
+// does make sense to add an address and an "address-difference". (If this
+// is too annoying to work with we should let it go.)
+
+impl Add<AddrDiff, Addr> for Addr {
+    fn add(&self, &AddrDiff(rhs): &AddrDiff) -> Addr {
+        let &Addr(lhs) = self;
+
+        // We probably don't want to overflow when doing arithmetic in our own
+        // code.
+        debug_assert!({
+            match lhs.checked_add(&rhs) {
+                None => false,
+                _ => true
+            }
+        });
+
+        return Addr(lhs + rhs);
+    }
 }
 
-#[deriving(Show)]
+pub static STACK_POINTER_IN_MEMORY_LO: Addr = Addr(0x0100);
+pub static STACK_POINTER_IN_MEMORY_HI: Addr = Addr(0x01FF);
+
+pub fn stack_pointer_to_addr(StackPointer(x) : StackPointer) -> Addr
+{
+	STACK_POINTER_IN_MEMORY_LO + AddrDiff(x as u16)
+}
+
+// We can probably come up with a better way to represent address ranges
+pub static IRQ_INTERRUPT_VECTOR_LO: Addr = Addr(0xFFFE);
+pub static IRQ_INTERRUPT_VECTOR_HI: Addr = Addr(0xFFFE);
+
+#[deriving(Show, PartialEq, Eq)]
 pub enum Instruction
       //                                  i/o vars should be listed as follows:
       //                                  NV BDIZC A X Y SP PC M
@@ -104,24 +136,24 @@ pub enum Instruction
 , BMI // Branch if Minus............... | .. .....          PC   = N
 , BNE // Branch if Not Equal........... | .. .....          PC   = !Z
 , BPL // Branch if Positive............ | .. .....          PC   = Z
-, BRK // BReaK......................... | .. .....
-, BVC // Branch if oVerflow Clear...... | .. .....
-, BVS // Branch if oVerflow Set........ | .. .....
-, CLC // CLear Carry flag.............. | .. .....
-, CLD // Clear Decimal Mode............ | .. .....
-, CLI // Clear Interrupt Disable....... | .. .....
-, CLV // Clear oVerflow flag........... | .. .....
-, CMP // Compare....................... | .. .....
-, CPX // Compare X register............ | .. .....
-, CPY // Compare Y register............ | .. .....
-, DEC // DECrement memory.............. | .. .....
-, DEX // DEcrement X register.......... | .. .....
-, DEY // DEcrement Y register.......... | .. .....
-, EOR // Exclusive OR.................. | .. .....
-, INC // INCrement memory.............. | .. .....
-, INX // INcrement X register.......... | .. .....
-, INY // INcrement Y register.......... | .. .....
-, JMP // JuMP.......................... | .. .....
+, BRK // BReaK......................... | .. B....       SP PC   =
+, BVC // Branch if oVerflow Clear...... | .. .....          PC   = !V
+, BVS // Branch if oVerflow Set........ | .. .....          PC   = V
+, CLC // CLear Carry flag.............. | .. ....C               = 0
+, CLD // Clear Decimal Mode............ | .. .D...               = 0
+, CLI // Clear Interrupt Disable....... | .. ..I..               = 0
+, CLV // Clear oVerflow flag........... | .V .....               = 0
+, CMP // Compare....................... | N. ...ZC               = A - M
+, CPX // Compare X register............ | N. ...ZC               = X - M
+, CPY // Compare Y register............ | N. ...ZC               = Y - M
+, DEC // DECrement memory.............. | N. ...Z.             M = M - 1
+, DEX // DEcrement X register.......... | N. ...Z.   X           = X - 1
+, DEY // DEcrement Y register.......... | N. ...Z.     Y         = Y - 1
+, EOR // Exclusive OR (bitwise)........ | N. ...Z. A             = A ^ M
+, INC // INCrement memory.............. | N. ...Z.             M = M + 1
+, INX // INcrement X register.......... | N. ...Z.   X           = X + 1
+, INY // INcrement Y register.......... | N. ...Z.     Y         = Y + 1
+, JMP // JuMP.......................... | .. .....          PC   =
 , JSR // Jump to SubRoutine............ | .. .....
 , LDA // LoaD Accumulator.............. | .. .....
 , LDX // LoaD X register............... | .. .....
