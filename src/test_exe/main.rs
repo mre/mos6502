@@ -27,7 +27,7 @@
 
 extern crate machine6502;
 
-use machine6502::machine::Machine;
+use machine6502::defs::Machine;
 
 fn main() {
     let _q = Machine::new();
