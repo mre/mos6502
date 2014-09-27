@@ -1,0 +1,5 @@
+6502-rs was written by:
+
+Alex Weisberger <alex.m.weisberger@gmail.com>
+Andrew Keeton <andrewrkeeton@gmail.com>
+Johannes Muenzel <jmuenzel@gmail.com>
