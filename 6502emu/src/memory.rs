@@ -27,39 +27,41 @@
 
 use address::Address;
 
+pub static MEMORY_ADDRESS_BEGIN: Address = Address(0x0000);
+pub static MEMORY_ADDRESS_END:   Address = Address(0xffff);
+pub static STACK_ADDRESS_BEGIN:  Address = Address(0x0100);
+pub static STACK_ADDRESS_END:    Address = Address(0x01ff);
+
+// static MEMORY_SIZE: uint    = MEMORY_ADDRESS_END - MEMORY_ADDRESS_BEGIN + 1;
 pub struct Memory {
-	bytes: [u8,.. 256]
+	// Rust doesn't seem to like this:
+	// bytes: [u8, ..MEMORY_SIZE]
+	bytes: [u8, ..2^16]
 }
 
 impl Memory {
-	fn address_to_byte_offset(address: &Address) -> uint {
-		(address.to_int() - Address::min().to_int()) as uint
+	pub fn new() -> Memory {
+		Memory { bytes: [0, ..2^16] }
 	}
 
 	pub fn get_byte(&self, address: &Address) -> u8 {
-		if !address.is_valid()
-		{
-			fail!("Invalid address.");
-		}
-		else
-		{
-			return self.bytes[Memory::address_to_byte_offset(address)];
-		}
+		self.bytes[Memory::address_to_byte_offset(address)]
 	}
 
 	// Sets the byte at the given address to the given value and returns the
 	// previous value at the address.
 	pub fn set_byte(&mut self, address: &Address, value: u8) -> u8 {
-		if !address.is_valid()
-		{
-			fail!("Invalid address.");
-		}
-		else
-		{
-			let old_value = self.get_byte(address);
-			self.bytes[Memory::address_to_byte_offset(address)] = value;
+		let old_value = self.get_byte(address);
+		self.bytes[Memory::address_to_byte_offset(address)] = value;
 
-			return old_value;
-		}
+		return old_value;
+	}
+
+	fn address_to_byte_offset(address: &Address) -> uint {
+		(STACK_ADDRESS_BEGIN.to_u16() - STACK_ADDRESS_END.to_u16()) as uint
+	}
+
+	fn is_stack_address(address: &Address) -> bool {
+		STACK_ADDRESS_BEGIN <= *address && *address <= STACK_ADDRESS_END
 	}
 }

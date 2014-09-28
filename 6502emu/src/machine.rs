@@ -26,15 +26,21 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 use registers::Registers;
-use address::Address;
 use memory::Memory;
 
-struct Machine {
-	registers: Registers,
-	memory:    Memory
+pub struct Machine {
+	pub registers: Registers,
+	pub memory:    Memory
 }
 
 impl Machine {
+	pub fn new() -> Machine {
+		Machine{
+			registers: Registers::new(),
+			memory:    Memory::new()
+		}
+	}
+
 	// TODO akeeton: Implement binary-coded decimal.
 	pub fn add_with_carry(&mut self, value: i8) {
 		let a: int = self.registers.accumulator  as int;

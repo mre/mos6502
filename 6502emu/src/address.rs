@@ -25,29 +25,21 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#[deriving(PartialEq)]
-#[deriving(Eq)]
-#[deriving(PartialOrd)]
-#[deriving(Ord)]
-pub struct Address(u16);
+#[deriving(PartialEq, Eq, PartialOrd, Ord)]
+pub struct Address(pub u16);
 
 impl Address {
-	/* TODO akeeton: Hide struct Address(u16) "constructor."
-	pub fn new(address_: u16) -> Address {
-		Address(address_)
-	}
-	*/
-
-	pub fn to_int(&self) -> u16 {
+	pub fn to_u16(&self) -> u16 {
 		match *self {
 			Address(address_) => address_
 		}
 	}
 
-	pub fn min() -> Address { Address(0x0100) }
-	pub fn max() -> Address { Address(0x01ff) }
+	pub fn get_page_number(&self) -> u8 {
+		(self.to_u16() & 0xff00 >> 8) as u8
+	}
 
-	pub fn is_valid(&self) -> bool {
-		Address::min() <= *self && *self <= Address::max()
+	pub fn get_offset(&self) -> u8 {
+		(self.to_u16() & 0x00ff) as u8
 	}
 }

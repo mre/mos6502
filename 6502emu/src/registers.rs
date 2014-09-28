@@ -25,6 +25,8 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+use memory;
+
 // Each status flag should be 0 or 1.
 pub struct Status {
 	pub carry:        u8,
@@ -48,6 +50,20 @@ impl Status {
 		| self.overflow     << 6
 		| self.sign         << 7
 	}
+
+	pub fn new() -> Status {
+		// TODO akeeton: Revisit these defaults.
+		Status {
+			carry:        0,
+			zero:         0,
+			interrupt:    0,
+			decimal_mode: 0,
+			brk:          0,
+			unused:       1,
+			overflow:     0,
+			sign:         0
+		}
+	}
 }
 
 pub struct Registers {
@@ -60,4 +76,15 @@ pub struct Registers {
 }
 
 impl Registers {
+	pub fn new() -> Registers {
+		// TODO akeeton: Revisit these defaults.
+		Registers {
+			accumulator:     0,
+			index_x:         0,
+			index_y:         0,
+			stack_pointer:   memory::STACK_ADDRESS_END.get_offset(),
+			program_counter: 0,
+			status:          Status::new()
+		}
+	}
 }

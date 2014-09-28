@@ -31,5 +31,10 @@ mod address;
 mod memory;
 
 fn main() {
-	let machine = machine::Machine::new();
+	let mut machine = machine::Machine::new();
+
+	println!("A: {}", machine.registers.accumulator);
+	println!("add_with_carry(1)");
+	machine.add_with_carry(1);
+	println!("A: {}", machine.registers.accumulator);
 }
