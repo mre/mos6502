@@ -66,4 +66,4 @@ TAGS.vi
 \#*\#
 src/.DS_Store
 tmp.*.rs
-Cargo.lock
+6502emu/Cargo.lock
