@@ -25,10 +25,11 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-mod machine;
-mod registers;
 mod address;
+mod machine;
 mod memory;
+mod registers;
+mod util;
 
 fn main() {
 	let mut machine = machine::Machine::new();

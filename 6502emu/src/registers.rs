@@ -25,43 +25,43 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use memory;
+use memory::STACK_ADDRESS_END;
+use util::{ BitFlag, Off, On };
 
-// Each status flag should be 0 or 1.
 pub struct Status {
-	pub carry:        u8,
-	pub zero:         u8,
-	pub interrupt:    u8,
-	pub decimal_mode: u8,
-	pub brk:          u8,
-	pub unused:       u8,
-	pub overflow:     u8,
-	pub sign:         u8
+	pub carry:        BitFlag,
+	pub zero:         BitFlag,
+	pub interrupt:    BitFlag,
+	pub decimal_mode: BitFlag,
+	pub brk:          BitFlag,
+	pub unused:       BitFlag,
+	pub overflow:     BitFlag,
+	pub sign:         BitFlag
 }
 
 impl Status {
 	pub fn to_byte(&self) -> u8 {
-		  self.carry        << 0
-		| self.zero         << 1
-		| self.interrupt    << 2
-		| self.decimal_mode << 3
-		| self.brk          << 4
-		| self.unused       << 5
-		| self.overflow     << 6
-		| self.sign         << 7
+		  self.carry.to_bit()        << 0
+		| self.zero.to_bit()         << 1
+		| self.interrupt.to_bit()    << 2
+		| self.decimal_mode.to_bit() << 3
+		| self.brk.to_bit()          << 4
+		| self.unused.to_bit()       << 5
+		| self.overflow.to_bit()     << 6
+		| self.sign.to_bit()         << 7
 	}
 
 	pub fn new() -> Status {
 		// TODO akeeton: Revisit these defaults.
 		Status {
-			carry:        0,
-			zero:         0,
-			interrupt:    0,
-			decimal_mode: 0,
-			brk:          0,
-			unused:       1,
-			overflow:     0,
-			sign:         0
+			carry:        Off,
+			zero:         Off,
+			interrupt:    Off,
+			decimal_mode: Off,
+			brk:          Off,
+			unused:       On,
+			overflow:     Off,
+			sign:         Off
 		}
 	}
 }
@@ -82,7 +82,7 @@ impl Registers {
 			accumulator:     0,
 			index_x:         0,
 			index_y:         0,
-			stack_pointer:   memory::STACK_ADDRESS_END.get_offset(),
+			stack_pointer:   STACK_ADDRESS_END.get_offset(),
 			program_counter: 0,
 			status:          Status::new()
 		}

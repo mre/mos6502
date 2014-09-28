@@ -25,39 +25,24 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use address::Address;
-
-pub static MEMORY_ADDRESS_BEGIN: Address = Address(0x0000);
-pub static MEMORY_ADDRESS_END:   Address = Address(0xffff);
-pub static STACK_ADDRESS_BEGIN:  Address = Address(0x0100);
-pub static STACK_ADDRESS_END:    Address = Address(0x01ff);
-
-// static MEMORY_SIZE: uint    = MEMORY_ADDRESS_END - MEMORY_ADDRESS_BEGIN + 1;
-pub struct Memory {
-	// Rust doesn't seem to like this:
-	// bytes: [u8, ..MEMORY_SIZE]
-	bytes: [u8, ..2^16]
+pub enum BitFlag {
+	Off,
+	On
 }
 
-impl Memory {
-	pub fn new() -> Memory {
-		Memory { bytes: [0, ..2^16] }
+impl BitFlag {
+	pub fn new(is_set: bool) -> BitFlag {
+		if is_set {
+			On
+		} else {
+			Off
+		}
 	}
 
-	pub fn get_byte(&self, address: &Address) -> u8 {
-		self.bytes[address.to_uint()]
-	}
-
-	// Sets the byte at the given address to the given value and returns the
-	// previous value at the address.
-	pub fn set_byte(&mut self, address: &Address, value: u8) -> u8 {
-		let old_value = self.get_byte(address);
-		self.bytes[address.to_uint()] = value;
-
-		return old_value;
-	}
-
-	fn is_stack_address(address: &Address) -> bool {
-		STACK_ADDRESS_BEGIN <= *address && *address <= STACK_ADDRESS_END
+	pub fn to_bit(&self) -> u8 {
+		match *self {
+			Off => 0,
+			On  => 1
+		}
 	}
 }

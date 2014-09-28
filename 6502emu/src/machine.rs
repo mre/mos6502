@@ -25,8 +25,9 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use registers::Registers;
+use util::BitFlag;
 use memory::Memory;
+use registers::Registers;
 
 pub struct Machine {
 	pub registers: Registers,
@@ -49,15 +50,17 @@ impl Machine {
 		let a_new_full: int = a + c + value as int;
 		let a_new:      i8  = a_new_full as i8;
 
+		let did_carry    = a_new_full != a_new as int;
+		let is_zero      = a_new == 0;
+		let is_negative  = a_new < 0;
+		let did_overflow =
+			   (a < 0 && value < 0 && a_new >= 0)
+			|| (a > 0 && value > 0 && a_new <= 0);
+
 		self.registers.accumulator     = a_new;
-		self.registers.status.carry    = if a_new_full == a_new as int { 0 } else { 1 };
-		self.registers.status.zero     = if a_new == 0 { 1 } else { 0 };
-		self.registers.status.sign     = if a_new  < 0 { 1 } else { 0 };
-		self.registers.status.overflow =
-			if (a < 0 && value < 0 && a_new >= 0)
-			|| (a > 0 && value > 0 && a_new <= 0)
-			{ 1 }
-			else
-			{ 0 }
+		self.registers.status.carry    = BitFlag::new(did_carry);
+		self.registers.status.zero     = BitFlag::new(is_zero);
+		self.registers.status.sign     = BitFlag::new(is_negative);
+		self.registers.status.overflow = BitFlag::new(did_overflow);
 	}
 }

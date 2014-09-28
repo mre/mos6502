@@ -35,6 +35,10 @@ impl Address {
 		}
 	}
 
+	pub fn to_uint(&self) -> uint {
+		self.to_u16() as uint
+	}
+
 	pub fn get_page_number(&self) -> u8 {
 		(self.to_u16() & 0xff00 >> 8) as u8
 	}
