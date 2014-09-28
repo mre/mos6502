@@ -36,7 +36,7 @@ pub struct Status {
 	pub brk:          BitFlag,
 	pub unused:       BitFlag,
 	pub overflow:     BitFlag,
-	pub sign:         BitFlag
+	pub negative:     BitFlag
 }
 
 impl Status {
@@ -48,7 +48,7 @@ impl Status {
 		| self.brk.to_bit()          << 4
 		| self.unused.to_bit()       << 5
 		| self.overflow.to_bit()     << 6
-		| self.sign.to_bit()         << 7
+		| self.negative.to_bit()     << 7
 	}
 
 	pub fn new() -> Status {
@@ -61,7 +61,7 @@ impl Status {
 			brk:          Off,
 			unused:       On,
 			overflow:     Off,
-			sign:         Off
+			negative:     Off
 		}
 	}
 }

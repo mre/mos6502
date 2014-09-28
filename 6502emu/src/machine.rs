@@ -60,7 +60,7 @@ impl Machine {
 		self.registers.accumulator     = a_new;
 		self.registers.status.carry    = BitFlag::new(did_carry);
 		self.registers.status.zero     = BitFlag::new(is_zero);
-		self.registers.status.sign     = BitFlag::new(is_negative);
+		self.registers.status.negative = BitFlag::new(is_negative);
 		self.registers.status.overflow = BitFlag::new(did_overflow);
 	}
 }
