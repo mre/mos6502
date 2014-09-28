@@ -25,9 +25,9 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-mod registers;
-mod address;
-mod memory;
+use registers::Registers;
+use address::Address;
+use memory::Memory;
 
 struct Machine {
 	registers: Registers,

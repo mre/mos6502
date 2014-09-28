@@ -26,6 +26,9 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 mod machine;
+mod registers;
+mod address;
+mod memory;
 
 fn main() {
 	let machine = machine::Machine::new();
