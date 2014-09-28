@@ -25,8 +25,33 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-mod machine;
+mod registers;
+mod address;
+mod memory;
 
-fn main() {
-	let machine = machine::Machine::new();
+struct Machine {
+	registers: Registers,
+	memory:    Memory
+}
+
+impl Machine {
+	// TODO akeeton: Implement binary-coded decimal.
+	pub fn add_with_carry(&mut self, value: i8) {
+		let a: int = self.registers.accumulator  as int;
+		let c: int = self.registers.status.carry as int;
+
+		let a_new_full: int = a + c + value as int;
+		let a_new:      i8  = a_new_full as i8;
+
+		self.registers.accumulator     = a_new;
+		self.registers.status.carry    = if a_new_full == a_new as int { 0 } else { 1 };
+		self.registers.status.zero     = if a_new == 0 { 1 } else { 0 };
+		self.registers.status.sign     = if a_new  < 0 { 1 } else { 0 };
+		self.registers.status.overflow =
+			if (a < 0 && value < 0 && a_new >= 0)
+			|| (a > 0 && value > 0 && a_new <= 0)
+			{ 1 }
+			else
+			{ 0 }
+	}
 }

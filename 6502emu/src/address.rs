@@ -25,8 +25,31 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-mod machine;
+mod address {
+	#[deriving(PartialEq)]
+	#[deriving(Eq)]
+	#[deriving(PartialOrd)]
+	#[deriving(Ord)]
+	pub struct Address(u16);
 
-fn main() {
-	let machine = machine::Machine::new();
+	impl Address {
+		/* TODO akeeton: Hide struct Address(u16) "constructor."
+		pub fn new(address_: u16) -> Address {
+			Address(address_)
+		}
+		*/
+
+		pub fn to_int(&self) -> u16 {
+			match *self {
+				Address(address_) => address_
+			}
+		}
+
+		pub fn min() -> Address { Address(0x0100) }
+		pub fn max() -> Address { Address(0x01ff) }
+
+		pub fn is_valid(&self) -> bool {
+			Address::min() <= *self && *self <= Address::max()
+		}
+	}
 }

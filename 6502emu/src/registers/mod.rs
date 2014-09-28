@@ -25,8 +25,41 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-mod machine;
+mod registers {
+	// Each status flag should be 0 or 1.
+	pub struct Status {
+		pub carry:        u8,
+		pub zero:         u8,
+		pub interrupt:    u8,
+		pub decimal_mode: u8,
+		pub brk:          u8,
+		pub unused:       u8,
+		pub overflow:     u8,
+		pub sign:         u8
+	}
 
-fn main() {
-	let machine = machine::Machine::new();
+	impl Status {
+		pub fn to_byte(&self) -> u8 {
+			  self.carry        << 0
+			| self.zero         << 1
+			| self.interrupt    << 2
+			| self.decimal_mode << 3
+			| self.brk          << 4
+			| self.unused       << 5
+			| self.overflow     << 6
+			| self.sign         << 7
+		}
+	}
+
+	pub struct Registers {
+		pub accumulator:     i8,
+		pub index_x:         i8,
+		pub index_y:         i8,
+		pub stack_pointer:   u8,
+		pub program_counter: u16,
+		pub status:          Status
+	}
+
+	impl Registers {
+	}
 }

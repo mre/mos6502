@@ -25,8 +25,45 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-mod machine;
+mod address;
 
-fn main() {
-	let machine = machine::Machine::new();
+mod memory {
+	use address::Address;
+
+	pub struct Memory {
+		bytes: [u8,.. 256]
+	}
+
+	impl Memory {
+		fn address_to_byte_offset(address: &Address) -> uint {
+			(address.to_int() - Address::min().to_int()) as uint
+		}
+
+		pub fn get_byte(&self, address: &Address) -> u8 {
+			if !address.is_valid()
+			{
+				fail!("Invalid address.");
+			}
+			else
+			{
+				return self.bytes[Memory::address_to_byte_offset(address)];
+			}
+		}
+
+		// Sets the byte at the given address to the given value and returns the
+		// previous value at the address.
+		pub fn set_byte(&mut self, address: &Address, value: u8) -> u8 {
+			if !address.is_valid()
+			{
+				fail!("Invalid address.");
+			}
+			else
+			{
+				let old_value = self.get_byte(address);
+				self.bytes[Memory::address_to_byte_offset(address)] = value;
+
+				return old_value;
+			}
+		}
+	}
 }
