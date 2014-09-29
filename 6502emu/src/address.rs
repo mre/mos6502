@@ -28,6 +28,30 @@
 #[deriving(PartialEq, Eq, PartialOrd, Ord)]
 pub struct Address(pub u16);
 
+#[deriving(PartialEq, Eq, PartialOrd, Ord)]
+pub struct AddressDiff(pub u16);
+
+// The idea here is that it doesn't make sense to add two addresses, but it
+// does make sense to add an address and an "address-difference". (If this
+// is too annoying to work with we should let it go.)
+
+impl Add<AddressDiff, Address> for Address {
+    fn add(&self, &AddressDiff(rhs): &AddressDiff) -> Address {
+        let &Address(lhs) = self;
+
+        // We probably don't want to overflow when doing arithmetic in our own
+        // code.
+        debug_assert!({
+            match lhs.checked_add(&rhs) {
+                None => false,
+                _ => true
+            }
+        });
+
+        return Address(lhs + rhs);
+    }
+}
+
 impl Address {
 	pub fn to_u16(&self) -> u16 {
 		match *self {

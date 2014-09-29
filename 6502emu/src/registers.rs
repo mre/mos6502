@@ -66,11 +66,14 @@ impl Status {
 	}
 }
 
+#[deriving(PartialEq, Eq, PartialOrd, Ord)]
+pub struct StackPointer(pub u8);
+
 pub struct Registers {
 	pub accumulator:     i8,
 	pub index_x:         i8,
 	pub index_y:         i8,
-	pub stack_pointer:   u8,
+	pub stack_pointer:   StackPointer,
 	pub program_counter: u16,
 	pub status:          Status
 }
@@ -82,7 +85,7 @@ impl Registers {
 			accumulator:     0,
 			index_x:         0,
 			index_y:         0,
-			stack_pointer:   STACK_ADDRESS_END.get_offset(),
+			stack_pointer:   StackPointer(STACK_ADDRESS_END.get_offset()),
 			program_counter: 0,
 			status:          Status::new()
 		}

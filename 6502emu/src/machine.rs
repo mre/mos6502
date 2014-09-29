@@ -47,7 +47,6 @@ impl Machine {
 	}
 
 	// TODO akeeton: Implement binary-coded decimal.
-	// TODO akeeton: Add test.
 	pub fn add_with_carry(&mut self, value: i8) {
 		let a_before: i8 = self.registers.accumulator;
 		let c_before: u8 = self.registers.status.carry.to_bit();

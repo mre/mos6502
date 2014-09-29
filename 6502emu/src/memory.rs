@@ -26,6 +26,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 use address::Address;
+use address::AddressDiff;
+use registers::StackPointer;
 
 pub static MEMORY_ADDRESS_BEGIN: Address = Address(0x0000);
 pub static MEMORY_ADDRESS_END:   Address = Address(0xffff);
@@ -57,7 +59,12 @@ impl Memory {
 		return old_value;
 	}
 
-	fn is_stack_address(address: &Address) -> bool {
+	pub fn is_stack_address(address: &Address) -> bool {
 		STACK_ADDRESS_BEGIN <= *address && *address <= STACK_ADDRESS_END
+	}
+
+	pub fn stack_pointer_to_address(&StackPointer(sp): &StackPointer) -> Address
+	{
+		STACK_ADDRESS_BEGIN + AddressDiff(sp as u16)
 	}
 }
