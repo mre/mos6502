@@ -29,10 +29,13 @@ use address::Address;
 use address::AddressDiff;
 use registers::StackPointer;
 
-pub static MEMORY_ADDRESS_BEGIN: Address = Address(0x0000);
-pub static MEMORY_ADDRESS_END:   Address = Address(0xffff);
-pub static STACK_ADDRESS_BEGIN:  Address = Address(0x0100);
-pub static STACK_ADDRESS_END:    Address = Address(0x01ff);
+pub static MEMORY_ADDRESS_BEGIN:    Address = Address(0x0000);
+pub static MEMORY_ADDRESS_END:      Address = Address(0xFFFF);
+pub static STACK_ADDRESS_BEGIN:     Address = Address(0x0100);
+pub static STACK_ADDRESS_END:       Address = Address(0x01FF);
+pub static IRQ_INTERRUPT_VECTOR_LO: Address = Address(0xFFFE);
+pub static IRQ_INTERRUPT_VECTOR_HI: Address = Address(0xFFFF);
+
 
 // static MEMORY_SIZE: uint    = MEMORY_ADDRESS_END - MEMORY_ADDRESS_BEGIN + 1;
 pub struct Memory {

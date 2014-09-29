@@ -29,39 +29,39 @@ use memory::STACK_ADDRESS_END;
 use util::{ BitFlag, Off, On };
 
 pub struct Status {
-	pub carry:        BitFlag,
-	pub zero:         BitFlag,
-	pub interrupt:    BitFlag,
-	pub decimal_mode: BitFlag,
-	pub brk:          BitFlag,
-	pub unused:       BitFlag,
-	pub overflow:     BitFlag,
-	pub negative:     BitFlag
+	pub carry:              BitFlag,
+	pub zero:               BitFlag,
+	pub disable_interrupts: BitFlag,
+	pub decimal_mode:       BitFlag,
+	pub brk:                BitFlag,
+	pub unused:             BitFlag,
+	pub overflow:           BitFlag,
+	pub negative:           BitFlag
 }
 
 impl Status {
 	pub fn to_byte(&self) -> u8 {
-		  self.carry.to_bit()        << 0
-		| self.zero.to_bit()         << 1
-		| self.interrupt.to_bit()    << 2
-		| self.decimal_mode.to_bit() << 3
-		| self.brk.to_bit()          << 4
-		| self.unused.to_bit()       << 5
-		| self.overflow.to_bit()     << 6
-		| self.negative.to_bit()     << 7
+		  self.carry.to_bit()              << 0
+		| self.zero.to_bit()               << 1
+		| self.disable_interrupts.to_bit() << 2
+		| self.decimal_mode.to_bit()       << 3
+		| self.brk.to_bit()                << 4
+		| self.unused.to_bit()             << 5
+		| self.overflow.to_bit()           << 6
+		| self.negative.to_bit()           << 7
 	}
 
 	pub fn new() -> Status {
 		// TODO akeeton: Revisit these defaults.
 		Status {
-			carry:        Off,
-			zero:         Off,
-			interrupt:    Off,
-			decimal_mode: Off,
-			brk:          Off,
-			unused:       On,
-			overflow:     Off,
-			negative:     Off
+			carry:              Off,
+			zero:               Off,
+			disable_interrupts:  On,
+			decimal_mode:       Off,
+			brk:                Off,
+			unused:              On,
+			overflow:           Off,
+			negative:           Off
 		}
 	}
 }
