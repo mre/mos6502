@@ -25,7 +25,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use util::BitFlag;
+use util::{ BitFlag, Off, On };
 use memory::Memory;
 use registers::Registers;
 
@@ -42,25 +42,109 @@ impl Machine {
 		}
 	}
 
+	pub fn reset(&mut self) {
+		*self = Machine::new();
+	}
+
 	// TODO akeeton: Implement binary-coded decimal.
+	// TODO akeeton: Add test.
 	pub fn add_with_carry(&mut self, value: i8) {
-		let a: int = self.registers.accumulator  as int;
-		let c: int = self.registers.status.carry as int;
+		let a_before: i8 = self.registers.accumulator;
+		let c_before: u8 = self.registers.status.carry.to_bit();
+		let a_after:  i8 = a_before + c_before as i8 + value;
 
-		let a_new_full: int = a + c + value as int;
-		let a_new:      i8  = a_new_full as i8;
+		assert_eq!(a_after as u8, a_before as u8 + c_before + value as u8);
 
-		let did_carry    = a_new_full != a_new as int;
-		let is_zero      = a_new == 0;
-		let is_negative  = a_new < 0;
-		let did_overflow =
-			   (a < 0 && value < 0 && a_new >= 0)
-			|| (a > 0 && value > 0 && a_new <= 0);
+		let did_carry      = (a_after as u8) < (a_before as u8);
+		let is_zero        = a_after == 0;
+		let is_negative    = a_after < 0;
+		let did_overflow   =
+			   (a_before < 0 && value < 0 && a_after >= 0)
+			|| (a_before > 0 && value > 0 && a_after <= 0);
 
-		self.registers.accumulator     = a_new;
+		self.registers.accumulator     = a_after;
 		self.registers.status.carry    = BitFlag::new(did_carry);
 		self.registers.status.zero     = BitFlag::new(is_zero);
 		self.registers.status.negative = BitFlag::new(is_negative);
 		self.registers.status.overflow = BitFlag::new(did_overflow);
+	}
+}
+
+#[test]
+fn add_with_carry_test() {
+	{
+		let mut machine = Machine::new();
+
+		machine.add_with_carry(1);
+		assert_eq!(machine.registers.accumulator,       1);
+		assert_eq!(machine.registers.status.carry,    Off);
+		assert_eq!(machine.registers.status.zero,     Off);
+		assert_eq!(machine.registers.status.negative, Off);
+		assert_eq!(machine.registers.status.overflow, Off);
+
+		machine.add_with_carry(-1);
+		assert_eq!(machine.registers.accumulator,       0);
+		assert_eq!(machine.registers.status.carry,     On);
+		assert_eq!(machine.registers.status.zero,      On);
+		assert_eq!(machine.registers.status.negative, Off);
+		assert_eq!(machine.registers.status.overflow, Off);
+
+		machine.add_with_carry(1);
+		assert_eq!(machine.registers.accumulator,       2);
+		assert_eq!(machine.registers.status.carry,    Off);
+		assert_eq!(machine.registers.status.zero,     Off);
+		assert_eq!(machine.registers.status.negative, Off);
+		assert_eq!(machine.registers.status.overflow, Off);
+	}
+
+	{
+		let mut machine = Machine::new();
+
+		machine.add_with_carry(127);
+		assert_eq!(machine.registers.accumulator,     127);
+		assert_eq!(machine.registers.status.carry,    Off);
+		assert_eq!(machine.registers.status.zero,     Off);
+		assert_eq!(machine.registers.status.negative, Off);
+		assert_eq!(machine.registers.status.overflow, Off);
+
+		machine.add_with_carry(-127);
+		assert_eq!(machine.registers.accumulator,       0);
+		assert_eq!(machine.registers.status.carry,     On);
+		assert_eq!(machine.registers.status.zero,      On);
+		assert_eq!(machine.registers.status.negative, Off);
+		assert_eq!(machine.registers.status.overflow, Off);
+
+		machine.registers.status.carry = Off;
+		machine.add_with_carry(-128);
+		assert_eq!(machine.registers.accumulator,    -128);
+		assert_eq!(machine.registers.status.carry,    Off);
+		assert_eq!(machine.registers.status.zero,     Off);
+		assert_eq!(machine.registers.status.negative,  On);
+		assert_eq!(machine.registers.status.overflow, Off);
+
+		machine.add_with_carry(127);
+		assert_eq!(machine.registers.accumulator,      -1);
+		assert_eq!(machine.registers.status.carry,    Off);
+		assert_eq!(machine.registers.status.zero,     Off);
+		assert_eq!(machine.registers.status.negative,  On);
+		assert_eq!(machine.registers.status.overflow, Off);
+	}
+
+	{
+		let mut machine = Machine::new();
+
+		machine.add_with_carry(127);
+		assert_eq!(machine.registers.accumulator,     127);
+		assert_eq!(machine.registers.status.carry,    Off);
+		assert_eq!(machine.registers.status.zero,     Off);
+		assert_eq!(machine.registers.status.negative, Off);
+		assert_eq!(machine.registers.status.overflow, Off);
+
+		machine.add_with_carry(1);
+		assert_eq!(machine.registers.accumulator,    -128);
+		assert_eq!(machine.registers.status.carry,    Off);
+		assert_eq!(machine.registers.status.zero,     Off);
+		assert_eq!(machine.registers.status.negative,  On);
+		assert_eq!(machine.registers.status.overflow,  On);
 	}
 }
