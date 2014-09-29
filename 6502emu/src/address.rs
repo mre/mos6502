@@ -31,6 +31,22 @@ pub struct Address(pub u16);
 #[deriving(PartialEq, Eq, PartialOrd, Ord)]
 pub struct AddressDiff(pub u16);
 
+pub enum AddressingMode {
+	Immediate,
+	Absolute,
+	ZeroPage,
+	Implied,
+	IndirectAbsolute,
+	AbsoluteIndexedX,
+	AbsoluteIndexedY,
+	ZeroPageIndexedX,
+	ZeroageIndexedY,
+	IndexedIndirect,
+	IndirectIndexed,
+	Relative,
+	Accumulator
+}
+
 // The idea here is that it doesn't make sense to add two addresses, but it
 // does make sense to add an address and an "address-difference". (If this
 // is too annoying to work with we should let it go.)
