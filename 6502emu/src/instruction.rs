@@ -1,6 +1,6 @@
 // Copyright (C) 2014 The 6502-rs Developers
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
 // are met:
@@ -12,7 +12,7 @@
 // 3. Neither the names of the copyright holders nor the names of any
 //    contributors may be used to endorse or promote products derived from this
 //    software without specific prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 // AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -25,103 +25,23 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-extern crate std;
-
-// Abbreviations
-//
-// General
-//
-//        M | `Memory location`
-//
-// Registers
-//
-//        A | accumulator
-//        X | general purpose register
-//        Y | general purpose register
-// NV-BDIZC | processor status flags -- see ProcessorStatus bitflags
-//       SP | stack pointer
-//       PC | program counter
-//
-
-pub bitflags! {
-    flags ProcessorStatus: u8 {
-        static N = 0b10000000, // Negative  -- sometimes called S for "sign"
-        static V = 0b01000000, // oVerflow
-        static B = 0b00010000, // Brk
-        static D = 0b00001000, // Decimal mode active?
-        static I = 0b00000100, // Irq disabled?
-        static Z = 0b00000010, // Zero
-        static C = 0b00000001, // Carry
-    }
-}
-
-#[allow(non_snake_case)]
-pub struct Machine {
-    pub  A : u8,
-    pub  X : u8,
-    pub  Y : u8,
-    pub  P : ProcessorStatus,
-    pub SP : u8,
-    pub PC : u16,
-}
-
-impl Machine {
-    pub fn new() -> Machine {
-        Machine {
-            A: 0,
-            X: 0,
-            Y: 0,
-            SP: 0,
-            P: ProcessorStatus::empty(),
-            PC: 0
-        }
-    }
-}
-
-#[deriving(PartialEq, Eq, PartialOrd, Ord)]
-pub struct StackPointer(u8);
-
-#[deriving(PartialEq, Eq, PartialOrd, Ord)]
-pub struct Addr(u16);
-
-#[deriving(PartialEq, Eq, PartialOrd, Ord)]
-pub struct AddrDiff(u16);
-
-// The idea here is that it doesn't make sense to add two addresses, but it
-// does make sense to add an address and an "address-difference". (If this
-// is too annoying to work with we should let it go.)
-
-impl Add<AddrDiff, Addr> for Addr {
-    fn add(&self, &AddrDiff(rhs): &AddrDiff) -> Addr {
-        let &Addr(lhs) = self;
-
-        // We probably don't want to overflow when doing arithmetic in our own
-        // code.
-        debug_assert!({
-            match lhs.checked_add(&rhs) {
-                None => false,
-                _ => true
-            }
-        });
-
-        return Addr(lhs + rhs);
-    }
-}
-
-pub static STACK_POINTER_IN_MEMORY_LO: Addr = Addr(0x0100);
-pub static STACK_POINTER_IN_MEMORY_HI: Addr = Addr(0x01FF);
-
-pub fn stack_pointer_to_addr(StackPointer(x) : StackPointer) -> Addr
-{
-	STACK_POINTER_IN_MEMORY_LO + AddrDiff(x as u16)
-}
-
-// We can probably come up with a better way to represent address ranges
-pub static IRQ_INTERRUPT_VECTOR_LO: Addr = Addr(0xFFFE);
-pub static IRQ_INTERRUPT_VECTOR_HI: Addr = Addr(0xFFFE);
 
 #[deriving(Show, PartialEq, Eq)]
 pub enum Instruction
+      // Abbreviations
+      //
+      // General
+      //
+      //        M | `Memory location`
+      //
+      // Registers
+      //
+      //        A | accumulator
+      //        X | general purpose register
+      //        Y | general purpose register
+      // NV-BDIZC | processor status flags -- see ProcessorStatus bitflags
+      //       SP | stack pointer
+      //       PC | program counter
       //                                  i/o vars should be listed as follows:
       //                                  NV BDIZC A X Y SP PC M
       //
@@ -183,20 +103,3 @@ pub enum Instruction
 , TXS // Transfer X to Stack pointer... | .. .....
 , TYA // Transfer Y to Accumulator..... | .. .....
 }
-
-pub enum AddressingMode {
-    Immediate,
-    Absolute,
-    ZeroPage,
-    Implied,
-    IndirectAbsolute,
-    AbsoluteIndexedX,
-    AbsoluteIndexedY,
-    ZeroPageIndexedX,
-    ZeroageIndexedY,
-    IndexedIndirect,
-    IndirectIndexed,
-    Relative,
-    Accumulator,
-}
-

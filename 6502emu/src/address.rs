@@ -1,6 +1,6 @@
 // Copyright (C) 2014 The 6502-rs Developers
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
 // are met:
@@ -12,7 +12,7 @@
 // 3. Neither the names of the copyright holders nor the names of any
 //    contributors may be used to endorse or promote products derived from this
 //    software without specific prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 // AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -25,5 +25,65 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-pub mod defs;
+#[deriving(PartialEq, Eq, PartialOrd, Ord)]
+pub struct Address(pub u16);
 
+#[deriving(PartialEq, Eq, PartialOrd, Ord)]
+pub struct AddressDiff(pub u16);
+
+pub enum AddressingMode {
+	Immediate,
+	Absolute,
+	ZeroPage,
+	Implied,
+	IndirectAbsolute,
+	AbsoluteIndexedX,
+	AbsoluteIndexedY,
+	ZeroPageIndexedX,
+	ZeroageIndexedY,
+	IndexedIndirect,
+	IndirectIndexed,
+	Relative,
+	Accumulator
+}
+
+// The idea here is that it doesn't make sense to add two addresses, but it
+// does make sense to add an address and an "address-difference". (If this
+// is too annoying to work with we should let it go.)
+
+impl Add<AddressDiff, Address> for Address {
+    fn add(&self, &AddressDiff(rhs): &AddressDiff) -> Address {
+        let &Address(lhs) = self;
+
+        // We probably don't want to overflow when doing arithmetic in our own
+        // code.
+        debug_assert!({
+            match lhs.checked_add(&rhs) {
+                None => false,
+                _ => true
+            }
+        });
+
+        return Address(lhs + rhs);
+    }
+}
+
+impl Address {
+	pub fn to_u16(&self) -> u16 {
+		match *self {
+			Address(address_) => address_
+		}
+	}
+
+	pub fn to_uint(&self) -> uint {
+		self.to_u16() as uint
+	}
+
+	pub fn get_page_number(&self) -> u8 {
+		(self.to_u16() & 0xff00 >> 8) as u8
+	}
+
+	pub fn get_offset(&self) -> u8 {
+		(self.to_u16() & 0x00ff) as u8
+	}
+}

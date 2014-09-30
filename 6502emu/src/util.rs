@@ -1,6 +1,6 @@
 // Copyright (C) 2014 The 6502-rs Developers
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
 // are met:
@@ -12,7 +12,7 @@
 // 3. Neither the names of the copyright holders nor the names of any
 //    contributors may be used to endorse or promote products derived from this
 //    software without specific prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 // AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -25,13 +25,25 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-extern crate machine6502;
-
-use machine6502::defs::Machine;
-
-fn main() {
-    let _q = Machine::new();
-
-    println!("Hello, 6502?");
+#[deriving(PartialEq, Eq, Show)]
+pub enum BitFlag {
+	Off,
+	On
 }
 
+impl BitFlag {
+	pub fn new(is_set: bool) -> BitFlag {
+		if is_set {
+			On
+		} else {
+			Off
+		}
+	}
+
+	pub fn to_bit(&self) -> u8 {
+		match *self {
+			Off => 0,
+			On  => 1
+		}
+	}
+}
