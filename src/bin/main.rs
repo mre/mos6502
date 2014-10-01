@@ -34,7 +34,8 @@ fn main() {
     let mut machine = machine::Machine::new();
 
     // "Load" a program
-    machine.memory.set_byte(&Address(0), 5);
+    machine.memory.set_byte(&Address(0), 0x69); // ADC immediate opcode
+    machine.memory.set_byte(&Address(1), 0x07); // Immediate operand
 
 
     // Obviously this will run the full program, just

@@ -28,7 +28,7 @@
 use address::AddressDiff;
 use std::fmt;
 use instruction::Instruction;
-use instruction::ADC;
+use instruction::{ADC, NOP};
 use memory::Memory;
 use registers::{ Registers, Status, StatusArgs };
 use registers::{ ps_negative, ps_overflow, ps_zero, ps_carry };
@@ -55,12 +55,15 @@ impl Machine {
 
         // Will need smarter logic to fetch the correct number of bytes 
         // for instruction
-        self.registers.program_counter.add(&AddressDiff(1));
+        self.registers.program_counter = self.registers.program_counter +  AddressDiff(1);
         instr                    
     }
 
     pub fn decode_instruction(&mut self, raw_instruction: u8) -> Instruction {
-        ADC
+        match raw_instruction {
+            0x69 => ADC,
+            _    => NOP 
+        }
     }    
         
     pub fn execute_instruction(&mut self, instruction: Instruction) {
@@ -68,6 +71,9 @@ impl Machine {
             ADC => { 
                 println!("executing add with carry");
                 self.add_with_carry(1);
+            },
+            NOP => {
+                println!("nop instr");
             }
             _ => println!("attempting to execute unimplemented instruction")
         };
