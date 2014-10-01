@@ -50,27 +50,27 @@ impl Machine {
     	*self = Machine::new();
     }
 
-    pub fn fetch_instruction(&mut self) -> u8  {
+    pub fn fetch_instruction(&mut self) -> i8  {
         let instr = self.memory.get_byte(&self.registers.program_counter);
 
         // Will need smarter logic to fetch the correct number of bytes 
         // for instruction
         self.registers.program_counter = self.registers.program_counter +  AddressDiff(1);
-        instr                    
-    }
+        instr as i8
+    } 
 
-    pub fn decode_instruction(&mut self, raw_instruction: u8) -> Instruction {
+    pub fn decode_instruction(&mut self, raw_instruction: i8) -> Instruction {
         match raw_instruction {
-            0x69 => ADC,
+            0x69 => ADC(self.fetch_instruction()),
             _    => NOP 
         }
     }    
         
     pub fn execute_instruction(&mut self, instruction: Instruction) {
         match instruction {
-            ADC => { 
+            ADC(immediate) => { 
                 println!("executing add with carry");
-                self.add_with_carry(1);
+                self.add_with_carry(immediate);
             },
             NOP => {
                 println!("nop instr");

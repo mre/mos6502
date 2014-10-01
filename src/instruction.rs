@@ -48,7 +48,9 @@ pub enum Instruction
       //                                  NV BDIZC A X Y S PC M
       //
       //                                | outputs               | inputs
-{ ADC // ADd with Carry................ | NV ...ZC A            = A + M + C
+{ 
+  ADC(i8) // ADd with Carry................ | NV ...ZC A            = A + M + C
+
 , AND // logical AND (bitwise)......... | N. ...Z. A            = A && M
 , ASL // Arithmetic Shift Left......... | N. ...ZC A            = M << 1
 , BCC // Branch if Carry Clear......... | .. .....         PC   = !C
