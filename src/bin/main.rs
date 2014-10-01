@@ -25,25 +25,16 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#[deriving(PartialEq, Eq, Show)]
-pub enum BitFlag {
-	Off,
-	On
+extern crate emu6502;
+
+use emu6502::machine;
+
+fn main() {
+    let mut machine = machine::Machine::new();
+    
+    println!("A: {}", machine.registers.accumulator);
+    println!("add_with_carry(1)");
+    machine.add_with_carry(1);
+    println!("A: {}", machine.registers.accumulator);
 }
 
-impl BitFlag {
-	pub fn new(is_set: bool) -> BitFlag {
-		if is_set {
-			On
-		} else {
-			Off
-		}
-	}
-
-	pub fn to_bit(&self) -> u8 {
-		match *self {
-			Off => 0,
-			On  => 1
-		}
-	}
-}

@@ -25,17 +25,52 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-mod address;
-mod machine;
-mod memory;
-mod registers;
-mod util;
+use address::Address;
 
-fn main() {
-	let mut machine = machine::Machine::new();
+// JAM: We can probably come up with a better way to represent address ranges.
+//      Address range type?
+// 
+// // Address range -- inclusive on both sides
+// pub struct AddressRangeIncl {
+//     begin: Address,
+//     end: Address,
+// }
 
-	println!("A: {}", machine.registers.accumulator);
-	println!("add_with_carry(1)");
-	machine.add_with_carry(1);
-	println!("A: {}", machine.registers.accumulator);
+static ADDR_LO_BARE: u16 = 0x0000;
+static ADDR_HI_BARE: u16 = 0xFFFF;
+
+pub static MEMORY_ADDRESS_LO:       Address = Address(ADDR_LO_BARE);
+pub static MEMORY_ADDRESS_HI:       Address = Address(ADDR_HI_BARE);
+pub static STACK_ADDRESS_LO:        Address = Address(0x0100);
+pub static STACK_ADDRESS_HI:        Address = Address(0x01FF);
+pub static IRQ_INTERRUPT_VECTOR_LO: Address = Address(0xFFFE);
+pub static IRQ_INTERRUPT_VECTOR_HI: Address = Address(0xFFFF);
+
+static MEMORY_SIZE: uint = (ADDR_HI_BARE - ADDR_LO_BARE) as uint + 1u;
+
+pub struct Memory {
+    bytes: [u8, ..MEMORY_SIZE]
+}
+
+impl Memory {
+    pub fn new() -> Memory {
+        Memory { bytes: [0, ..MEMORY_SIZE] }
+    }
+    
+    pub fn get_byte(&self, address: &Address) -> u8 {
+        self.bytes[address.to_uint()]
+    }
+    
+    // Sets the byte at the given address to the given value and returns the
+    // previous value at the address.
+    pub fn set_byte(&mut self, address: &Address, value: u8) -> u8 {
+        let old_value = self.get_byte(address);
+        self.bytes[address.to_uint()] = value;
+        
+        return old_value;
+    }
+    
+    pub fn is_stack_address(address: &Address) -> bool {
+        STACK_ADDRESS_LO <= *address && *address <= STACK_ADDRESS_HI
+    }
 }

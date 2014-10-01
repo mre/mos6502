@@ -1,5 +1,0 @@
-[package]
-
-name = "6502emu"
-version = "0.0.1"
-authors = ["Andrew Keeton <andrewrkeeton@gmail.com>"]

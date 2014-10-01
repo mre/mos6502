@@ -25,49 +25,9 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use address::Address;
-use address::AddressDiff;
-use registers::StackPointer;
+pub mod address;
+pub mod instruction;
+pub mod machine;
+pub mod memory;
+pub mod registers;
 
-pub static MEMORY_ADDRESS_BEGIN:    Address = Address(0x0000);
-pub static MEMORY_ADDRESS_END:      Address = Address(0xFFFF);
-pub static STACK_ADDRESS_BEGIN:     Address = Address(0x0100);
-pub static STACK_ADDRESS_END:       Address = Address(0x01FF);
-pub static IRQ_INTERRUPT_VECTOR_LO: Address = Address(0xFFFE);
-pub static IRQ_INTERRUPT_VECTOR_HI: Address = Address(0xFFFF);
-
-
-// static MEMORY_SIZE: uint    = MEMORY_ADDRESS_END - MEMORY_ADDRESS_BEGIN + 1;
-pub struct Memory {
-	// Rust doesn't seem to like this:
-	// bytes: [u8, ..MEMORY_SIZE]
-	bytes: [u8, ..2^16]
-}
-
-impl Memory {
-	pub fn new() -> Memory {
-		Memory { bytes: [0, ..2^16] }
-	}
-
-	pub fn get_byte(&self, address: &Address) -> u8 {
-		self.bytes[address.to_uint()]
-	}
-
-	// Sets the byte at the given address to the given value and returns the
-	// previous value at the address.
-	pub fn set_byte(&mut self, address: &Address, value: u8) -> u8 {
-		let old_value = self.get_byte(address);
-		self.bytes[address.to_uint()] = value;
-
-		return old_value;
-	}
-
-	pub fn is_stack_address(address: &Address) -> bool {
-		STACK_ADDRESS_BEGIN <= *address && *address <= STACK_ADDRESS_END
-	}
-
-	pub fn stack_pointer_to_address(&StackPointer(sp): &StackPointer) -> Address
-	{
-		STACK_ADDRESS_BEGIN + AddressDiff(sp as u16)
-	}
-}
