@@ -25,6 +25,10 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+use address::Address;
+use address::AddressDiff;
+use instruction::Instruction;
+use instruction::ADC;
 use memory::Memory;
 use registers::{ Registers, Status, StatusArgs };
 use registers::{ ps_negative, ps_overflow, ps_zero, ps_carry };
@@ -44,6 +48,26 @@ impl Machine {
     
     pub fn reset(&mut self) {
     	*self = Machine::new();
+    }
+
+    pub fn fetch_instruction(&mut self) -> u8  {
+        let instr = self.memory.get_byte(&self.registers.program_counter);
+        self.registers.program_counter.add(&AddressDiff(1));
+        instr                    
+    }
+
+    pub fn decode_instruction(&mut self, raw_instruction: u8) -> Instruction {
+        ADC
+    }    
+        
+    pub fn execute_instruction(&mut self, instruction: Instruction) {
+        match instruction {
+            ADC => { 
+                println!("executing add with carry");
+                self.add_with_carry(1);
+            }
+            _ => println!("attempting to execute unimplemented instruction")
+        };
     }
     
     // TODO akeeton: Implement binary-coded decimal.

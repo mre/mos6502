@@ -31,10 +31,13 @@ use emu6502::machine;
 
 fn main() {
     let mut machine = machine::Machine::new();
-    
-    println!("A: {}", machine.registers.accumulator);
-    println!("add_with_carry(1)");
-    machine.add_with_carry(1);
-    println!("A: {}", machine.registers.accumulator);
+
+    for _ in range(0u, 2u) {
+        let raw_instruction = machine.fetch_instruction();
+        let instruction = machine.decode_instruction(raw_instruction);
+        machine.execute_instruction(instruction);
+    }
+
+    println!("Ran program, output of Accum is {}", machine.registers.accumulator);
 }
 
