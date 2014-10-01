@@ -36,7 +36,8 @@ fn main() {
     // "Load" a program
     machine.memory.set_byte(&Address(0), 0x69); // ADC immediate opcode
     machine.memory.set_byte(&Address(1), 0x07); // Immediate operand
-
+    machine.memory.set_byte(&Address(2), 0x69); // ADC immediate opcode
+    machine.memory.set_byte(&Address(3), 0x08); // ADC immediate opcode
 
     // Obviously this will run the full program, just
     // executing a finite num of instructions for simplicity
