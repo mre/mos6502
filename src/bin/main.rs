@@ -39,5 +39,7 @@ fn main() {
     }
 
     println!("Ran program, output of Accum is {}", machine.registers.accumulator);
+    println!("Machine dump: {}", machine);
+
 }
 

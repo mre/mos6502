@@ -27,6 +27,7 @@
 
 use address::Address;
 use address::AddressDiff;
+use std::fmt;
 use instruction::Instruction;
 use instruction::ADC;
 use memory::Memory;
@@ -97,6 +98,12 @@ impl Machine {
                                      ..StatusArgs::none() } ));
 
         self.registers.accumulator = a_after;
+    }
+}
+
+impl fmt::Show for Machine {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "I am a machine")
     }
 }
 
