@@ -25,7 +25,6 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use address::Address;
 use address::AddressDiff;
 use std::fmt;
 use instruction::Instruction;
@@ -53,6 +52,9 @@ impl Machine {
 
     pub fn fetch_instruction(&mut self) -> u8  {
         let instr = self.memory.get_byte(&self.registers.program_counter);
+
+        // Will need smarter logic to fetch the correct number of bytes 
+        // for instruction
         self.registers.program_counter.add(&AddressDiff(1));
         instr                    
     }
@@ -103,7 +105,7 @@ impl Machine {
 
 impl fmt::Show for Machine {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "I am a machine")
+        write!(f, "Machine Dump:\n\nAccumulator: {}", self.registers.accumulator)
     }
 }
 

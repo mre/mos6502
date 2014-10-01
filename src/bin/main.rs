@@ -28,18 +28,25 @@
 extern crate emu6502;
 
 use emu6502::machine;
+use emu6502::address::Address;
 
 fn main() {
     let mut machine = machine::Machine::new();
 
+    // "Load" a program
+    machine.memory.set_byte(&Address(0), 5);
+
+
+    // Obviously this will run the full program, just
+    // executing a finite num of instructions for simplicity
+    // right now.
     for _ in range(0u, 2u) {
         let raw_instruction = machine.fetch_instruction();
         let instruction = machine.decode_instruction(raw_instruction);
         machine.execute_instruction(instruction);
     }
-
-    println!("Ran program, output of Accum is {}", machine.registers.accumulator);
-    println!("Machine dump: {}", machine);
+    
+    println!("{}", machine);
 
 }
 
