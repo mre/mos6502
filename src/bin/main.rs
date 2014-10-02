@@ -28,13 +28,27 @@
 extern crate emu6502;
 
 use emu6502::machine;
+use emu6502::address::Address;
 
 fn main() {
     let mut machine = machine::Machine::new();
+
+    // "Load" a program
+    machine.memory.set_byte(&Address(0), 0x69); // ADC immediate opcode
+    machine.memory.set_byte(&Address(1), 0x07); // Immediate operand
+    machine.memory.set_byte(&Address(2), 0x69); // ADC immediate opcode
+    machine.memory.set_byte(&Address(3), 0x08); // ADC immediate opcode
+
+    // Obviously this will run the full program, just
+    // executing a finite num of instructions for simplicity
+    // right now.
+    for _ in range(0u, 2u) {
+        let raw_instruction = machine.fetch_instruction();
+        let instruction = machine.decode_instruction(raw_instruction);
+        machine.execute_instruction(instruction);
+    }
     
-    println!("A: {}", machine.registers.accumulator);
-    println!("add_with_carry(1)");
-    machine.add_with_carry(1);
-    println!("A: {}", machine.registers.accumulator);
+    println!("{}", machine);
+
 }
 

@@ -25,6 +25,10 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+use address::AddressDiff;
+use std::fmt;
+use instruction::Instruction;
+use instruction::{ADC, NOP};
 use memory::Memory;
 use registers::{ Registers, Status, StatusArgs };
 use registers::{ ps_negative, ps_overflow, ps_zero, ps_carry };
@@ -44,6 +48,35 @@ impl Machine {
     
     pub fn reset(&mut self) {
     	*self = Machine::new();
+    }
+
+    pub fn fetch_instruction(&mut self) -> i8  {
+        let instr = self.memory.get_byte(&self.registers.program_counter);
+
+        // Will need smarter logic to fetch the correct number of bytes 
+        // for instruction
+        self.registers.program_counter = self.registers.program_counter +  AddressDiff(1);
+        instr as i8
+    } 
+
+    pub fn decode_instruction(&mut self, raw_instruction: i8) -> Instruction {
+        match raw_instruction {
+            0x69 => ADC(self.fetch_instruction()),
+            _    => NOP 
+        }
+    }    
+        
+    pub fn execute_instruction(&mut self, instruction: Instruction) {
+        match instruction {
+            ADC(immediate) => { 
+                println!("executing add with carry");
+                self.add_with_carry(immediate);
+            },
+            NOP => {
+                println!("nop instr");
+            }
+            _ => println!("attempting to execute unimplemented instruction")
+        };
     }
     
     // TODO akeeton: Implement binary-coded decimal.
@@ -73,6 +106,12 @@ impl Machine {
                                      ..StatusArgs::none() } ));
 
         self.registers.accumulator = a_after;
+    }
+}
+
+impl fmt::Show for Machine {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Machine Dump:\n\nAccumulator: {}", self.registers.accumulator)
     }
 }
 
