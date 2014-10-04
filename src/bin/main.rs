@@ -34,21 +34,119 @@ fn main() {
     let mut machine = machine::Machine::new();
 
     // "Load" a program
-    machine.memory.set_byte(&Address(0), 0x69); // ADC immediate opcode
-    machine.memory.set_byte(&Address(1), 0x07); // Immediate operand
-    machine.memory.set_byte(&Address(2), 0x69); // ADC immediate opcode
-    machine.memory.set_byte(&Address(3), 0x08); // ADC immediate opcode
 
-    // Obviously this will run the full program, just
-    // executing a finite num of instructions for simplicity
-    // right now.
-    for _ in range(0u, 2u) {
-        let raw_instruction = machine.fetch_instruction();
-        let instruction = machine.decode_instruction(raw_instruction);
-        machine.execute_instruction(instruction);
-    }
-    
+    // JAM: FIXME: What's the syntax for specifying the array element type,
+    //             but not the length? (For a fixed-size array)
+
+    let zero_page_data: [u8, ..17] = [
+        // ZeroPage data start
+        0x00,
+        0x02, // ADC ZeroPage target
+        0x00,
+        0x04, // ADC ZeroPageX target
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x10, // ADC IndexedIndirectX address
+        0x80, // ADC IndexedIndirectX address
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x08, // ADC IndirectIndexedY address
+        0x80, // ADC IndirectIndexedY address
+    ];
+
+    let program: [u8, ..33] = [
+        // Code start
+        0xA9, // LDA Immediate
+        0x01, //     Immediate operand
+
+        0x69, // ADC Immediate
+        0x07, //     Immediate operand
+
+        0x65, // ADC ZeroPage
+        0x01, //     ZeroPage operand
+
+        0xA2, // LDX Immediate
+        0x01, //     Immediate operand
+
+        0x75, // ADC ZeroPageX
+        0x02, //     ZeroPageX operand
+
+        0x6D, // ADC Absolute
+        0x01, //     Absolute operand
+        0x80, //     Absolute operand
+
+        0xA2, // LDX immediate
+        0x08, //     Immediate operand
+
+        0x7D, // ADC AbsoluteX
+        0x00, //     AbsoluteX operand
+        0x80, //     AbsoluteX operand
+
+        0xA0, // LDY immediate
+        0x04, //     Immediate operand
+
+        0x79, // ADC AbsoluteY
+        0x00, //     AbsoluteY operand
+        0x80, //     AbsoluteY operand
+
+        0xA2, // LDX immediate
+        0x05, //     Immediate operand
+
+        0x61, // ADC IndexedIndirectX
+        0x03, //     IndexedIndirectX operand
+
+        0xA0, // LDY immediate
+        0x10, //     Immediate operand
+
+        0x71, // ADC IndirectIndexedY
+        0x0F, //     IndirectIndexedY operand
+
+        0xEA, // NOP :)
+
+        0xFF, // Something invalid -- the end!
+    ];
+
+    let data: [u8, ..25] = [
+        0x00,
+        0x09, // ADC Absolute target
+        0x00,
+        0x00,
+        0x40, // ADC AbsoluteY target
+        0x00,
+        0x00,
+        0x00,
+        0x11, // ADC AbsoluteX target
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x12, // ADC IndexedIndirectX target
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x06, // ADC IndirectIndexedY target
+    ];
+
+    machine.memory.set_bytes(Address(0x0000), &zero_page_data);
+    machine.memory.set_bytes(Address(0x4000), &program);
+    machine.memory.set_bytes(Address(0x8000), &data);
+
+    machine.registers.program_counter = Address(0x4000);
+
+    machine.run();
+
     println!("{}", machine);
-
 }
 
