@@ -29,6 +29,7 @@ use std::fmt;
 
 use address::{AddressDiff};
 use instruction;
+use instruction::{DecodedInstr};
 use memory::Memory;
 use registers::{ Registers, Status, StatusArgs };
 use registers::{ ps_negative, ps_overflow, ps_zero, ps_carry };
@@ -37,16 +38,6 @@ pub struct Machine {
     pub registers: Registers,
     pub memory:    Memory
 }
-
-pub type DecodedInstr = (instruction::Instruction, instruction::AMOut);
-
-/*
-impl Iterator<()> for Machine {
-    fn next(&mut self) -> Option<DecodedInstr> {
-        self.fetch_next_and_decode()
-    }
-}
-*/
 
 impl Machine {
     pub fn new() -> Machine {
@@ -136,15 +127,13 @@ impl Machine {
     }
 
     pub fn run(&mut self) {
-        while match self.fetch_next_and_decode() {
-            Some(decoded_instr) => {
+        loop {
+            if let Some(decoded_instr) = self.fetch_next_and_decode() {
                 self.execute_instruction(decoded_instr);
-                true
-            },
-            None => {
-                false
+            } else {
+                break
             }
-        } {}
+        }
     }
 
     fn load_register_with_flags(register: &mut i8,

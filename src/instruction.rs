@@ -254,6 +254,8 @@ impl AddressingMode {
     }
 }
 
+pub type DecodedInstr = (Instruction, AMOut);
+
 pub static g_opcodes: [Option<(Instruction, AddressingMode)>, ..256] = [
 /*0x00*/ Some((BRK, Implied)),
 /*0x01*/ Some((ORA, IndexedIndirectX)),
