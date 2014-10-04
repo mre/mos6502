@@ -32,6 +32,12 @@
 //
 #![feature(if_let)]
 
+// Needed for log! macro
+#![feature(phase)]
+
+#[phase(plugin, link)]
+extern crate log;
+
 pub mod address;
 pub mod instruction;
 pub mod machine;
