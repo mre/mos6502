@@ -25,36 +25,26 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-pub enum AddressingMode {
-    Accumulator,      // LSR A        work directly on accumulator
-    Immediate,        // LDA #10      8-bit constant in instruction 
-    ZeroPage,         // LDA $00      zero-page address
-    ZeroPageX,        // LDA $80,X    address is X register + 8-bit constant
-    ZeroPageY,        // LDX $10,Y    address is Y register + 8-bit constant
-    Relative,         // BNE LABEL    branch target as signed relative offset
-    Absolute,         // JMP $1000    full 16-bit address
-    AbsoluteX,        // STA $1000,X  full 16-bit address plus X register
-    AbsoluteY,        // STA $1000,Y  full 16-bit address plus Y register
-    Indirect,         // JMP ($1000)  jump to address stored at address
-    IndexedIndirectX, // LDA ($10,X)  load from address stored at (constant
-                      //              zero page address plus X register)
-    IndirectIndexedY, // LDA ($10),Y  load from (address stored at constant
-                      //              zero page address) plus Y register
-}
-
 // The idea here is that it doesn't make sense to add two addresses, but it
 // does make sense to add an address and an "address-difference". (If this
 // is too annoying to work with we should let it go.)
-#[deriving(PartialEq, Eq, PartialOrd, Ord)]
+#[deriving(PartialEq, Eq, PartialOrd, Ord, Show)]
 pub struct AddressDiff(pub u16);
 
-#[deriving(PartialEq, Eq, PartialOrd, Ord)]
+#[deriving(PartialEq, Eq, PartialOrd, Ord, Show)]
 pub struct Address(pub u16);
 
 impl Add<AddressDiff, Address> for Address {
     fn add(&self, &AddressDiff(rhs): &AddressDiff) -> Address {
         let &Address(lhs) = self;
         Address(lhs + rhs)
+    }
+}
+
+impl Add<AddressDiff, AddressDiff> for AddressDiff {
+    fn add(&self, &AddressDiff(rhs): &AddressDiff) -> AddressDiff {
+        let &AddressDiff(lhs) = self;
+        AddressDiff(lhs + rhs)
     }
 }
 

@@ -25,6 +25,19 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+// JAM: 'if let' syntax is great for situations where want to match only a
+//      single pattern and ignore all others.
+//
+//     if let Some(x) = foo() { ... }
+//
+#![feature(if_let)]
+
+// Needed for log! macro
+#![feature(phase)]
+
+#[phase(plugin, link)]
+extern crate log;
+
 pub mod address;
 pub mod instruction;
 pub mod machine;

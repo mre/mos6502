@@ -25,7 +25,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use address::Address;
+use address::{Address, AddressDiff};
 
 // JAM: We can probably come up with a better way to represent address ranges.
 //      Address range type?
@@ -56,21 +56,41 @@ impl Memory {
     pub fn new() -> Memory {
         Memory { bytes: [0, ..MEMORY_SIZE] }
     }
-    
-    pub fn get_byte(&self, address: &Address) -> u8 {
+
+    pub fn get_byte(&self, address: Address) -> u8 {
         self.bytes[address.to_uint()]
     }
-    
+
+    pub fn get_slice(&self, Address(start): Address,
+                     AddressDiff(diff): AddressDiff) -> &[u8] {
+        let start = start as uint;
+        let diff = diff as uint;
+        let end = start + diff;
+        self.bytes.slice(start, end)
+    }
+
     // Sets the byte at the given address to the given value and returns the
     // previous value at the address.
-    pub fn set_byte(&mut self, address: &Address, value: u8) -> u8 {
+    pub fn set_byte(&mut self, address: Address, value: u8) -> u8 {
         let old_value = self.get_byte(address);
         self.bytes[address.to_uint()] = value;
-        
-        return old_value;
+        old_value
     }
-    
+
+    pub fn set_bytes(&mut self, Address(start): Address, values: &[u8]) {
+        let start = start as uint;
+
+        // This panics if the range is invalid
+        let slice = self.bytes.slice_mut(start, start + values.len());
+
+        // JAM: Is this the best way to do this copy?
+        for (dest, src) in slice.iter_mut().zip(values.iter()) {
+            *dest = *src;
+        }
+    }
+
     pub fn is_stack_address(address: &Address) -> bool {
         STACK_ADDRESS_LO <= *address && *address <= STACK_ADDRESS_HI
     }
 }
+

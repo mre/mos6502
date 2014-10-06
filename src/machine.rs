@@ -25,10 +25,13 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use address::AddressDiff;
-use std::fmt;
-use instruction::Instruction;
-use instruction::{ADC, NOP};
+use log;
+
+use std;
+
+use address::{AddressDiff};
+use instruction;
+use instruction::{DecodedInstr};
 use memory::Memory;
 use registers::{ Registers, Status, StatusArgs };
 use registers::{ ps_negative, ps_overflow, ps_zero, ps_carry };
@@ -50,35 +53,126 @@ impl Machine {
     	*self = Machine::new();
     }
 
-    pub fn fetch_instruction(&mut self) -> i8  {
-        let instr = self.memory.get_byte(&self.registers.program_counter);
+    pub fn fetch_next_and_decode(&mut self) -> Option<DecodedInstr> {
+        let x: u8 = self.memory.get_byte(self.registers.program_counter);
 
-        // Will need smarter logic to fetch the correct number of bytes 
-        // for instruction
-        self.registers.program_counter = self.registers.program_counter +  AddressDiff(1);
-        instr as i8
-    } 
+        match instruction::g_opcodes[x as uint] {
+            Some((instr, am)) => {
+                let extra_bytes = am.extra_bytes();
+                let num_bytes = AddressDiff(1) + extra_bytes;
 
-    pub fn decode_instruction(&mut self, raw_instruction: i8) -> Instruction {
-        match raw_instruction {
-            0x69 => ADC(self.fetch_instruction()),
-            _    => NOP 
-        }
-    }    
-        
-    pub fn execute_instruction(&mut self, instruction: Instruction) {
-        match instruction {
-            ADC(immediate) => { 
-                println!("executing add with carry");
-                self.add_with_carry(immediate);
-            },
-            NOP => {
-                println!("nop instr");
+                let data_start = self.registers.program_counter
+                               + AddressDiff(1);
+
+                let slice = self.memory.get_slice(data_start, extra_bytes);
+                let am_out = am.process(self, slice);
+
+                // Increment program counter
+                self.registers.program_counter =
+                    self.registers.program_counter + num_bytes;
+
+                Some((instr, am_out))
             }
-            _ => println!("attempting to execute unimplemented instruction")
+            _ => None
+        }
+    }
+
+    pub fn execute_instruction(&mut self, decoded_instr: DecodedInstr) {
+        match decoded_instr {
+            (instruction::ADC, instruction::UseImmediate(val)) => {
+                log!(log::DEBUG, "add with carry immediate: {}", val);
+                self.add_with_carry(val as i8);
+            },
+            (instruction::ADC, instruction::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr) as i8;
+                log!(log::DEBUG, "add with carry. address: {}. value: {}",
+                                 addr, val);
+                self.add_with_carry(val);
+            },
+
+            (instruction::LDA, instruction::UseImmediate(val)) => {
+                log!(log::DEBUG, "load A immediate: {}", val);
+                self.load_accumulator(val as i8);
+            },
+            (instruction::LDA, instruction::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+                log!(log::DEBUG, "load A. address: {}. value: {}", addr, val);
+                self.load_accumulator(val as i8);
+            },
+
+            (instruction::LDX, instruction::UseImmediate(val)) => {
+                log!(log::DEBUG, "load X immediate: {}", val);
+                self.load_x_register(val as i8);
+            },
+            (instruction::LDX, instruction::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+                log!(log::DEBUG, "load X. address: {}. value: {}", addr, val);
+                self.load_x_register(val as i8);
+            },
+
+            (instruction::LDY, instruction::UseImmediate(val)) => {
+                log!(log::DEBUG, "load Y immediate: {}", val);
+                self.load_y_register(val as i8);
+            },
+            (instruction::LDY, instruction::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+                log!(log::DEBUG, "load Y. address: {}. value: {}", addr, val);
+                self.load_y_register(val as i8);
+            },
+
+            (instruction::NOP, _) => {
+                log!(log::DEBUG, "nop instr");
+            },
+            (_, _) => {
+                log!(log::DEBUG, "attempting to execute unimplemented \
+                                  instruction");
+            },
         };
     }
-    
+
+    pub fn run(&mut self) {
+        loop {
+            if let Some(decoded_instr) = self.fetch_next_and_decode() {
+                self.execute_instruction(decoded_instr);
+            } else {
+                break
+            }
+        }
+    }
+
+    fn load_register_with_flags(register: &mut i8,
+                                status: &mut Status,
+                                value: i8) {
+        *register = value;
+
+        let is_zero = value == 0;
+        let is_negative = value < 0;
+
+        status.set_with_mask(
+            ps_zero | ps_negative,
+            Status::new(StatusArgs { zero: is_zero,
+                                     negative: is_negative,
+                                     ..StatusArgs::none() } ));
+    }
+
+    pub fn load_x_register(&mut self, value: i8) {
+        Machine::load_register_with_flags(&mut self.registers.index_x,
+                                          &mut self.registers.status,
+                                          value);
+    }
+
+    pub fn load_y_register(&mut self, value: i8) {
+        Machine::load_register_with_flags(&mut self.registers.index_y,
+                                          &mut self.registers.status,
+                                          value);
+    }
+
+    pub fn load_accumulator(&mut self, value: i8) {
+        Machine::load_register_with_flags(&mut self.registers.accumulator,
+                                          &mut self.registers.status,
+                                          value);
+    }
+
     // TODO akeeton: Implement binary-coded decimal.
     pub fn add_with_carry(&mut self, value: i8) {
         let a_before: i8 = self.registers.accumulator;
@@ -90,28 +184,27 @@ impl Machine {
 
         let did_carry = (a_after as u8) < (a_before as u8);
 
-        let is_zero        = a_after == 0;
-        let is_negative    = a_after < 0;
         let did_overflow   =
         	   (a_before < 0 && value < 0 && a_after >= 0)
         	|| (a_before > 0 && value > 0 && a_after <= 0);
 
-        let mask = ps_carry | ps_zero | ps_negative | ps_overflow;
+        let mask = ps_carry | ps_overflow;
 
         self.registers.status.set_with_mask(mask,
             Status::new(StatusArgs { carry: did_carry,
-                                     zero: is_zero,
-                                     negative: is_negative,
                                      overflow: did_overflow,
                                      ..StatusArgs::none() } ));
 
-        self.registers.accumulator = a_after;
+        self.load_accumulator(a_after);
+
+        log!(log::DEBUG, "accumulator: {}", self.registers.accumulator);
     }
 }
 
-impl fmt::Show for Machine {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Machine Dump:\n\nAccumulator: {}", self.registers.accumulator)
+impl std::fmt::Show for Machine {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Machine Dump:\n\nAccumulator: {}",
+               self.registers.accumulator)
     }
 }
 
