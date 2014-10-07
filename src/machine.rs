@@ -56,7 +56,7 @@ impl Machine {
     pub fn fetch_next_and_decode(&mut self) -> Option<DecodedInstr> {
         let x: u8 = self.memory.get_byte(self.registers.program_counter);
 
-        match instruction::g_opcodes[x as uint] {
+        match instruction::OPCODES[x as uint] {
             Some((instr, am)) => {
                 let extra_bytes = am.extra_bytes();
                 let num_bytes = AddressDiff(1) + extra_bytes;
