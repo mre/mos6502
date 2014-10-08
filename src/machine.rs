@@ -323,4 +323,30 @@ fn dec_x_test() {
     assert_eq!(machine.registers.status.contains(ps_zero),     false);
     assert_eq!(machine.registers.status.contains(ps_negative), true);
     assert_eq!(machine.registers.status.contains(ps_overflow), false);
+
+    machine.load_x_register(5);
+    machine.dec_x();
+    assert_eq!(machine.registers.index_x, 4);
+    assert_eq!(machine.registers.status.contains(ps_carry),    false);
+    assert_eq!(machine.registers.status.contains(ps_zero),     false);
+    assert_eq!(machine.registers.status.contains(ps_negative), false);
+    assert_eq!(machine.registers.status.contains(ps_overflow), false);
+
+    machine.dec_x();
+    machine.dec_x();
+    machine.dec_x();
+    machine.dec_x();
+
+    assert_eq!(machine.registers.index_x, 0);
+    assert_eq!(machine.registers.status.contains(ps_carry),    false);
+    assert_eq!(machine.registers.status.contains(ps_zero),     true);
+    assert_eq!(machine.registers.status.contains(ps_negative), false);
+    assert_eq!(machine.registers.status.contains(ps_overflow), false);
+
+    machine.dec_x();
+    assert_eq!(machine.registers.index_x, -1);
+    assert_eq!(machine.registers.status.contains(ps_carry),    false);
+    assert_eq!(machine.registers.status.contains(ps_zero),     false);
+    assert_eq!(machine.registers.status.contains(ps_negative), true);
+    assert_eq!(machine.registers.status.contains(ps_overflow), false);
 }
