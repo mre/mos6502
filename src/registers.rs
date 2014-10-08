@@ -55,14 +55,14 @@ impl StatusArgs {
 
 pub bitflags! {
     flags Status: u8 {
-        static ps_negative           = 0b10000000,
-        static ps_overflow           = 0b01000000,
-        static ps_unused             = 0b00100000, // JAM: Should this exist?
-        static ps_brk                = 0b00010000,
-        static ps_decimal_mode       = 0b00001000,
-        static ps_disable_interrupts = 0b00000100,
-        static ps_zero               = 0b00000010,
-        static ps_carry              = 0b00000001,
+        static PS_NEGATIVE           = 0b10000000,
+        static PS_OVERFLOW           = 0b01000000,
+        static PS_UNUSED             = 0b00100000, // JAM: Should this exist?
+        static PS_BRK                = 0b00010000,
+        static PS_DECIMAL_MODE       = 0b00001000,
+        static PS_DISABLE_INTERRUPTS = 0b00000100,
+        static PS_ZERO               = 0b00000010,
+        static PS_CARRY              = 0b00000001,
     }
 }
 
@@ -91,14 +91,14 @@ impl Status {
     {
         let mut out = Status::empty();
 
-        if negative           { out = out | ps_negative           }
-        if overflow           { out = out | ps_overflow           }
-        if unused             { out = out | ps_unused             }
-        if brk                { out = out | ps_brk                }
-        if decimal_mode       { out = out | ps_decimal_mode       }
-        if disable_interrupts { out = out | ps_disable_interrupts }
-        if zero               { out = out | ps_zero               }
-        if carry              { out = out | ps_carry              }
+        if negative           { out = out | PS_NEGATIVE           }
+        if overflow           { out = out | PS_OVERFLOW           }
+        if unused             { out = out | PS_UNUSED             }
+        if brk                { out = out | PS_BRK                }
+        if decimal_mode       { out = out | PS_DECIMAL_MODE       }
+        if disable_interrupts { out = out | PS_DISABLE_INTERRUPTS }
+        if zero               { out = out | PS_ZERO               }
+        if carry              { out = out | PS_CARRY              }
 
         out
     }
@@ -108,7 +108,7 @@ impl Status {
     }
 
     pub fn get_carry(self) -> i8 {
-        if self.contains(ps_carry) { 1 } else { 0 }
+        if self.contains(PS_CARRY) { 1 } else { 0 }
     }
 }
 
