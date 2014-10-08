@@ -1,0 +1,29 @@
+* Information
+
+** 6502.org
+
+http://6502.org/
+
+
+** Easy 6502 tutorial
+
+http://skilldrick.github.io/easy6502/
+
+
+** Opcodes
+
+http://6502.org/tutorials/6502opcodes.html
+
+* Tools
+
+** Web Compiler
+
+http://www.6502asm.com/
+
+* Work
+
+** aweisberger
+
+*** TODO Add Controller 
+
+Must fetch program instruction from memory, decode and execute it.

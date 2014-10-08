@@ -1,0 +1,74 @@
+* Addressing modes
+
+has a 16-byte address bus.
+
+
+** Absolute
+
+- Full memory location specified, i.e. $c000
+- 65536 bytes of addressable memory (2^16 duyyy)
+
+
+** Zero-page
+
+- 1 byte adress, i.e. $c0, 256 bytes adressable
+- faster, takes less program space
+
+
+** Zero-page, X
+
+- Relative adressing _within_ the zero page. 
+- Adds the value in reg. x with a 1-byte adress
+- i.e. STA $a0, X
+- Address wraps around if the addition is larger than 1 byte
+
+
+** Zero-page, Y
+
+- equiv to zero-page, X but can only be used with LDX and STX
+
+
+
+
+
+** Immediate
+
+- i.e. #$c0
+- loads immedate number into register
+
+
+** Relative
+
+- i.e. $c0, or label
+
+
+** Implicit
+
+- when operation doesn't deal with memory
+
+
+** Indirect
+
+- Uses absolute address to get another address
+- first address is LSB of address, following byte is MSB
+
+
+** Indexed Indirect
+
+- i.e. LDA ($c0, X)
+- Take a zero page adress and add the value in reg. x to it, look up 2 byte address
+
+
+
+** Indirect Indexed
+
+- zero page address dereferenced then Y is added to it
+
+* Stack
+
+- lives in memory between $0100 and $01ff
+
+* Jumping
+
+- JSR/RTS: Jump to subroutine and return from subroutine
+
