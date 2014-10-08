@@ -90,6 +90,10 @@ impl Machine {
                 self.add_with_carry(val);
             },
 
+            (instruction::DEX, instruction::UseImplied) => {
+                self.dec_x();
+            }
+
             (instruction::LDA, instruction::UseImmediate(val)) => {
                 log!(log::DEBUG, "load A immediate: {}", val);
                 self.load_accumulator(val as i8);
@@ -199,6 +203,26 @@ impl Machine {
 
         log!(log::DEBUG, "accumulator: {}", self.registers.accumulator);
     }
+
+    pub fn dec_x(&mut self) {
+        let x_before = self.registers.index_x;
+        let value = 1i8;
+        let x_after = x_before - value;
+        self.registers.index_x = x_before - 1;
+
+        let is_negative = x_after < 0;
+        let is_zero = x_after == 0;
+
+        let mask = ps_negative | ps_zero;
+        self.registers.status.set_with_mask(
+            mask,
+            Status::new(StatusArgs { 
+                negative: is_negative,
+                zero: is_zero,
+                    ..StatusArgs::none() 
+            })
+        );
+    }
 }
 
 impl std::fmt::Show for Machine {
@@ -280,4 +304,23 @@ fn add_with_carry_test() {
     assert_eq!(machine.registers.status.contains(ps_zero),     false);
     assert_eq!(machine.registers.status.contains(ps_negative),  true);
     assert_eq!(machine.registers.status.contains(ps_overflow),  true);
+}
+
+#[test]
+fn dec_x_test() {
+    let mut machine = Machine::new();
+
+    machine.dec_x();
+    assert_eq!(machine.registers.index_x, -1);
+    assert_eq!(machine.registers.status.contains(ps_carry),    false);
+    assert_eq!(machine.registers.status.contains(ps_zero),     false);
+    assert_eq!(machine.registers.status.contains(ps_negative), true);
+    assert_eq!(machine.registers.status.contains(ps_overflow), false);
+
+    machine.dec_x();
+    assert_eq!(machine.registers.index_x, -2);
+    assert_eq!(machine.registers.status.contains(ps_carry),    false);
+    assert_eq!(machine.registers.status.contains(ps_zero),     false);
+    assert_eq!(machine.registers.status.contains(ps_negative), true);
+    assert_eq!(machine.registers.status.contains(ps_overflow), false);
 }
