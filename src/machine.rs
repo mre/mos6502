@@ -34,7 +34,7 @@ use instruction;
 use instruction::{DecodedInstr};
 use memory::Memory;
 use registers::{ Registers, Status, StatusArgs };
-use registers::{ ps_negative, ps_overflow, ps_zero, ps_carry };
+use registers::{ PS_NEGATIVE, PS_OVERFLOW, PS_ZERO, PS_CARRY };
 
 pub struct Machine {
     pub registers: Registers,
@@ -149,7 +149,7 @@ impl Machine {
         let is_negative = value < 0;
 
         status.set_with_mask(
-            ps_zero | ps_negative,
+            PS_ZERO | PS_NEGATIVE,
             Status::new(StatusArgs { zero: is_zero,
                                      negative: is_negative,
                                      ..StatusArgs::none() } ));
@@ -188,7 +188,7 @@ impl Machine {
         	   (a_before < 0 && value < 0 && a_after >= 0)
         	|| (a_before > 0 && value > 0 && a_after <= 0);
 
-        let mask = ps_carry | ps_overflow;
+        let mask = PS_CARRY | PS_OVERFLOW;
 
         self.registers.status.set_with_mask(mask,
             Status::new(StatusArgs { carry: did_carry,
@@ -215,69 +215,69 @@ fn add_with_carry_test() {
 
     machine.add_with_carry(1);
     assert_eq!(machine.registers.accumulator, 1);
-    assert_eq!(machine.registers.status.contains(ps_carry),    false);
-    assert_eq!(machine.registers.status.contains(ps_zero),     false);
-    assert_eq!(machine.registers.status.contains(ps_negative), false);
-    assert_eq!(machine.registers.status.contains(ps_overflow), false);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
 
     machine.add_with_carry(-1);
     assert_eq!(machine.registers.accumulator, 0);
-    assert_eq!(machine.registers.status.contains(ps_carry),    true);
-    assert_eq!(machine.registers.status.contains(ps_zero),     true);
-    assert_eq!(machine.registers.status.contains(ps_negative), false);
-    assert_eq!(machine.registers.status.contains(ps_overflow), false);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    true);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     true);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
 
     machine.add_with_carry(1);
     assert_eq!(machine.registers.accumulator, 2);
-    assert_eq!(machine.registers.status.contains(ps_carry),    false);
-    assert_eq!(machine.registers.status.contains(ps_zero),     false);
-    assert_eq!(machine.registers.status.contains(ps_negative), false);
-    assert_eq!(machine.registers.status.contains(ps_overflow), false);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
     
     let mut machine = Machine::new();
 
     machine.add_with_carry(127);
     assert_eq!(machine.registers.accumulator, 127);
-    assert_eq!(machine.registers.status.contains(ps_carry),    false);
-    assert_eq!(machine.registers.status.contains(ps_zero),     false);
-    assert_eq!(machine.registers.status.contains(ps_negative), false);
-    assert_eq!(machine.registers.status.contains(ps_overflow), false);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
 
     machine.add_with_carry(-127);
     assert_eq!(machine.registers.accumulator, 0);
-    assert_eq!(machine.registers.status.contains(ps_carry),     true);
-    assert_eq!(machine.registers.status.contains(ps_zero),      true);
-    assert_eq!(machine.registers.status.contains(ps_negative), false);
-    assert_eq!(machine.registers.status.contains(ps_overflow), false);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),     true);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),      true);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
 
-    machine.registers.status.remove(ps_carry);
+    machine.registers.status.remove(PS_CARRY);
     machine.add_with_carry(-128);
     assert_eq!(machine.registers.accumulator, -128);
-    assert_eq!(machine.registers.status.contains(ps_carry),    false);
-    assert_eq!(machine.registers.status.contains(ps_zero),     false);
-    assert_eq!(machine.registers.status.contains(ps_negative),  true);
-    assert_eq!(machine.registers.status.contains(ps_overflow), false);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE),  true);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
 
     machine.add_with_carry(127);
     assert_eq!(machine.registers.accumulator, -1);
-    assert_eq!(machine.registers.status.contains(ps_carry),    false);
-    assert_eq!(machine.registers.status.contains(ps_zero),     false);
-    assert_eq!(machine.registers.status.contains(ps_negative),  true);
-    assert_eq!(machine.registers.status.contains(ps_overflow), false);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE),  true);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
 
     let mut machine = Machine::new();
 
     machine.add_with_carry(127);
     assert_eq!(machine.registers.accumulator, 127);
-    assert_eq!(machine.registers.status.contains(ps_carry),    false);
-    assert_eq!(machine.registers.status.contains(ps_zero),     false);
-    assert_eq!(machine.registers.status.contains(ps_negative), false);
-    assert_eq!(machine.registers.status.contains(ps_overflow), false);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
 
     machine.add_with_carry(1);
     assert_eq!(machine.registers.accumulator, -128);
-    assert_eq!(machine.registers.status.contains(ps_carry),    false);
-    assert_eq!(machine.registers.status.contains(ps_zero),     false);
-    assert_eq!(machine.registers.status.contains(ps_negative),  true);
-    assert_eq!(machine.registers.status.contains(ps_overflow),  true);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE),  true);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW),  true);
 }
