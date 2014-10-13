@@ -48,7 +48,7 @@ impl Machine {
     	    memory:    Memory::new()
     	}
     }
-    
+
     pub fn reset(&mut self) {
     	*self = Machine::new();
     }
@@ -88,6 +88,12 @@ impl Machine {
                 log!(log::DEBUG, "add with carry. address: {}. value: {}",
                                  addr, val);
                 self.add_with_carry(val);
+            },
+
+            (instruction::BMI, instruction::UseRelative(rel)) => {
+                let addr = self.registers.program_counter + rel;
+                log!(log::DEBUG, "branch if minus relative. address: {}", addr);
+                self.branch_if_minus(addr);
             },
 
             (instruction::LDA, instruction::UseImmediate(val)) => {
@@ -199,6 +205,12 @@ impl Machine {
 
         log!(log::DEBUG, "accumulator: {}", self.registers.accumulator);
     }
+
+    pub fn branch_if_minus(&mut self, addr: Address) {
+        if (self.registers.status.contains(PS_NEGATIVE)) {
+            self.registers.program_counter = addr;
+        }
+    }
 }
 
 impl std::fmt::Show for Machine {
@@ -210,7 +222,6 @@ impl std::fmt::Show for Machine {
 
 #[test]
 fn add_with_carry_test() {
-
     let mut machine = Machine::new();
 
     machine.add_with_carry(1);
@@ -233,7 +244,7 @@ fn add_with_carry_test() {
     assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
     assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
     assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
-    
+
     let mut machine = Machine::new();
 
     machine.add_with_carry(127);
@@ -280,4 +291,27 @@ fn add_with_carry_test() {
     assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
     assert_eq!(machine.registers.status.contains(PS_NEGATIVE),  true);
     assert_eq!(machine.registers.status.contains(PS_OVERFLOW),  true);
+}
+
+#[test]
+fn branch_if_minus_test() {
+    {
+        let mut machine      = Machine::new();
+        let registers_before = machine.registers;
+
+        machine.branch_if_minus(Address(0xABCD));
+        assert_eq!(machine.registers, registers_before);
+        assert_eq!(machine.registers.program_counter, Address(0));
+    }
+
+    {
+        let mut machine = Machine::new();
+
+        machine.registers.status.set_with_mask(PS_NEGATIVE, PS_NEGATIVE);
+        let registers_before = machine.registers;
+
+        machine.branch_if_minus(Address(0xABCD));
+        assert_eq!(machine.registers, registers_before);
+        assert_eq!(machine.registers.program_counter, Address(0xABCD));
+    }
 }
