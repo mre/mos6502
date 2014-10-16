@@ -37,6 +37,8 @@ pub struct Address(pub u16);
 impl Add<AddressDiff, Address> for Address {
     fn add(&self, &AddressDiff(rhs): &AddressDiff) -> Address {
         let &Address(lhs) = self;
+
+        // TODO akeeton: Do a checked cast.
         Address(((lhs as i32) + rhs) as u16)
     }
 }
