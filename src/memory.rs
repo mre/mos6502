@@ -36,17 +36,17 @@ use address::{Address, AddressDiff};
 //     end: Address,
 // }
 
-static ADDR_LO_BARE: u16 = 0x0000;
-static ADDR_HI_BARE: u16 = 0xFFFF;
+const ADDR_LO_BARE: u16 = 0x0000;
+const ADDR_HI_BARE: u16 = 0xFFFF;
 
-pub static MEMORY_ADDRESS_LO:       Address = Address(ADDR_LO_BARE);
-pub static MEMORY_ADDRESS_HI:       Address = Address(ADDR_HI_BARE);
-pub static STACK_ADDRESS_LO:        Address = Address(0x0100);
-pub static STACK_ADDRESS_HI:        Address = Address(0x01FF);
-pub static IRQ_INTERRUPT_VECTOR_LO: Address = Address(0xFFFE);
-pub static IRQ_INTERRUPT_VECTOR_HI: Address = Address(0xFFFF);
+pub const MEMORY_ADDRESS_LO:       Address = Address(ADDR_LO_BARE);
+pub const MEMORY_ADDRESS_HI:       Address = Address(ADDR_HI_BARE);
+pub const STACK_ADDRESS_LO:        Address = Address(0x0100);
+pub const STACK_ADDRESS_HI:        Address = Address(0x01FF);
+pub const IRQ_INTERRUPT_VECTOR_LO: Address = Address(0xFFFE);
+pub const IRQ_INTERRUPT_VECTOR_HI: Address = Address(0xFFFF);
 
-static MEMORY_SIZE: uint = (ADDR_HI_BARE - ADDR_LO_BARE) as uint + 1u;
+const MEMORY_SIZE: uint = (ADDR_HI_BARE - ADDR_LO_BARE) as uint + 1u;
 
 pub struct Memory {
     bytes: [u8, ..MEMORY_SIZE]

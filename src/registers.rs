@@ -55,14 +55,14 @@ impl StatusArgs {
 
 pub bitflags! {
     flags Status: u8 {
-        static PS_NEGATIVE           = 0b10000000,
-        static PS_OVERFLOW           = 0b01000000,
-        static PS_UNUSED             = 0b00100000, // JAM: Should this exist?
-        static PS_BRK                = 0b00010000,
-        static PS_DECIMAL_MODE       = 0b00001000,
-        static PS_DISABLE_INTERRUPTS = 0b00000100,
-        static PS_ZERO               = 0b00000010,
-        static PS_CARRY              = 0b00000001,
+        const PS_NEGATIVE           = 0b10000000,
+        const PS_OVERFLOW           = 0b01000000,
+        const PS_UNUSED             = 0b00100000, // JAM: Should this exist?
+        const PS_BRK                = 0b00010000,
+        const PS_DECIMAL_MODE       = 0b00001000,
+        const PS_DISABLE_INTERRUPTS = 0b00000100,
+        const PS_ZERO               = 0b00000010,
+        const PS_CARRY              = 0b00000001,
     }
 }
 
