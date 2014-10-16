@@ -118,7 +118,7 @@ pub struct StackPointer(pub u8);
 impl StackPointer {
     pub fn to_address(&StackPointer(sp): &StackPointer) -> Address
     {
-        STACK_ADDRESS_LO + AddressDiff(sp as u16)
+        STACK_ADDRESS_LO + AddressDiff(sp as i32)
     }
 }
 
