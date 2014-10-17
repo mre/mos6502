@@ -311,7 +311,7 @@ fn branch_if_minus_test() {
         let registers_before = machine.registers;
 
         machine.branch_if_minus(Address(0xABCD));
-        assert_eq!(machine.registers, registers_before);
+        assert_eq!(machine.registers.status, registers_before.status);
         assert_eq!(machine.registers.program_counter, Address(0xABCD));
     }
 }
