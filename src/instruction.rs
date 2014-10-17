@@ -216,12 +216,12 @@ impl AddressingMode {
             AbsoluteX => {
                 // Use [u8, ..2] from instruction as address, add X
                 // (Output: a 16-bit address)
-                UseAddress(arr_to_addr(arr) + AddressDiff(x as u16))
+                UseAddress(arr_to_addr(arr) + AddressDiff(x as i32))
             },
             AbsoluteY => {
                 // Use [u8, ..2] from instruction as address, add Y
                 // (Output: a 16-bit address)
-                UseAddress(arr_to_addr(arr) + AddressDiff(y as u16))
+                UseAddress(arr_to_addr(arr) + AddressDiff(y as i32))
             },
             Indirect => {
                 // Use [u8, ..2] from instruction as an address. Interpret the
@@ -248,7 +248,7 @@ impl AddressingMode {
                 let start = arr[0];
                 let slice = memory.get_slice(Address(start as u16),
                                              AddressDiff(2));
-                UseAddress(arr_to_addr(slice) + AddressDiff(y as u16))
+                UseAddress(arr_to_addr(slice) + AddressDiff(y as i32))
             },
         }
     }

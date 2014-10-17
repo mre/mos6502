@@ -29,7 +29,7 @@
 // does make sense to add an address and an "address-difference". (If this
 // is too annoying to work with we should let it go.)
 #[deriving(PartialEq, Eq, PartialOrd, Ord, Show)]
-pub struct AddressDiff(pub u16);
+pub struct AddressDiff(pub i32);
 
 #[deriving(PartialEq, Eq, PartialOrd, Ord, Show)]
 pub struct Address(pub u16);
@@ -37,7 +37,7 @@ pub struct Address(pub u16);
 impl Add<AddressDiff, Address> for Address {
     fn add(&self, &AddressDiff(rhs): &AddressDiff) -> Address {
         let &Address(lhs) = self;
-        Address(lhs + rhs)
+        Address(((lhs as i32) + rhs) as u16)
     }
 }
 
