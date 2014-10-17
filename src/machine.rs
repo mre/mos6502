@@ -91,7 +91,7 @@ impl Machine {
             },
 
             (instruction::BMI, instruction::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + rel;
+                let addr = self.registers.program_counter + AddressDiff(rel as i32);
                 log!(log::DEBUG, "branch if minus relative. address: {}", addr);
                 self.branch_if_minus(addr);
             },
@@ -207,7 +207,7 @@ impl Machine {
     }
 
     pub fn branch_if_minus(&mut self, addr: Address) {
-        if (self.registers.status.contains(PS_NEGATIVE)) {
+        if self.registers.status.contains(PS_NEGATIVE) {
             self.registers.program_counter = addr;
         }
     }
