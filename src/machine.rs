@@ -29,7 +29,7 @@ use log;
 
 use std;
 
-use address::{Address, AddressDiff};
+use address::{AddressDiff};
 use instruction;
 use instruction::{DecodedInstr};
 use memory::Memory;
