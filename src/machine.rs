@@ -205,23 +205,8 @@ impl Machine {
     }
 
     pub fn dec_x(&mut self) {
-        let x_before = self.registers.index_x;
-        let value = 1i8;
-        let x_after = x_before - value;
-        self.registers.index_x = x_before - 1;
-
-        let is_negative = x_after < 0;
-        let is_zero = x_after == 0;
-
-        let mask = ps_negative | ps_zero;
-        self.registers.status.set_with_mask(
-            mask,
-            Status::new(StatusArgs { 
-                negative: is_negative,
-                zero: is_zero,
-                    ..StatusArgs::none() 
-            })
-        );
+        let val = self.registers.index_x;
+        self.load_x_register(val - 1);
     }
 }
 
@@ -312,25 +297,25 @@ fn dec_x_test() {
 
     machine.dec_x();
     assert_eq!(machine.registers.index_x, -1);
-    assert_eq!(machine.registers.status.contains(ps_carry),    false);
-    assert_eq!(machine.registers.status.contains(ps_zero),     false);
-    assert_eq!(machine.registers.status.contains(ps_negative), true);
-    assert_eq!(machine.registers.status.contains(ps_overflow), false);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), true);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
 
     machine.dec_x();
     assert_eq!(machine.registers.index_x, -2);
-    assert_eq!(machine.registers.status.contains(ps_carry),    false);
-    assert_eq!(machine.registers.status.contains(ps_zero),     false);
-    assert_eq!(machine.registers.status.contains(ps_negative), true);
-    assert_eq!(machine.registers.status.contains(ps_overflow), false);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), true);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
 
     machine.load_x_register(5);
     machine.dec_x();
     assert_eq!(machine.registers.index_x, 4);
-    assert_eq!(machine.registers.status.contains(ps_carry),    false);
-    assert_eq!(machine.registers.status.contains(ps_zero),     false);
-    assert_eq!(machine.registers.status.contains(ps_negative), false);
-    assert_eq!(machine.registers.status.contains(ps_overflow), false);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
 
     machine.dec_x();
     machine.dec_x();
@@ -338,15 +323,15 @@ fn dec_x_test() {
     machine.dec_x();
 
     assert_eq!(machine.registers.index_x, 0);
-    assert_eq!(machine.registers.status.contains(ps_carry),    false);
-    assert_eq!(machine.registers.status.contains(ps_zero),     true);
-    assert_eq!(machine.registers.status.contains(ps_negative), false);
-    assert_eq!(machine.registers.status.contains(ps_overflow), false);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     true);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
 
     machine.dec_x();
     assert_eq!(machine.registers.index_x, -1);
-    assert_eq!(machine.registers.status.contains(ps_carry),    false);
-    assert_eq!(machine.registers.status.contains(ps_zero),     false);
-    assert_eq!(machine.registers.status.contains(ps_negative), true);
-    assert_eq!(machine.registers.status.contains(ps_overflow), false);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), true);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
 }
