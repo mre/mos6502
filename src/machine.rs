@@ -29,7 +29,7 @@ use log;
 
 use std;
 
-use address::{AddressDiff};
+use address::{Address, AddressDiff};
 use instruction;
 use instruction::{DecodedInstr};
 use memory::Memory;
@@ -48,7 +48,7 @@ impl Machine {
     	    memory:    Memory::new()
     	}
     }
-    
+
     pub fn reset(&mut self) {
     	*self = Machine::new();
     }
@@ -92,7 +92,11 @@ impl Machine {
 
             (instruction::DEX, instruction::UseImplied) => {
                 self.dec_x();
-            }
+            },
+
+            (instruction::JMP, instruction::UseAddress(addr)) => {
+                self.jump(addr)
+            },
 
             (instruction::LDA, instruction::UseImmediate(val)) => {
                 log!(log::DEBUG, "load A immediate: {}", val);
@@ -208,6 +212,10 @@ impl Machine {
         let val = self.registers.index_x;
         self.load_x_register(val - 1);
     }
+
+    pub fn jump(&mut self, addr: Address) {
+        self.registers.program_counter = addr;
+    }
 }
 
 impl std::fmt::Show for Machine {
@@ -242,7 +250,7 @@ fn add_with_carry_test() {
     assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
     assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
     assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
-    
+
     let mut machine = Machine::new();
 
     machine.add_with_carry(127);
@@ -334,4 +342,13 @@ fn dec_x_test() {
     assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
     assert_eq!(machine.registers.status.contains(PS_NEGATIVE), true);
     assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
+}
+
+#[test]
+fn jump_test() {
+    let mut machine = Machine::new();
+    let     addr    = Address(0xA1B1);
+
+    machine.jump(addr);
+    assert_eq!(machine.registers.program_counter, addr);
 }
