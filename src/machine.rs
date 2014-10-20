@@ -90,6 +90,10 @@ impl Machine {
                 self.add_with_carry(val);
             },
 
+            (instruction::DEX, instruction::UseImplied) => {
+                self.dec_x();
+            }
+
             (instruction::LDA, instruction::UseImmediate(val)) => {
                 log!(log::DEBUG, "load A immediate: {}", val);
                 self.load_accumulator(val as i8);
@@ -199,6 +203,11 @@ impl Machine {
 
         log!(log::DEBUG, "accumulator: {}", self.registers.accumulator);
     }
+
+    pub fn dec_x(&mut self) {
+        let val = self.registers.index_x;
+        self.load_x_register(val - 1);
+    }
 }
 
 impl std::fmt::Show for Machine {
@@ -280,4 +289,49 @@ fn add_with_carry_test() {
     assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
     assert_eq!(machine.registers.status.contains(PS_NEGATIVE),  true);
     assert_eq!(machine.registers.status.contains(PS_OVERFLOW),  true);
+}
+
+#[test]
+fn dec_x_test() {
+    let mut machine = Machine::new();
+
+    machine.dec_x();
+    assert_eq!(machine.registers.index_x, -1);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), true);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
+
+    machine.dec_x();
+    assert_eq!(machine.registers.index_x, -2);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), true);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
+
+    machine.load_x_register(5);
+    machine.dec_x();
+    assert_eq!(machine.registers.index_x, 4);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
+
+    machine.dec_x();
+    machine.dec_x();
+    machine.dec_x();
+    machine.dec_x();
+
+    assert_eq!(machine.registers.index_x, 0);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     true);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
+
+    machine.dec_x();
+    assert_eq!(machine.registers.index_x, -1);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), true);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
 }
