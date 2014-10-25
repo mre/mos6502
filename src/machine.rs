@@ -90,6 +90,10 @@ impl Machine {
                 self.add_with_carry(val);
             },
 
+            (instruction::DEC, instruction::UseAddress(addr)) => {
+                self.decrement_memory(addr)
+            }
+
             (instruction::DEX, instruction::UseImplied) => {
                 self.dec_x();
             },
@@ -208,6 +212,24 @@ impl Machine {
         log!(log::DEBUG, "accumulator: {}", self.registers.accumulator);
     }
 
+    pub fn decrement_memory(&mut self, addr: Address) {
+        let value_new = self.memory.get_byte(addr) - 1;
+
+        self.memory.set_byte(addr, value_new);
+
+        let is_negative = (value_new as i8) < 0;
+        let is_zero     = value_new == 0;
+
+        self.registers.status.set_with_mask(
+            PS_NEGATIVE | PS_ZERO,
+            Status::new(StatusArgs {
+                negative: is_negative,
+                zero:     is_zero,
+                ..StatusArgs::none()
+            })
+        );
+    }
+
     pub fn dec_x(&mut self) {
         let val = self.registers.index_x;
         self.load_x_register(val - 1);
@@ -297,6 +319,36 @@ fn add_with_carry_test() {
     assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
     assert_eq!(machine.registers.status.contains(PS_NEGATIVE),  true);
     assert_eq!(machine.registers.status.contains(PS_OVERFLOW),  true);
+}
+
+#[test]
+fn decrement_memory_test() {
+    let mut machine = Machine::new();
+    let addr        = Address(0xA1B2);
+
+    machine.memory.set_byte(addr, 5);
+
+    machine.decrement_memory(addr);
+    assert_eq!(machine.memory.get_byte(addr), 4);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+
+    machine.decrement_memory(addr);
+    assert_eq!(machine.memory.get_byte(addr), 3);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+
+    machine.decrement_memory(addr);
+    machine.decrement_memory(addr);
+    machine.decrement_memory(addr);
+    assert_eq!(machine.memory.get_byte(addr), 0);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     true);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+
+    machine.decrement_memory(addr);
+    assert_eq!(machine.memory.get_byte(addr) as i8, -1);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), true);
 }
 
 #[test]
