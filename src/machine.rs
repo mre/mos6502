@@ -184,26 +184,26 @@ impl Machine {
                                      ..StatusArgs::none() } ));
     }
 
-    pub fn load_x_register(&mut self, value: i8) {
+    fn load_x_register(&mut self, value: i8) {
         Machine::load_register_with_flags(&mut self.registers.index_x,
                                           &mut self.registers.status,
                                           value);
     }
 
-    pub fn load_y_register(&mut self, value: i8) {
+    fn load_y_register(&mut self, value: i8) {
         Machine::load_register_with_flags(&mut self.registers.index_y,
                                           &mut self.registers.status,
                                           value);
     }
 
-    pub fn load_accumulator(&mut self, value: i8) {
+    fn load_accumulator(&mut self, value: i8) {
         Machine::load_register_with_flags(&mut self.registers.accumulator,
                                           &mut self.registers.status,
                                           value);
     }
 
     // TODO akeeton: Implement binary-coded decimal.
-    pub fn add_with_carry(&mut self, value: i8) {
+    fn add_with_carry(&mut self, value: i8) {
         let a_before: i8 = self.registers.accumulator;
         let c_before: i8 = self.registers.status.get_carry();
         let a_after: i8 = a_before + c_before + value;
@@ -229,7 +229,7 @@ impl Machine {
         log!(log::DEBUG, "accumulator: {}", self.registers.accumulator);
     }
 
-    pub fn decrement_memory(&mut self, addr: Address) {
+    fn decrement_memory(&mut self, addr: Address) {
         let value_new = self.memory.get_byte(addr) - 1;
 
         self.memory.set_byte(addr, value_new);
@@ -247,16 +247,16 @@ impl Machine {
         );
     }
 
-    pub fn dec_x(&mut self) {
+    fn dec_x(&mut self) {
         let val = self.registers.index_x;
         self.load_x_register(val - 1);
     }
 
-    pub fn jump(&mut self, addr: Address) {
+    fn jump(&mut self, addr: Address) {
         self.registers.program_counter = addr;
     }
 
-    pub fn branch_if_minus(&mut self, addr: Address) {
+    fn branch_if_minus(&mut self, addr: Address) {
         if self.registers.status.contains(PS_NEGATIVE) {
             self.registers.program_counter = addr;
         }
