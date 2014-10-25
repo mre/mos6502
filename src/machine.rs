@@ -87,6 +87,28 @@ impl Machine {
                 self.add_with_carry(val);
             },
 
+            (instruction::BIT, instruction::UseAddress(addr)) => {
+                let a: u8 = self.registers.accumulator as u8;
+                let m: u8 = self.memory.get_byte(addr);
+                let res = a & m;
+
+                // The zero flag is set based on the result of the 'and'.
+                let is_zero = 0 == res;
+
+                // The N flag is set to bit 7 of the byte from memory.
+                let bit7 = 0 != (0x80 & res);
+
+                // The V flag is set to bit 6 of the byte from memory.
+                let bit6 = 0 != (0x40 & res);
+
+                self.registers.status.set_with_mask(
+                    PS_ZERO | PS_NEGATIVE | PS_OVERFLOW,
+                    Status::new(StatusArgs { zero: is_zero,
+                                             negative: bit7,
+                                             overflow: bit6,
+                                             ..StatusArgs::none() } ));
+            }
+
             (instruction::BMI, instruction::UseRelative(rel)) => {
                 let addr = self.registers.program_counter
                          + AddressDiff(rel as i32);
