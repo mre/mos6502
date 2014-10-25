@@ -90,6 +90,13 @@ impl Machine {
                 self.add_with_carry(val);
             },
 
+            (instruction::BMI, instruction::UseRelative(rel)) => {
+                let addr = self.registers.program_counter
+                         + AddressDiff(rel as i32);
+                log!(log::DEBUG, "branch if minus relative. address: {}", addr);
+                self.branch_if_minus(addr);
+            },
+
             (instruction::DEC, instruction::UseAddress(addr)) => {
                 self.decrement_memory(addr)
             }
@@ -100,13 +107,6 @@ impl Machine {
 
             (instruction::JMP, instruction::UseAddress(addr)) => {
                 self.jump(addr)
-            },
-
-            (instruction::BMI, instruction::UseRelative(rel)) => {
-                let addr = self.registers.program_counter
-                         + AddressDiff(rel as i32);
-                log!(log::DEBUG, "branch if minus relative. address: {}", addr);
-                self.branch_if_minus(addr);
             },
 
             (instruction::LDA, instruction::UseImmediate(val)) => {
@@ -137,6 +137,16 @@ impl Machine {
                 let val = self.memory.get_byte(addr);
                 log!(log::DEBUG, "load Y. address: {}. value: {}", addr, val);
                 self.load_y_register(val as i8);
+            },
+
+            (instruction::STA, instruction::UseAddress(addr)) => {
+                self.memory.set_byte(addr, self.registers.accumulator as u8);
+            },
+            (instruction::STX, instruction::UseAddress(addr)) => {
+                self.memory.set_byte(addr, self.registers.index_x as u8);
+            },
+            (instruction::STY, instruction::UseAddress(addr)) => {
+                self.memory.set_byte(addr, self.registers.index_y as u8);
             },
 
             (instruction::NOP, _) => {
