@@ -102,6 +102,13 @@ impl Machine {
                 self.jump(addr)
             },
 
+            (instruction::BMI, instruction::UseRelative(rel)) => {
+                let addr = self.registers.program_counter
+                         + AddressDiff(rel as i32);
+                log!(log::DEBUG, "branch if minus relative. address: {}", addr);
+                self.branch_if_minus(addr);
+            },
+
             (instruction::LDA, instruction::UseImmediate(val)) => {
                 log!(log::DEBUG, "load A immediate: {}", val);
                 self.load_accumulator(val as i8);
@@ -238,6 +245,12 @@ impl Machine {
     pub fn jump(&mut self, addr: Address) {
         self.registers.program_counter = addr;
     }
+
+    pub fn branch_if_minus(&mut self, addr: Address) {
+        if self.registers.status.contains(PS_NEGATIVE) {
+            self.registers.program_counter = addr;
+        }
+    }
 }
 
 impl std::fmt::Show for Machine {
@@ -249,7 +262,6 @@ impl std::fmt::Show for Machine {
 
 #[test]
 fn add_with_carry_test() {
-
     let mut machine = Machine::new();
 
     machine.add_with_carry(1);
@@ -403,4 +415,27 @@ fn jump_test() {
 
     machine.jump(addr);
     assert_eq!(machine.registers.program_counter, addr);
+}
+
+#[test]
+fn branch_if_minus_test() {
+    {
+        let mut machine      = Machine::new();
+        let registers_before = machine.registers;
+
+        machine.branch_if_minus(Address(0xABCD));
+        assert_eq!(machine.registers, registers_before);
+        assert_eq!(machine.registers.program_counter, Address(0));
+    }
+
+    {
+        let mut machine = Machine::new();
+
+        machine.registers.status.set_with_mask(PS_NEGATIVE, PS_NEGATIVE);
+        let registers_before = machine.registers;
+
+        machine.branch_if_minus(Address(0xABCD));
+        assert_eq!(machine.registers.status, registers_before.status);
+        assert_eq!(machine.registers.program_counter, Address(0xABCD));
+    }
 }
