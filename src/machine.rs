@@ -25,8 +25,6 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use log;
-
 use std;
 
 use address::{Address, AddressDiff};
@@ -80,20 +78,19 @@ impl Machine {
     pub fn execute_instruction(&mut self, decoded_instr: DecodedInstr) {
         match decoded_instr {
             (instruction::ADC, instruction::UseImmediate(val)) => {
-                log!(log::DEBUG, "add with carry immediate: {}", val);
+                debug!("add with carry immediate: {}", val);
                 self.add_with_carry(val as i8);
             },
             (instruction::ADC, instruction::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr) as i8;
-                log!(log::DEBUG, "add with carry. address: {}. value: {}",
-                                 addr, val);
+                debug!("add with carry. address: {}. value: {}", addr, val);
                 self.add_with_carry(val);
             },
 
             (instruction::BMI, instruction::UseRelative(rel)) => {
                 let addr = self.registers.program_counter
                          + AddressDiff(rel as i32);
-                log!(log::DEBUG, "branch if minus relative. address: {}", addr);
+                debug!("branch if minus relative. address: {}", addr);
                 self.branch_if_minus(addr);
             },
 
@@ -110,32 +107,32 @@ impl Machine {
             },
 
             (instruction::LDA, instruction::UseImmediate(val)) => {
-                log!(log::DEBUG, "load A immediate: {}", val);
+                debug!("load A immediate: {}", val);
                 self.load_accumulator(val as i8);
             },
             (instruction::LDA, instruction::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
-                log!(log::DEBUG, "load A. address: {}. value: {}", addr, val);
+                debug!("load A. address: {}. value: {}", addr, val);
                 self.load_accumulator(val as i8);
             },
 
             (instruction::LDX, instruction::UseImmediate(val)) => {
-                log!(log::DEBUG, "load X immediate: {}", val);
+                debug!("load X immediate: {}", val);
                 self.load_x_register(val as i8);
             },
             (instruction::LDX, instruction::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
-                log!(log::DEBUG, "load X. address: {}. value: {}", addr, val);
+                debug!("load X. address: {}. value: {}", addr, val);
                 self.load_x_register(val as i8);
             },
 
             (instruction::LDY, instruction::UseImmediate(val)) => {
-                log!(log::DEBUG, "load Y immediate: {}", val);
+                debug!("load Y immediate: {}", val);
                 self.load_y_register(val as i8);
             },
             (instruction::LDY, instruction::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
-                log!(log::DEBUG, "load Y. address: {}. value: {}", addr, val);
+                debug!("load Y. address: {}. value: {}", addr, val);
                 self.load_y_register(val as i8);
             },
 
@@ -150,11 +147,10 @@ impl Machine {
             },
 
             (instruction::NOP, _) => {
-                log!(log::DEBUG, "nop instr");
+                debug!("nop instr");
             },
             (_, _) => {
-                log!(log::DEBUG, "attempting to execute unimplemented \
-                                  instruction");
+                debug!("attempting to execute unimplemented instruction");
             },
         };
     }
@@ -226,7 +222,7 @@ impl Machine {
 
         self.load_accumulator(a_after);
 
-        log!(log::DEBUG, "accumulator: {}", self.registers.accumulator);
+        debug!("accumulator: {}", self.registers.accumulator);
     }
 
     fn decrement_memory(&mut self, addr: Address) {

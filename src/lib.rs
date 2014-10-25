@@ -32,7 +32,7 @@
 //
 #![feature(if_let)]
 
-// Needed for log! macro
+// Needed for debug! / log! macros
 #![feature(phase)]
 
 #[phase(plugin, link)]
