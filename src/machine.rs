@@ -31,7 +31,7 @@ use address::{Address, AddressDiff};
 use instruction;
 use instruction::{DecodedInstr};
 use memory::Memory;
-use registers::{ Registers, Status, StatusArgs };
+use registers::{ Registers, StackPointer, Status, StatusArgs };
 use registers::{ PS_NEGATIVE, PS_OVERFLOW, PS_ZERO, PS_CARRY };
 
 pub struct Machine {
@@ -144,6 +144,35 @@ impl Machine {
             },
             (instruction::STY, instruction::UseAddress(addr)) => {
                 self.memory.set_byte(addr, self.registers.index_y as u8);
+            },
+
+            (instruction::TAX, instruction::UseImplied) => {
+                let val = self.registers.accumulator;
+                self.load_x_register(val);
+            },
+            (instruction::TAY, instruction::UseImplied) => {
+                let val = self.registers.accumulator;
+                self.load_y_register(val);
+            },
+            (instruction::TSX, instruction::UseImplied) => {
+                let StackPointer(val) = self.registers.stack_pointer;
+                let val = val as i8;
+                self.load_x_register(val);
+            },
+            (instruction::TXA, instruction::UseImplied) => {
+                let val = self.registers.index_x;
+                self.load_accumulator(val);
+            },
+            (instruction::TXS, instruction::UseImplied) => {
+                // Note that this is the only 'transfer' instruction that does
+                // NOT set the zero and negative flags. (Because the target
+                // is the stack pointer)
+                let val = self.registers.index_x;
+                self.registers.stack_pointer = StackPointer(val as u8);
+            },
+            (instruction::TYA, instruction::UseImplied) => {
+                let val = self.registers.index_y;
+                self.load_accumulator(val);
             },
 
             (instruction::NOP, _) => {
