@@ -54,6 +54,7 @@ impl StatusArgs {
 }
 
 pub bitflags! {
+#[deriving(Show)]
     flags Status: u8 {
         const PS_NEGATIVE           = 0b10000000,
         const PS_OVERFLOW           = 0b01000000,
@@ -112,7 +113,7 @@ impl Status {
     }
 }
 
-#[deriving(PartialEq, Eq, PartialOrd, Ord)]
+#[deriving(PartialEq, Eq, PartialOrd, Ord, Show)]
 pub struct StackPointer(pub u8);
 
 impl StackPointer {
@@ -122,6 +123,7 @@ impl StackPointer {
     }
 }
 
+#[deriving(PartialEq, Eq, Show)]
 pub struct Registers {
     pub accumulator:     i8,
     pub index_x:         i8,
