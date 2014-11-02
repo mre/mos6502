@@ -32,7 +32,8 @@ use instruction;
 use instruction::{DecodedInstr};
 use memory::Memory;
 use registers::{ Registers, StackPointer, Status, StatusArgs };
-use registers::{ PS_NEGATIVE, PS_OVERFLOW, PS_ZERO, PS_CARRY };
+use registers::{ PS_NEGATIVE, PS_DECIMAL_MODE, PS_OVERFLOW, PS_ZERO, PS_CARRY,
+                 PS_DISABLE_INTERRUPTS };
 
 pub struct Machine {
     pub registers: Registers,
@@ -80,12 +81,12 @@ impl Machine {
             (instruction::ADC, instruction::UseImmediate(val)) => {
                 debug!("add with carry immediate: {}", val);
                 self.add_with_carry(val as i8);
-            },
+            }
             (instruction::ADC, instruction::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr) as i8;
                 debug!("add with carry. address: {}. value: {}", addr, val);
                 self.add_with_carry(val);
-            },
+            }
 
             (instruction::BIT, instruction::UseAddress(addr)) => {
                 let a: u8 = self.registers.accumulator as u8;
@@ -114,7 +115,20 @@ impl Machine {
                          + AddressDiff(rel as i32);
                 debug!("branch if minus relative. address: {}", addr);
                 self.branch_if_minus(addr);
-            },
+            }
+
+            (instruction::CLC, instruction::UseImplied) => {
+                self.registers.status.and(!PS_CARRY);
+            }
+            (instruction::CLD, instruction::UseImplied) => {
+                self.registers.status.and(!PS_DECIMAL_MODE);
+            }
+            (instruction::CLI, instruction::UseImplied) => {
+                self.registers.status.and(!PS_DISABLE_INTERRUPTS);
+            }
+            (instruction::CLV, instruction::UseImplied) => {
+                self.registers.status.and(!PS_OVERFLOW);
+            }
 
             (instruction::DEC, instruction::UseAddress(addr)) => {
                 self.decrement_memory(addr)
@@ -122,87 +136,109 @@ impl Machine {
 
             (instruction::DEX, instruction::UseImplied) => {
                 self.dec_x();
-            },
+            }
 
             (instruction::JMP, instruction::UseAddress(addr)) => {
                 self.jump(addr)
-            },
+            }
 
             (instruction::LDA, instruction::UseImmediate(val)) => {
                 debug!("load A immediate: {}", val);
                 self.load_accumulator(val as i8);
-            },
+            }
             (instruction::LDA, instruction::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
                 debug!("load A. address: {}. value: {}", addr, val);
                 self.load_accumulator(val as i8);
-            },
+            }
 
             (instruction::LDX, instruction::UseImmediate(val)) => {
                 debug!("load X immediate: {}", val);
                 self.load_x_register(val as i8);
-            },
+            }
             (instruction::LDX, instruction::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
                 debug!("load X. address: {}. value: {}", addr, val);
                 self.load_x_register(val as i8);
-            },
+            }
 
             (instruction::LDY, instruction::UseImmediate(val)) => {
                 debug!("load Y immediate: {}", val);
                 self.load_y_register(val as i8);
-            },
+            }
             (instruction::LDY, instruction::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
                 debug!("load Y. address: {}. value: {}", addr, val);
                 self.load_y_register(val as i8);
-            },
+            }
+
+            (instruction::SBC, instruction::UseImmediate(val)) => {
+                debug!("subtract with carry immediate: {}", val);
+                self.subtract_with_carry(val as i8);
+            }
+            (instruction::SBC, instruction::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr) as i8;
+                debug!("subtract with carry. address: {}. value: {}",
+                       addr, val);
+                self.subtract_with_carry(val);
+            }
+
+            (instruction::SEC, instruction::UseImplied) => {
+                self.registers.status.or(PS_CARRY);
+            }
+            (instruction::SED, instruction::UseImplied) => {
+                self.registers.status.or(PS_DECIMAL_MODE);
+            }
+            (instruction::SEI, instruction::UseImplied) => {
+                self.registers.status.or(PS_DISABLE_INTERRUPTS);
+            }
 
             (instruction::STA, instruction::UseAddress(addr)) => {
                 self.memory.set_byte(addr, self.registers.accumulator as u8);
-            },
+            }
             (instruction::STX, instruction::UseAddress(addr)) => {
                 self.memory.set_byte(addr, self.registers.index_x as u8);
-            },
+            }
             (instruction::STY, instruction::UseAddress(addr)) => {
                 self.memory.set_byte(addr, self.registers.index_y as u8);
-            },
+            }
 
             (instruction::TAX, instruction::UseImplied) => {
                 let val = self.registers.accumulator;
                 self.load_x_register(val);
-            },
+            }
             (instruction::TAY, instruction::UseImplied) => {
                 let val = self.registers.accumulator;
                 self.load_y_register(val);
-            },
+            }
             (instruction::TSX, instruction::UseImplied) => {
                 let StackPointer(val) = self.registers.stack_pointer;
                 let val = val as i8;
                 self.load_x_register(val);
-            },
+            }
             (instruction::TXA, instruction::UseImplied) => {
                 let val = self.registers.index_x;
                 self.load_accumulator(val);
-            },
+            }
             (instruction::TXS, instruction::UseImplied) => {
                 // Note that this is the only 'transfer' instruction that does
                 // NOT set the zero and negative flags. (Because the target
                 // is the stack pointer)
                 let val = self.registers.index_x;
                 self.registers.stack_pointer = StackPointer(val as u8);
-            },
+            }
             (instruction::TYA, instruction::UseImplied) => {
                 let val = self.registers.index_y;
                 self.load_accumulator(val);
-            },
+            }
 
-            (instruction::NOP, _) => {
-                debug!("nop instr");
-            },
+            (instruction::NOP, instruction::UseImplied) => {
+                debug!("NOP instruction");
+            }
             (_, _) => {
-                debug!("attempting to execute unimplemented instruction");
-            },
+                debug!("attempting to execute unimplemented or invalid \
+                        instruction");
+            }
         };
     }
 
@@ -249,31 +285,81 @@ impl Machine {
                                           value);
     }
 
-    // TODO akeeton: Implement binary-coded decimal.
     fn add_with_carry(&mut self, value: i8) {
-        let a_before: i8 = self.registers.accumulator;
-        let c_before: i8 = self.registers.status.get_carry();
-        let a_after: i8 = a_before + c_before + value;
+        if self.registers.status.contains(PS_DECIMAL_MODE) {
+            // TODO akeeton: Implement binary-coded decimal.
+            debug!("binary-coded decimal not implemented for add_with_carry");
+        } else {
+            let a_before: i8 = self.registers.accumulator;
+            let c_before: i8 = if self.registers.status.contains(PS_CARRY)
+                               { 1 } else { 0 };
+            let a_after: i8 = a_before + c_before + value;
 
-        debug_assert_eq!(a_after as u8, a_before as u8 + c_before as u8
-                                        + value as u8);
+            debug_assert_eq!(a_after as u8, a_before as u8 + c_before as u8
+                                            + value as u8);
 
-        let did_carry = (a_after as u8) < (a_before as u8);
+            let did_carry = (a_after as u8) < (a_before as u8);
 
-        let did_overflow   =
-        	   (a_before < 0 && value < 0 && a_after >= 0)
-        	|| (a_before > 0 && value > 0 && a_after <= 0);
+            let did_overflow =
+            	   (a_before < 0 && value < 0 && a_after >= 0)
+            	|| (a_before > 0 && value > 0 && a_after <= 0);
 
-        let mask = PS_CARRY | PS_OVERFLOW;
+            let mask = PS_CARRY | PS_OVERFLOW;
 
-        self.registers.status.set_with_mask(mask,
-            Status::new(StatusArgs { carry: did_carry,
-                                     overflow: did_overflow,
-                                     ..StatusArgs::none() } ));
+            self.registers.status.set_with_mask(mask,
+                Status::new(StatusArgs { carry: did_carry,
+                                         overflow: did_overflow,
+                                         ..StatusArgs::none() } ));
 
-        self.load_accumulator(a_after);
+            self.load_accumulator(a_after);
 
-        debug!("accumulator: {}", self.registers.accumulator);
+            debug!("accumulator: {}", self.registers.accumulator);
+        }
+    }
+
+    // TODO: Implement binary-coded decimal
+    fn subtract_with_carry(&mut self, value: i8) {
+        if self.registers.status.contains(PS_DECIMAL_MODE) {
+            debug!("binary-coded decimal not implemented for \
+                    subtract_with_carry");
+        } else {
+            // A - M - (1 - C)
+
+            // nc -- 'not carry'
+            let nc: i8 = if self.registers.status.contains(PS_CARRY)
+                         { 0 } else { 1 };
+
+            let a_before: i8 = self.registers.accumulator;
+
+            let a_after = a_before - value - nc;
+
+            // The carry flag is set on unsigned overflow.
+            let did_carry = (a_after as u8) > (a_before as u8);
+
+            // The overflow flag is set on two's-complement overflow.
+            //
+            // range of A              is  -128 to 127
+            // range of - M - (1 - C)  is  -128 to 128
+            //                            -(127 + 1) to -(-128 + 0)
+            //
+            let over = ((nc == 0 && value < 0) || (nc == 1 && value < -1))
+                    && a_before >= 0
+                    && a_after < 0;
+
+            let under = (a_before < 0) && (-value - nc < 0)
+                     && a_after >= 0;
+
+            let did_overflow = over || under;
+
+            let mask = PS_CARRY | PS_OVERFLOW;
+
+            self.registers.status.set_with_mask(mask,
+                Status::new(StatusArgs { carry: did_carry,
+                                         overflow: did_overflow,
+                                         ..StatusArgs::none() } ));
+
+            self.load_accumulator(a_after);
+        }
     }
 
     fn decrement_memory(&mut self, addr: Address) {
@@ -286,12 +372,9 @@ impl Machine {
 
         self.registers.status.set_with_mask(
             PS_NEGATIVE | PS_ZERO,
-            Status::new(StatusArgs {
-                negative: is_negative,
-                zero:     is_zero,
-                ..StatusArgs::none()
-            })
-        );
+            Status::new(StatusArgs { negative: is_negative,
+                                     zero:     is_zero,
+                                     ..StatusArgs::none() } ));
     }
 
     fn dec_x(&mut self) {
@@ -388,6 +471,66 @@ fn add_with_carry_test() {
     assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
     assert_eq!(machine.registers.status.contains(PS_NEGATIVE),  true);
     assert_eq!(machine.registers.status.contains(PS_OVERFLOW),  true);
+}
+
+#[test]
+fn subtract_with_carry_test() {
+    let mut machine = Machine::new();
+
+    machine.execute_instruction((instruction::SEC, instruction::UseImplied));
+    machine.registers.accumulator = 0;
+
+    machine.subtract_with_carry(1);
+    assert_eq!(machine.registers.accumulator, -1);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    true);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), true);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
+
+    machine.execute_instruction((instruction::SEC, instruction::UseImplied));
+    machine.registers.accumulator = -128;
+    machine.subtract_with_carry(1);
+    assert_eq!(machine.registers.accumulator, 127);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), true);
+
+    machine.execute_instruction((instruction::SEC, instruction::UseImplied));
+    machine.registers.accumulator = 127;
+    machine.subtract_with_carry(-1);
+    assert_eq!(machine.registers.accumulator, -128);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    true);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), true);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), true);
+
+    machine.execute_instruction((instruction::CLC, instruction::UseImplied));
+    machine.registers.accumulator = -64;
+    machine.subtract_with_carry(64);
+    assert_eq!(machine.registers.accumulator, 127);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), true);
+
+    machine.execute_instruction((instruction::SEC, instruction::UseImplied));
+    machine.registers.accumulator = 0;
+    machine.subtract_with_carry(-128);
+    assert_eq!(machine.registers.accumulator, -128);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    true);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), true);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), true);
+
+    machine.execute_instruction((instruction::CLC, instruction::UseImplied));
+    machine.registers.accumulator = 0;
+    machine.subtract_with_carry(127);
+    assert_eq!(machine.registers.accumulator, -128);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    true);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), true);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
 }
 
 #[test]
@@ -488,7 +631,7 @@ fn branch_if_minus_test() {
     {
         let mut machine = Machine::new();
 
-        machine.registers.status.set_with_mask(PS_NEGATIVE, PS_NEGATIVE);
+        machine.registers.status.or(PS_NEGATIVE);
         let registers_before = machine.registers;
 
         machine.branch_if_minus(Address(0xABCD));
