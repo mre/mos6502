@@ -104,12 +104,16 @@ impl Status {
         out
     }
 
-    pub fn set_with_mask(&mut self, mask: Status, rhs: Status) {
-        *self = (*self & !mask) | rhs;
+    pub fn and(&mut self, rhs: Status) {
+        *self = *self & rhs;
     }
 
-    pub fn get_carry(self) -> i8 {
-        if self.contains(PS_CARRY) { 1 } else { 0 }
+    pub fn or(&mut self, rhs: Status) {
+        *self = *self | rhs;
+    }
+
+    pub fn set_with_mask(&mut self, mask: Status, rhs: Status) {
+        *self = (*self & !mask) | rhs;
     }
 }
 
