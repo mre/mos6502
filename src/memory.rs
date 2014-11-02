@@ -61,6 +61,10 @@ impl Memory {
         self.bytes[address.to_uint()]
     }
 
+    pub fn get_byte_mut_ref(&mut self, address: Address) -> &mut u8 {
+        &mut self.bytes[address.to_uint()]
+    }
+
     pub fn get_slice(&self, Address(start): Address,
                      AddressDiff(diff): AddressDiff) -> &[u8] {
         let start = start as uint;

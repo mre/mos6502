@@ -138,6 +138,22 @@ impl Machine {
                 self.dec_x();
             }
 
+            (instruction::INC, instruction::UseAddress(addr)) => {
+                 let m = self.memory.get_byte(addr);
+                 let m = m + 1;
+                 self.memory.set_byte(addr, m);
+                 let i = m as i8;
+                 Machine::set_flags_from_i8(&mut self.registers.status, i);
+            }
+            (instruction::INX, instruction::UseImplied) => {
+                let x = self.registers.index_x + 1;
+                self.load_x_register(x);
+            }
+            (instruction::INY, instruction::UseImplied) => {
+                let y = self.registers.index_y + 1;
+                self.load_y_register(y);
+            }
+
             (instruction::JMP, instruction::UseAddress(addr)) => {
                 self.jump(addr)
             }
@@ -170,6 +186,19 @@ impl Machine {
                 let val = self.memory.get_byte(addr);
                 debug!("load Y. address: {}. value: {}", addr, val);
                 self.load_y_register(val as i8);
+            }
+
+            (instruction::LSR, instruction::UseImplied) => {
+                // Accumulator mode
+                let mut val = self.registers.accumulator as u8;
+                Machine::shift_right_with_flags(&mut val,
+                                                &mut self.registers.status);
+                self.registers.accumulator = val as i8;
+            }
+            (instruction::LSR, instruction::UseAddress(addr)) => {
+                Machine::shift_right_with_flags(
+                    self.memory.get_byte_mut_ref(addr),
+                    &mut self.registers.status);
             }
 
             (instruction::SBC, instruction::UseImmediate(val)) => {
@@ -252,11 +281,7 @@ impl Machine {
         }
     }
 
-    fn load_register_with_flags(register: &mut i8,
-                                status: &mut Status,
-                                value: i8) {
-        *register = value;
-
+    fn set_flags_from_i8(status: &mut Status, value: i8) {
         let is_zero = value == 0;
         let is_negative = value < 0;
 
@@ -267,22 +292,37 @@ impl Machine {
                                      ..StatusArgs::none() } ));
     }
 
+    fn shift_right_with_flags(p_val: &mut u8, status: &mut Status) {
+        let bit0 = *p_val & 1;
+        *p_val = *p_val >> 1;
+        status.set_with_mask(
+            PS_CARRY,
+            Status::new(StatusArgs { carry: bit0 == 1,
+                                     ..StatusArgs::none() } ));
+        Machine::set_flags_from_i8(status, *p_val as i8);
+    }
+
+    fn set_i8_with_flags(mem: &mut i8, status: &mut Status, value: i8) {
+        *mem = value;
+        Machine::set_flags_from_i8(status, value);
+    }
+
     fn load_x_register(&mut self, value: i8) {
-        Machine::load_register_with_flags(&mut self.registers.index_x,
-                                          &mut self.registers.status,
-                                          value);
+        Machine::set_i8_with_flags(&mut self.registers.index_x,
+                                   &mut self.registers.status,
+                                   value);
     }
 
     fn load_y_register(&mut self, value: i8) {
-        Machine::load_register_with_flags(&mut self.registers.index_y,
-                                          &mut self.registers.status,
-                                          value);
+        Machine::set_i8_with_flags(&mut self.registers.index_y,
+                                   &mut self.registers.status,
+                                   value);
     }
 
     fn load_accumulator(&mut self, value: i8) {
-        Machine::load_register_with_flags(&mut self.registers.accumulator,
-                                          &mut self.registers.status,
-                                          value);
+        Machine::set_i8_with_flags(&mut self.registers.accumulator,
+                                   &mut self.registers.status,
+                                   value);
     }
 
     fn add_with_carry(&mut self, value: i8) {
@@ -561,6 +601,52 @@ fn decrement_memory_test() {
     assert_eq!(machine.memory.get_byte(addr) as i8, -1);
     assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
     assert_eq!(machine.registers.status.contains(PS_NEGATIVE), true);
+}
+
+#[test]
+fn logical_shift_right_test() {
+    // Testing UseImplied version (which targets the accumulator) only, for now
+
+    let mut machine = Machine::new();
+    machine.execute_instruction((instruction::LDA,
+                                 instruction::UseImmediate(0)));
+    machine.execute_instruction((instruction::LSR,
+                                 instruction::UseImplied));
+    assert_eq!(machine.registers.accumulator, 0);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     true);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
+
+    machine.execute_instruction((instruction::LDA,
+                                 instruction::UseImmediate(1)));
+    machine.execute_instruction((instruction::LSR,
+                                 instruction::UseImplied));
+    assert_eq!(machine.registers.accumulator, 0);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    true);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     true);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
+
+    machine.execute_instruction((instruction::LDA,
+                                 instruction::UseImmediate(255)));
+    machine.execute_instruction((instruction::LSR,
+                                 instruction::UseImplied));
+    assert_eq!(machine.registers.accumulator, 0x7F);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    true);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
+
+    machine.execute_instruction((instruction::LDA,
+                                 instruction::UseImmediate(254)));
+    machine.execute_instruction((instruction::LSR,
+                                 instruction::UseImplied));
+    assert_eq!(machine.registers.accumulator, 0x7F);
+    assert_eq!(machine.registers.status.contains(PS_CARRY),    false);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+    assert_eq!(machine.registers.status.contains(PS_OVERFLOW), false);
 }
 
 #[test]
