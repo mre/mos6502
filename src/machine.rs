@@ -88,6 +88,20 @@ impl Machine {
                 self.add_with_carry(val);
             }
 
+            (instruction::ASL, instruction::UseImplied) => {
+                // Accumulator mode
+                let mut val = self.registers.accumulator as u8;
+                Machine::shift_left_with_flags(&mut val,
+                                               &mut self.registers.status);
+                self.registers.accumulator = val as i8;
+
+            }
+            (instruction::ASL, instruction::UseAddress(addr)) => {
+                Machine::shift_left_with_flags(
+                    self.memory.get_byte_mut_ref(addr),
+                    &mut self.registers.status);
+            }
+
             (instruction::BIT, instruction::UseAddress(addr)) => {
                 let a: u8 = self.registers.accumulator as u8;
                 let m: u8 = self.memory.get_byte(addr);
@@ -201,6 +215,55 @@ impl Machine {
                     &mut self.registers.status);
             }
 
+            (instruction::PHA, instruction::UseImplied) => {
+                // Push accumulator
+                let val = self.registers.accumulator as u8;
+                self.push_on_stack(val);
+            }
+            (instruction::PHP, instruction::UseImplied) => {
+                // Push status
+                let val = self.registers.status.bits();
+                self.push_on_stack(val);
+            }
+            (instruction::PLA, instruction::UseImplied) => {
+                // Pull accumulator
+                let val: u8 = self.pull_from_stack();
+                self.registers.accumulator = val as i8;
+            }
+            (instruction::PLP, instruction::UseImplied) => {
+                // Pull status
+                let val: u8 = self.pull_from_stack();
+                // The `truncate` here won't do anything because we have a
+                // constant for the single unused flags bit. This probably
+                // corresponds to the behavior of the 6502...? FIXME: verify
+                self.registers.status = Status::from_bits_truncate(val);
+            }
+
+            (instruction::ROL, instruction::UseImplied) => {
+                // Accumulator mode
+                let mut val = self.registers.accumulator as u8;
+                Machine::rotate_left_with_flags(&mut val,
+                                                &mut self.registers.status);
+                self.registers.accumulator = val as i8;
+            }
+            (instruction::ROL, instruction::UseAddress(addr)) => {
+                Machine::rotate_left_with_flags(
+                    self.memory.get_byte_mut_ref(addr),
+                    &mut self.registers.status);
+            }
+            (instruction::ROR, instruction::UseImplied) => {
+                // Accumulator mode
+                let mut val = self.registers.accumulator as u8;
+                Machine::rotate_right_with_flags(&mut val,
+                                                 &mut self.registers.status);
+                self.registers.accumulator = val as i8;
+            }
+            (instruction::ROR, instruction::UseAddress(addr)) => {
+                Machine::rotate_right_with_flags(
+                    self.memory.get_byte_mut_ref(addr),
+                    &mut self.registers.status);
+            }
+
             (instruction::SBC, instruction::UseImmediate(val)) => {
                 debug!("subtract with carry immediate: {}", val);
                 self.subtract_with_carry(val as i8);
@@ -292,12 +355,51 @@ impl Machine {
                                      ..StatusArgs::none() } ));
     }
 
+    fn shift_left_with_flags(p_val: &mut u8, status: &mut Status) {
+        let mask = 1 << 7;
+        let is_bit_7_set = (*p_val & mask) == mask;
+        let shifted = (*p_val & !(1 << 7)) << 1;
+        *p_val = shifted;
+        status.set_with_mask(
+            PS_CARRY,
+            Status::new(StatusArgs { carry: is_bit_7_set,
+                                     ..StatusArgs::none() } ));
+        Machine::set_flags_from_i8(status, *p_val as i8);
+    }
+
     fn shift_right_with_flags(p_val: &mut u8, status: &mut Status) {
-        let bit0 = *p_val & 1;
+        let mask = 1;
+        let is_bit_0_set = (*p_val & mask) == mask;
         *p_val = *p_val >> 1;
         status.set_with_mask(
             PS_CARRY,
-            Status::new(StatusArgs { carry: bit0 == 1,
+            Status::new(StatusArgs { carry: is_bit_0_set,
+                                     ..StatusArgs::none() } ));
+        Machine::set_flags_from_i8(status, *p_val as i8);
+    }
+
+    fn rotate_left_with_flags(p_val: &mut u8, status: &mut Status) {
+        let is_carry_set = status.contains(PS_CARRY);
+        let mask = 1 << 7;
+        let is_bit_7_set = (*p_val & mask) == mask;
+        let shifted = (*p_val & !(1 << 7)) << 1;
+        *p_val = shifted + if is_carry_set { 1 } else { 0 };
+        status.set_with_mask(
+            PS_CARRY,
+            Status::new(StatusArgs { carry: is_bit_7_set,
+                                     ..StatusArgs::none() } ));
+        Machine::set_flags_from_i8(status, *p_val as i8);
+    }
+
+    fn rotate_right_with_flags(p_val: &mut u8, status: &mut Status) {
+        let is_carry_set = status.contains(PS_CARRY);
+        let mask = 1;
+        let is_bit_0_set = (*p_val & mask) == mask;
+        let shifted = *p_val >> 1;
+        *p_val = shifted + if is_carry_set { 1 << 7 } else { 0 };
+        status.set_with_mask(
+            PS_CARRY,
+            Status::new(StatusArgs { carry: is_bit_0_set,
                                      ..StatusArgs::none() } ));
         Machine::set_flags_from_i8(status, *p_val as i8);
     }
@@ -430,6 +532,19 @@ impl Machine {
         if self.registers.status.contains(PS_NEGATIVE) {
             self.registers.program_counter = addr;
         }
+    }
+
+    fn push_on_stack(&mut self, val: u8) {
+        let addr = self.registers.stack_pointer.to_address();
+        self.memory.set_byte(addr, val);
+        self.registers.stack_pointer.decrement();
+    }
+
+    fn pull_from_stack(&mut self) -> u8 {
+        let addr = self.registers.stack_pointer.to_address();
+        let out = self.memory.get_byte(addr);
+        self.registers.stack_pointer.increment();
+        out
     }
 }
 
