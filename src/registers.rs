@@ -59,6 +59,9 @@ pub bitflags! {
         const PS_NEGATIVE           = 0b10000000,
         const PS_OVERFLOW           = 0b01000000,
         const PS_UNUSED             = 0b00100000, // JAM: Should this exist?
+                                                  // (note that it affects the
+                                                  // behavior of things like
+                                                  // from_bits_truncate)
         const PS_BRK                = 0b00010000,
         const PS_DECIMAL_MODE       = 0b00001000,
         const PS_DISABLE_INTERRUPTS = 0b00000100,
@@ -121,9 +124,22 @@ impl Status {
 pub struct StackPointer(pub u8);
 
 impl StackPointer {
-    pub fn to_address(&StackPointer(sp): &StackPointer) -> Address
+    pub fn to_address(&self) -> Address
     {
+        let StackPointer(sp) = *self;
         STACK_ADDRESS_LO + AddressDiff(sp as i32)
+    }
+
+    // JAM: FIXME: Should we prevent overflow here? What would a 6502 do?
+
+    pub fn decrement(&mut self) {
+        let StackPointer(val) = *self;
+        *self = StackPointer(val - 1);
+    }
+
+    pub fn increment(&mut self) {
+        let StackPointer(val) = *self;
+        *self = StackPointer(val + 1);
     }
 }
 

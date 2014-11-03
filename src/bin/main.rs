@@ -27,9 +27,13 @@
 
 extern crate emu6502;
 
+#[cfg(not(test))]
 use emu6502::machine;
+
+#[cfg(not(test))]
 use emu6502::address::Address;
 
+#[cfg(not(test))]
 fn main() {
     let mut machine = machine::Machine::new();
 
