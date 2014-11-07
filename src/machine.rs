@@ -116,6 +116,11 @@ impl Machine {
                 self.branch_if_carry_clear(addr);
             }
 
+            (instruction::BCS, instruction::UseRelative(rel)) => {
+                let addr = self.registers.program_counter
+                         + AddressDiff(rel as i32);
+                self.branch_if_carry_set(addr);
+            }
 
             (instruction::BIT, instruction::UseAddress(addr)) => {
                 let a: u8 = self.registers.accumulator as u8;
