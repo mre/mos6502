@@ -565,6 +565,12 @@ impl Machine {
         }
     }
 
+    fn branch_if_equal(&mut self, addr: Address) {
+        if self.registers.status.contains(PS_ZERO) {
+            self.registers.program_counter = addr;
+        }
+    }
+
     fn branch_if_minus(&mut self, addr: Address) {
         if self.registers.status.contains(PS_NEGATIVE) {
             self.registers.program_counter = addr;
