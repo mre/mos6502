@@ -110,6 +110,13 @@ impl Machine {
                     &mut self.registers.status);
             }
 
+            (instruction::BCC, instruction::UseRelative(rel)) => {
+                let addr = self.registers.program_counter
+                         + AddressDiff(rel as i32);
+                self.branch_if_carry_clear(addr);
+            }
+
+
             (instruction::BIT, instruction::UseAddress(addr)) => {
                 let a: u8 = self.registers.accumulator as u8;
                 let m: u8 = self.memory.get_byte(addr);
@@ -541,6 +548,12 @@ impl Machine {
         self.registers.program_counter = addr;
     }
 
+    fn branch_if_carry_clear(&mut self, addr: Address) {
+        if !self.registers.status.contains(PS_CARRY) {
+            self.registers.program_counter = addr;
+        }
+    }
+
     fn branch_if_minus(&mut self, addr: Address) {
         if self.registers.status.contains(PS_NEGATIVE) {
             self.registers.program_counter = addr;
@@ -858,6 +871,19 @@ fn jump_test() {
 
     machine.jump(addr);
     assert_eq!(machine.registers.program_counter, addr);
+}
+
+#[test]
+fn branch_if_carry_clear_test() {
+    let mut machine = Machine::new();
+
+    machine.execute_instruction((instruction::SEC, instruction::UseImplied));
+    machine.branch_if_carry_clear(Address(0xABCD));
+    assert_eq!(machine.registers.program_counter, Address(0));
+
+    machine.execute_instruction((instruction::CLC, instruction::UseImplied));
+    machine.branch_if_carry_clear(Address(0xABCD));
+    assert_eq!(machine.registers.program_counter, Address(0xABCD));
 }
 
 #[test]
