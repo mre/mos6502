@@ -110,6 +110,13 @@ impl Machine {
                     &mut self.registers.status);
             }
 
+            (instruction::BCC, instruction::UseRelative(rel)) => {
+                let addr = self.registers.program_counter
+                         + AddressDiff(rel as i32);
+                self.branch_if_carry_clear(addr);
+            }
+
+
             (instruction::BIT, instruction::UseAddress(addr)) => {
                 let a: u8 = self.registers.accumulator as u8;
                 let m: u8 = self.memory.get_byte(addr);
