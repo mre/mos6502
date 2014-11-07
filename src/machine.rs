@@ -956,3 +956,16 @@ fn branch_if_minus_test() {
         assert_eq!(machine.registers.program_counter, Address(0xABCD));
     }
 }
+
+#[test]
+fn branch_if_positive_test() {
+    let mut machine = Machine::new();
+
+    machine.registers.status.insert(PS_NEGATIVE);
+    machine.branch_if_positive(Address(0xABCD));
+    assert_eq!(machine.registers.program_counter, Address(0));
+
+    machine.registers.status.remove(PS_NEGATIVE);
+    machine.branch_if_positive(Address(0xABCD));
+    assert_eq!(machine.registers.program_counter, Address(0xABCD));
+}
