@@ -638,26 +638,26 @@ fn and_test() {
     let mut machine = Machine::new();
 
     machine.registers.accumulator = 0;
-    machine.and(0xff);
+    machine.and(-1);
     assert_eq!(machine.registers.accumulator, 0);
     assert_eq!(machine.registers.status.contains(PS_ZERO),     true);
     assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
 
-    machine.registers.accumulator = 0xff;
+    machine.registers.accumulator = -1;
     machine.and(0);
     assert_eq!(machine.registers.accumulator, 0);
     assert_eq!(machine.registers.status.contains(PS_ZERO),     true);
     assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
 
-    machine.registers.accumulator = 0xff;
+    machine.registers.accumulator = -1;
     machine.and(0x0f);
     assert_eq!(machine.registers.accumulator, 0x0f);
     assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
     assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
 
-    machine.registers.accumulator = 0xff;
-    machine.and(0xf0);
-    assert_eq!(machine.registers.accumulator, 0xf0);
+    machine.registers.accumulator = -1;
+    machine.and(-128);
+    assert_eq!(machine.registers.accumulator, -128);
     assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
     assert_eq!(machine.registers.status.contains(PS_NEGATIVE), true);
 }
