@@ -554,6 +554,12 @@ impl Machine {
         }
     }
 
+    fn branch_if_carry_set(&mut self, addr: Address) {
+        if self.registers.status.contains(PS_CARRY) {
+            self.registers.program_counter = addr;
+        }
+    }
+
     fn branch_if_minus(&mut self, addr: Address) {
         if self.registers.status.contains(PS_NEGATIVE) {
             self.registers.program_counter = addr;
