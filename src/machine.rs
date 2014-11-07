@@ -459,6 +459,11 @@ impl Machine {
         }
     }
 
+    fn and(&mut self, value: i8) {
+        let a_after = self.registers.accumulator & value;
+        self.load_accumulator(a_after);
+    }
+
     // TODO: Implement binary-coded decimal
     fn subtract_with_carry(&mut self, value: i8) {
         if self.registers.status.contains(PS_DECIMAL_MODE) {
