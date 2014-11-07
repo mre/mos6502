@@ -911,6 +911,18 @@ fn branch_if_carry_set_test() {
 }
 
 #[test]
+fn branch_if_equal_test() {
+    let mut machine = Machine::new();
+
+    machine.branch_if_equal(Address(0xABCD));
+    assert_eq!(machine.registers.program_counter, Address(0));
+
+    machine.registers.status.or(PS_ZERO);
+    machine.branch_if_equal(Address(0xABCD));
+    assert_eq!(machine.registers.program_counter, Address(0xABCD));
+}
+
+#[test]
 fn branch_if_minus_test() {
     {
         let mut machine      = Machine::new();
