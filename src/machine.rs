@@ -88,6 +88,14 @@ impl Machine {
                 self.add_with_carry(val);
             }
 
+            (instruction::AND, instruction::UseImmediate(val)) => {
+                self.and(val as i8);
+            }
+            (instruction::AND, instruction::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr) as i8;
+                self.and(val as i8);
+            }
+
             (instruction::ASL, instruction::UseImplied) => {
                 // Accumulator mode
                 let mut val = self.registers.accumulator as u8;
@@ -459,6 +467,11 @@ impl Machine {
         }
     }
 
+    fn and(&mut self, value: i8) {
+        let a_after = self.registers.accumulator & value;
+        self.load_accumulator(a_after);
+    }
+
     // TODO: Implement binary-coded decimal
     fn subtract_with_carry(&mut self, value: i8) {
         if self.registers.status.contains(PS_DECIMAL_MODE) {
@@ -626,6 +639,35 @@ fn add_with_carry_test() {
     assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
     assert_eq!(machine.registers.status.contains(PS_NEGATIVE),  true);
     assert_eq!(machine.registers.status.contains(PS_OVERFLOW),  true);
+}
+
+#[test]
+fn and_test() {
+    let mut machine = Machine::new();
+
+    machine.registers.accumulator = 0;
+    machine.and(-1);
+    assert_eq!(machine.registers.accumulator, 0);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     true);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+
+    machine.registers.accumulator = -1;
+    machine.and(0);
+    assert_eq!(machine.registers.accumulator, 0);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     true);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+
+    machine.registers.accumulator = -1;
+    machine.and(0x0f);
+    assert_eq!(machine.registers.accumulator, 0x0f);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), false);
+
+    machine.registers.accumulator = -1;
+    machine.and(-128);
+    assert_eq!(machine.registers.accumulator, -128);
+    assert_eq!(machine.registers.status.contains(PS_ZERO),     false);
+    assert_eq!(machine.registers.status.contains(PS_NEGATIVE), true);
 }
 
 #[test]
