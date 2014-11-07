@@ -861,6 +861,19 @@ fn jump_test() {
 }
 
 #[test]
+fn branch_if_carry_clear_test() {
+    let mut machine = Machine::new();
+
+    machine.execute_instruction((instruction::SEC, instruction::UseImplied));
+    machine.branch_if_carry_clear(Address(0xABCD));
+    assert_eq!(machine.registers.program_counter, Address(0));
+
+    machine.execute_instruction((instruction::CLC, instruction::UseImplied));
+    machine.branch_if_carry_clear(Address(0xABCD));
+    assert_eq!(machine.registers.program_counter, Address(0xABCD));
+}
+
+#[test]
 fn branch_if_minus_test() {
     {
         let mut machine      = Machine::new();
