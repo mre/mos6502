@@ -88,6 +88,14 @@ impl Machine {
                 self.add_with_carry(val);
             }
 
+            (instruction::AND, instruction::UseImmediate(val)) => {
+                self.and(val as i8);
+            }
+            (instruction::AND, instruction::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr) as i8;
+                self.and(val as i8);
+            }
+
             (instruction::ASL, instruction::UseImplied) => {
                 // Accumulator mode
                 let mut val = self.registers.accumulator as u8;
