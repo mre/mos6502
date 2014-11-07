@@ -583,6 +583,12 @@ impl Machine {
         }
     }
 
+    fn branch_if_positive(&mut self, addr: Address) {
+        if !self.registers.status.contains(PS_NEGATIVE) {
+            self.registers.program_counter = addr;
+        }
+    }
+
     fn push_on_stack(&mut self, val: u8) {
         let addr = self.registers.stack_pointer.to_address();
         self.memory.set_byte(addr, val);
