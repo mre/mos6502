@@ -163,6 +163,12 @@ impl Machine {
                 self.branch_if_positive(addr);
             }
 
+            (instruction::BVC, instruction::UseRelative(rel)) => {
+                let addr = self.registers.program_counter
+                         + AddressDiff(rel as i32);
+                self.branch_if_overflow_clear(addr);
+            }
+
             (instruction::CLC, instruction::UseImplied) => {
                 self.registers.status.and(!PS_CARRY);
             }
