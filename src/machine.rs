@@ -169,6 +169,12 @@ impl Machine {
                 self.branch_if_overflow_clear(addr);
             }
 
+            (instruction::BVS, instruction::UseRelative(rel)) => {
+                let addr = self.registers.program_counter
+                         + AddressDiff(rel as i32);
+                self.branch_if_overflow_set(addr);
+            }
+
             (instruction::CLC, instruction::UseImplied) => {
                 self.registers.status.and(!PS_CARRY);
             }
@@ -607,6 +613,12 @@ impl Machine {
         }
     }
 
+    fn branch_if_overflow_set(&mut self, addr: Address) {
+        if self.registers.status.contains(PS_OVERFLOW) {
+            self.registers.program_counter = addr;
+        }
+    }
+
     fn push_on_stack(&mut self, val: u8) {
         let addr = self.registers.stack_pointer.to_address();
         self.memory.set_byte(addr, val);
@@ -1004,5 +1016,17 @@ fn branch_if_overflow_clear_test() {
 
     machine.registers.status.remove(PS_OVERFLOW);
     machine.branch_if_overflow_clear(Address(0xABCD));
+    assert_eq!(machine.registers.program_counter, Address(0xABCD));
+}
+
+#[test]
+fn branch_if_overflow_set_test() {
+    let mut machine = Machine::new();
+
+    machine.branch_if_overflow_set(Address(0xABCD));
+    assert_eq!(machine.registers.program_counter, Address(0));
+
+    machine.registers.status.insert(PS_OVERFLOW);
+    machine.branch_if_overflow_set(Address(0xABCD));
     assert_eq!(machine.registers.program_counter, Address(0xABCD));
 }
