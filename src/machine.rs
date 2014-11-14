@@ -1030,3 +1030,53 @@ fn branch_if_overflow_set_test() {
     machine.branch_if_overflow_set(Address(0xABCD));
     assert_eq!(machine.registers.program_counter, Address(0xABCD));
 }
+
+#[test]
+fn compare_test() {
+    let mut machine = Machine::new();
+
+    machine.execute_instruction(
+        (instruction::LDA, instruction::UseImmediate(127))
+    );
+
+    machine.compare(127);
+    assert!( machine.registers.status.contains(PS_ZERO    ));
+    assert!( machine.registers.status.contains(PS_CARRY   ));
+    assert!(!machine.registers.status.contains(PS_NEGATIVE));
+
+    machine.execute_instruction(
+        (instruction::LDA, instruction::UseImmediate(127))
+    );
+
+    machine.compare(1);
+    assert!(!machine.registers.status.contains(PS_ZERO    ));
+    assert!( machine.registers.status.contains(PS_CARRY   ));
+    assert!(!machine.registers.status.contains(PS_NEGATIVE));
+
+    machine.execute_instruction(
+        (instruction::LDA, instruction::UseImmediate(1))
+    );
+
+    machine.compare(2);
+    assert!(!machine.registers.status.contains(PS_ZERO    ));
+    assert!(!machine.registers.status.contains(PS_CARRY   ));
+    assert!(!machine.registers.status.contains(PS_NEGATIVE));
+
+    machine.execute_instruction(
+        (instruction::LDA, instruction::UseImmediate(1))
+    );
+
+    machine.compare(2);
+    assert!(!machine.registers.status.contains(PS_ZERO    ));
+    assert!(!machine.registers.status.contains(PS_CARRY   ));
+    assert!( machine.registers.status.contains(PS_NEGATIVE));
+
+    machine.execute_instruction(
+        (instruction::LDA, instruction::UseImmediate(20))
+    );
+
+    machine.compare(-50);
+    assert!(!machine.registers.status.contains(PS_ZERO    ));
+    assert!( machine.registers.status.contains(PS_CARRY   ));
+    assert!(!machine.registers.status.contains(PS_NEGATIVE));
+}
