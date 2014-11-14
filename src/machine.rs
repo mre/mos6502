@@ -619,6 +619,37 @@ impl Machine {
         }
     }
 
+
+    // From http://www.6502.org/tutorials/compare_beyond.html:
+    //   If the Z flag is 0, then A <> NUM and BNE will branch
+    //   If the Z flag is 1, then A = NUM and BEQ will branch
+    //   If the C flag is 0, then A (unsigned) < NUM (unsigned) and BCC will branch
+    //   If the C flag is 1, then A (unsigned) >= NUM (unsigned) and BCS will branch
+    //   ...
+    //   The N flag contains most significant bit of the of the subtraction result.
+    fn compare(&mut self, val: u8) {
+        let a = self.registers.accumulator;
+
+        if a as u8 >= val as u8 {
+            self.registers.status.insert(PS_CARRY);
+        } else {
+            self.registers.status.remove(PS_CARRY);
+        }
+
+        if a as i8 == val as i8 {
+            self.registers.status.insert(PS_ZERO);
+        } else {
+            self.registers.status.remove(PS_ZERO);
+        }
+
+        let diff: i8 = (a as i8) - (val as i8);
+        if diff < 0 {
+            self.registers.status.insert(PS_NEGATIVE);
+        } else {
+            self.registers.status.remove(PS_NEGATIVE);
+        }
+    }
+
     fn push_on_stack(&mut self, val: u8) {
         let addr = self.registers.stack_pointer.to_address();
         self.memory.set_byte(addr, val);
@@ -1044,6 +1075,7 @@ fn compare_test() {
     assert!( machine.registers.status.contains(PS_CARRY   ));
     assert!(!machine.registers.status.contains(PS_NEGATIVE));
 
+
     machine.execute_instruction(
         (instruction::LDA, instruction::UseImmediate(127))
     );
@@ -1053,14 +1085,6 @@ fn compare_test() {
     assert!( machine.registers.status.contains(PS_CARRY   ));
     assert!(!machine.registers.status.contains(PS_NEGATIVE));
 
-    machine.execute_instruction(
-        (instruction::LDA, instruction::UseImmediate(1))
-    );
-
-    machine.compare(2);
-    assert!(!machine.registers.status.contains(PS_ZERO    ));
-    assert!(!machine.registers.status.contains(PS_CARRY   ));
-    assert!(!machine.registers.status.contains(PS_NEGATIVE));
 
     machine.execute_instruction(
         (instruction::LDA, instruction::UseImmediate(1))
@@ -1071,12 +1095,33 @@ fn compare_test() {
     assert!(!machine.registers.status.contains(PS_CARRY   ));
     assert!( machine.registers.status.contains(PS_NEGATIVE));
 
+
     machine.execute_instruction(
         (instruction::LDA, instruction::UseImmediate(20))
     );
 
     machine.compare(-50);
     assert!(!machine.registers.status.contains(PS_ZERO    ));
-    assert!( machine.registers.status.contains(PS_CARRY   ));
+    assert!(!machine.registers.status.contains(PS_CARRY   ));
     assert!(!machine.registers.status.contains(PS_NEGATIVE));
+
+
+    machine.execute_instruction(
+        (instruction::LDA, instruction::UseImmediate(1))
+    );
+
+    machine.compare(-1);
+    assert!(!machine.registers.status.contains(PS_ZERO    ));
+    assert!(!machine.registers.status.contains(PS_CARRY   ));
+    assert!(!machine.registers.status.contains(PS_NEGATIVE));
+
+
+    machine.execute_instruction(
+        (instruction::LDA, instruction::UseImmediate(127))
+    );
+
+    machine.compare(-128);
+    assert!(!machine.registers.status.contains(PS_ZERO    ));
+    assert!(!machine.registers.status.contains(PS_CARRY   ));
+    assert!( machine.registers.status.contains(PS_NEGATIVE));
 }
