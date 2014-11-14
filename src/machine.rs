@@ -196,6 +196,22 @@ impl Machine {
                 self.compare_with_a_register(val);
             }
 
+            (instruction::CPX, instruction::UseImmediate(val)) => {
+                self.compare_with_x_register(val);
+            }
+            (instruction::CPX, instruction::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+                self.compare_with_x_register(val);
+            }
+
+            (instruction::CPY, instruction::UseImmediate(val)) => {
+                self.compare_with_y_register(val);
+            }
+            (instruction::CPY, instruction::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+                self.compare_with_y_register(val);
+            }
+
             (instruction::DEC, instruction::UseAddress(addr)) => {
                 self.decrement_memory(addr)
             }
@@ -660,6 +676,18 @@ impl Machine {
         self.compare(a, val);
     }
 
+    fn compare_with_x_register(&mut self, val: u8) {
+        debug!("compare_with_x_register");
+
+        let x = self.registers.index_x;
+        self.compare(x, val);
+    }
+
+    fn compare_with_y_register(&mut self, val: u8) {
+        let y = self.registers.index_y;
+        self.compare(y, val);
+    }
+
     fn push_on_stack(&mut self, val: u8) {
         let addr = self.registers.stack_pointer.to_address();
         self.memory.set_byte(addr, val);
@@ -1072,11 +1100,14 @@ fn branch_if_overflow_set_test() {
     assert_eq!(machine.registers.program_counter, Address(0xABCD));
 }
 
-fn compare_test_helper(compare: |&mut Machine, u8|) {
+fn compare_test_helper(
+    compare:          |&mut Machine, u8|,
+    load_instruction: instruction::Instruction
+) {
     let mut machine = Machine::new();
 
     machine.execute_instruction(
-        (instruction::LDA, instruction::UseImmediate(127))
+        (load_instruction, instruction::UseImmediate(127))
     );
 
     compare(&mut machine, 127);
@@ -1086,7 +1117,7 @@ fn compare_test_helper(compare: |&mut Machine, u8|) {
 
 
     machine.execute_instruction(
-        (instruction::LDA, instruction::UseImmediate(127))
+        (load_instruction, instruction::UseImmediate(127))
     );
 
     compare(&mut machine, 1);
@@ -1096,7 +1127,7 @@ fn compare_test_helper(compare: |&mut Machine, u8|) {
 
 
     machine.execute_instruction(
-        (instruction::LDA, instruction::UseImmediate(1))
+        (load_instruction, instruction::UseImmediate(1))
     );
 
     compare(&mut machine, 2);
@@ -1106,7 +1137,7 @@ fn compare_test_helper(compare: |&mut Machine, u8|) {
 
 
     machine.execute_instruction(
-        (instruction::LDA, instruction::UseImmediate(20))
+        (load_instruction, instruction::UseImmediate(20))
     );
 
     compare(&mut machine, -50);
@@ -1116,7 +1147,7 @@ fn compare_test_helper(compare: |&mut Machine, u8|) {
 
 
     machine.execute_instruction(
-        (instruction::LDA, instruction::UseImmediate(1))
+        (load_instruction, instruction::UseImmediate(1))
     );
 
     compare(&mut machine, -1);
@@ -1126,7 +1157,7 @@ fn compare_test_helper(compare: |&mut Machine, u8|) {
 
 
     machine.execute_instruction(
-        (instruction::LDA, instruction::UseImmediate(127))
+        (load_instruction, instruction::UseImmediate(127))
     );
 
     compare(&mut machine, -128);
@@ -1140,6 +1171,27 @@ fn compare_with_a_register_test() {
     compare_test_helper(
         |machine: &mut Machine, val: u8| {
             machine.compare_with_a_register(val);
-        }
+        },
+        instruction::LDA
+    );
+}
+
+#[test]
+fn compare_with_x_register_test() {
+    compare_test_helper(
+        |machine: &mut Machine, val: u8| {
+            machine.compare_with_x_register(val);
+        },
+        instruction::LDX
+    );
+}
+
+#[test]
+fn compare_with_y_register_test() {
+    compare_test_helper(
+        |machine: &mut Machine, val: u8| {
+            machine.compare_with_y_register(val);
+        },
+        instruction::LDY
     );
 }
