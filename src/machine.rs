@@ -188,6 +188,30 @@ impl Machine {
                 self.registers.status.and(!PS_OVERFLOW);
             }
 
+            (instruction::CMP, instruction::UseImmediate(val)) => {
+                self.compare_with_a_register(val);
+            }
+            (instruction::CMP, instruction::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+                self.compare_with_a_register(val);
+            }
+
+            (instruction::CPX, instruction::UseImmediate(val)) => {
+                self.compare_with_x_register(val);
+            }
+            (instruction::CPX, instruction::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+                self.compare_with_x_register(val);
+            }
+
+            (instruction::CPY, instruction::UseImmediate(val)) => {
+                self.compare_with_y_register(val);
+            }
+            (instruction::CPY, instruction::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+                self.compare_with_y_register(val);
+            }
+
             (instruction::DEC, instruction::UseAddress(addr)) => {
                 self.decrement_memory(addr)
             }
@@ -619,6 +643,51 @@ impl Machine {
         }
     }
 
+    // From http://www.6502.org/tutorials/compare_beyond.html:
+    //   If the Z flag is 0, then A <> NUM and BNE will branch
+    //   If the Z flag is 1, then A = NUM and BEQ will branch
+    //   If the C flag is 0, then A (unsigned) < NUM (unsigned) and BCC will branch
+    //   If the C flag is 1, then A (unsigned) >= NUM (unsigned) and BCS will branch
+    //   ...
+    //   The N flag contains most significant bit of the of the subtraction result.
+    fn compare(&mut self, r: i8, val: u8) {
+        if r as u8 >= val as u8 {
+            self.registers.status.insert(PS_CARRY);
+        } else {
+            self.registers.status.remove(PS_CARRY);
+        }
+
+        if r as i8 == val as i8 {
+            self.registers.status.insert(PS_ZERO);
+        } else {
+            self.registers.status.remove(PS_ZERO);
+        }
+
+        let diff: i8 = (r as i8) - (val as i8);
+        if diff < 0 {
+            self.registers.status.insert(PS_NEGATIVE);
+        } else {
+            self.registers.status.remove(PS_NEGATIVE);
+        }
+    }
+
+    fn compare_with_a_register(&mut self, val: u8) {
+        let a = self.registers.accumulator;
+        self.compare(a, val);
+    }
+
+    fn compare_with_x_register(&mut self, val: u8) {
+        debug!("compare_with_x_register");
+
+        let x = self.registers.index_x;
+        self.compare(x, val);
+    }
+
+    fn compare_with_y_register(&mut self, val: u8) {
+        let y = self.registers.index_y;
+        self.compare(y, val);
+    }
+
     fn push_on_stack(&mut self, val: u8) {
         let addr = self.registers.stack_pointer.to_address();
         self.memory.set_byte(addr, val);
@@ -1029,4 +1098,100 @@ fn branch_if_overflow_set_test() {
     machine.registers.status.insert(PS_OVERFLOW);
     machine.branch_if_overflow_set(Address(0xABCD));
     assert_eq!(machine.registers.program_counter, Address(0xABCD));
+}
+
+fn compare_test_helper(
+    compare:          |&mut Machine, u8|,
+    load_instruction: instruction::Instruction
+) {
+    let mut machine = Machine::new();
+
+    machine.execute_instruction(
+        (load_instruction, instruction::UseImmediate(127))
+    );
+
+    compare(&mut machine, 127);
+    assert!( machine.registers.status.contains(PS_ZERO    ));
+    assert!( machine.registers.status.contains(PS_CARRY   ));
+    assert!(!machine.registers.status.contains(PS_NEGATIVE));
+
+
+    machine.execute_instruction(
+        (load_instruction, instruction::UseImmediate(127))
+    );
+
+    compare(&mut machine, 1);
+    assert!(!machine.registers.status.contains(PS_ZERO    ));
+    assert!( machine.registers.status.contains(PS_CARRY   ));
+    assert!(!machine.registers.status.contains(PS_NEGATIVE));
+
+
+    machine.execute_instruction(
+        (load_instruction, instruction::UseImmediate(1))
+    );
+
+    compare(&mut machine, 2);
+    assert!(!machine.registers.status.contains(PS_ZERO    ));
+    assert!(!machine.registers.status.contains(PS_CARRY   ));
+    assert!( machine.registers.status.contains(PS_NEGATIVE));
+
+
+    machine.execute_instruction(
+        (load_instruction, instruction::UseImmediate(20))
+    );
+
+    compare(&mut machine, -50);
+    assert!(!machine.registers.status.contains(PS_ZERO    ));
+    assert!(!machine.registers.status.contains(PS_CARRY   ));
+    assert!(!machine.registers.status.contains(PS_NEGATIVE));
+
+
+    machine.execute_instruction(
+        (load_instruction, instruction::UseImmediate(1))
+    );
+
+    compare(&mut machine, -1);
+    assert!(!machine.registers.status.contains(PS_ZERO    ));
+    assert!(!machine.registers.status.contains(PS_CARRY   ));
+    assert!(!machine.registers.status.contains(PS_NEGATIVE));
+
+
+    machine.execute_instruction(
+        (load_instruction, instruction::UseImmediate(127))
+    );
+
+    compare(&mut machine, -128);
+    assert!(!machine.registers.status.contains(PS_ZERO    ));
+    assert!(!machine.registers.status.contains(PS_CARRY   ));
+    assert!( machine.registers.status.contains(PS_NEGATIVE));
+}
+
+#[test]
+fn compare_with_a_register_test() {
+    compare_test_helper(
+        |machine: &mut Machine, val: u8| {
+            machine.compare_with_a_register(val);
+        },
+        instruction::LDA
+    );
+}
+
+#[test]
+fn compare_with_x_register_test() {
+    compare_test_helper(
+        |machine: &mut Machine, val: u8| {
+            machine.compare_with_x_register(val);
+        },
+        instruction::LDX
+    );
+}
+
+#[test]
+fn compare_with_y_register_test() {
+    compare_test_helper(
+        |machine: &mut Machine, val: u8| {
+            machine.compare_with_y_register(val);
+        },
+        instruction::LDY
+    );
 }
