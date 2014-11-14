@@ -188,6 +188,14 @@ impl Machine {
                 self.registers.status.and(!PS_OVERFLOW);
             }
 
+            (instruction::CMP, instruction::UseImmediate(val)) => {
+                self.compare(val);
+            }
+            (instruction::CMP, instruction::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+                self.compare(val);
+            }
+
             (instruction::DEC, instruction::UseAddress(addr)) => {
                 self.decrement_memory(addr)
             }
@@ -618,7 +626,6 @@ impl Machine {
             self.registers.program_counter = addr;
         }
     }
-
 
     // From http://www.6502.org/tutorials/compare_beyond.html:
     //   If the Z flag is 0, then A <> NUM and BNE will branch
