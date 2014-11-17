@@ -1195,3 +1195,33 @@ fn compare_with_y_register_test() {
         instruction::LDY
     );
 }
+
+#[test]
+fn exclusive_or_test() {
+    let mut machine = Machine::new();
+
+    for a_before in range(0u8, 255u8) {
+        for val in range(0u8, 255u8) {
+            machine.execute_instruction(
+                (instruction::LDA, instruction::UseImmediate(a_before))
+            );
+
+            machine.exclusive_or(val);
+
+            let a_after = a_before ^ val;
+            assert_eq!(machine.registers.accumulator, a_after as i8);
+
+            if a_after == 0 {
+                assert!(machine.registers.status.contains(PS_ZERO));
+            } else {
+                assert!(!machine.registers.status.contains(PS_ZERO));
+            }
+
+            if (a_after as i8) < 0 {
+                assert!(machine.registers.status.contains(PS_NEGATIVE));
+            } else {
+                assert!(!machine.registers.status.contains(PS_NEGATIVE));
+            }
+        }
+    }
+}
