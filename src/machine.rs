@@ -220,6 +220,14 @@ impl Machine {
                 self.dec_x();
             }
 
+            (instruction::EOR, instruction::UseImmediate(val)) => {
+                self.exclusive_or(val);
+            }
+            (instruction::EOR, instruction::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+                self.exclusive_or(val);
+            }
+
             (instruction::INC, instruction::UseAddress(addr)) => {
                  let m = self.memory.get_byte(addr);
                  let m = m + 1;
