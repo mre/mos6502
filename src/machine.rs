@@ -220,6 +220,14 @@ impl Machine {
                 self.dec_x();
             }
 
+            (instruction::EOR, instruction::UseImmediate(val)) => {
+                self.exclusive_or(val);
+            }
+            (instruction::EOR, instruction::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+                self.exclusive_or(val);
+            }
+
             (instruction::INC, instruction::UseAddress(addr)) => {
                  let m = self.memory.get_byte(addr);
                  let m = m + 1;
@@ -686,6 +694,11 @@ impl Machine {
     fn compare_with_y_register(&mut self, val: u8) {
         let y = self.registers.index_y;
         self.compare(y, val);
+    }
+
+    fn exclusive_or(&mut self, val: u8) {
+        let a_after = self.registers.accumulator ^ (val as i8);
+        self.load_accumulator(a_after);
     }
 
     fn push_on_stack(&mut self, val: u8) {
@@ -1194,4 +1207,34 @@ fn compare_with_y_register_test() {
         },
         instruction::LDY
     );
+}
+
+#[test]
+fn exclusive_or_test() {
+    let mut machine = Machine::new();
+
+    for a_before in range(0u8, 255u8) {
+        for val in range(0u8, 255u8) {
+            machine.execute_instruction(
+                (instruction::LDA, instruction::UseImmediate(a_before))
+            );
+
+            machine.exclusive_or(val);
+
+            let a_after = a_before ^ val;
+            assert_eq!(machine.registers.accumulator, a_after as i8);
+
+            if a_after == 0 {
+                assert!(machine.registers.status.contains(PS_ZERO));
+            } else {
+                assert!(!machine.registers.status.contains(PS_ZERO));
+            }
+
+            if (a_after as i8) < 0 {
+                assert!(machine.registers.status.contains(PS_NEGATIVE));
+            } else {
+                assert!(!machine.registers.status.contains(PS_NEGATIVE));
+            }
+        }
+    }
 }
