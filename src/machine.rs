@@ -696,6 +696,11 @@ impl Machine {
         self.compare(y, val);
     }
 
+    fn exclusive_or(&mut self, val: u8) {
+        let a_after = self.registers.accumulator ^ (val as i8);
+        self.load_accumulator(a_after);
+    }
+
     fn push_on_stack(&mut self, val: u8) {
         let addr = self.registers.stack_pointer.to_address();
         self.memory.set_byte(addr, val);
