@@ -1247,7 +1247,7 @@ fn inclusive_or_test() {
     for a_before in range(0u8, 255u8) {
         for val in range(0u8, 255u8) {
             machine.execute_instruction(
-                (instruction::LDA, instruction::UseImmediate(a_before))
+                (Instruction::LDA, OpInput::UseImmediate(a_before))
             );
 
             machine.inclusive_or(val);
