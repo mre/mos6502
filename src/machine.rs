@@ -291,6 +291,14 @@ impl Machine {
                     &mut self.registers.status);
             }
 
+            (Instruction::ORA, OpInput::UseImmediate(val)) => {
+                self.inclusive_or(val);
+            }
+            (Instruction::ORA, OpInput::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+                self.inclusive_or(val);
+            }
+
             (Instruction::PHA, OpInput::UseImplied) => {
                 // Push accumulator
                 let val = self.registers.accumulator as u8;
