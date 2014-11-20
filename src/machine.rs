@@ -291,6 +291,14 @@ impl Machine {
                     &mut self.registers.status);
             }
 
+            (Instruction::ORA, OpInput::UseImmediate(val)) => {
+                self.inclusive_or(val);
+            }
+            (Instruction::ORA, OpInput::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+                self.inclusive_or(val);
+            }
+
             (Instruction::PHA, OpInput::UseImplied) => {
                 // Push accumulator
                 let val = self.registers.accumulator as u8;
@@ -698,6 +706,11 @@ impl Machine {
 
     fn exclusive_or(&mut self, val: u8) {
         let a_after = self.registers.accumulator ^ (val as i8);
+        self.load_accumulator(a_after);
+    }
+
+    fn inclusive_or(&mut self, val: u8) {
+        let a_after = self.registers.accumulator | (val as i8);
         self.load_accumulator(a_after);
     }
 
@@ -1223,6 +1236,36 @@ fn exclusive_or_test() {
             machine.exclusive_or(val);
 
             let a_after = a_before ^ val;
+            assert_eq!(machine.registers.accumulator, a_after as i8);
+
+            if a_after == 0 {
+                assert!(machine.registers.status.contains(PS_ZERO));
+            } else {
+                assert!(!machine.registers.status.contains(PS_ZERO));
+            }
+
+            if (a_after as i8) < 0 {
+                assert!(machine.registers.status.contains(PS_NEGATIVE));
+            } else {
+                assert!(!machine.registers.status.contains(PS_NEGATIVE));
+            }
+        }
+    }
+}
+
+#[test]
+fn inclusive_or_test() {
+    let mut machine = Machine::new();
+
+    for a_before in range(0u8, 255u8) {
+        for val in range(0u8, 255u8) {
+            machine.execute_instruction(
+                (Instruction::LDA, OpInput::UseImmediate(a_before))
+            );
+
+            machine.inclusive_or(val);
+
+            let a_after = a_before | val;
             assert_eq!(machine.registers.accumulator, a_after as i8);
 
             if a_after == 0 {
