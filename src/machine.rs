@@ -35,6 +35,7 @@ use registers::{ Registers, StackPointer, Status, StatusArgs };
 use registers::{ PS_NEGATIVE, PS_DECIMAL_MODE, PS_OVERFLOW, PS_ZERO, PS_CARRY,
                  PS_DISABLE_INTERRUPTS };
 
+#[deriving(Copy)]
 pub struct Machine {
     pub registers: Registers,
     pub memory:    Memory

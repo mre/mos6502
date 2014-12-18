@@ -46,7 +46,7 @@ use machine::Machine;
 //       PC | program counter
 //
 
-#[deriving(Show, PartialEq, Eq)]
+#[deriving(Copy, Show, PartialEq, Eq)]
 pub enum Instruction
       //                                  i/o vars should be listed as follows:
       //                                  NV BDIZC A X Y S PC M
@@ -113,6 +113,7 @@ pub enum Instruction
 , TYA // Transfer Y to Accumulator..... | N. ...Z. A            = Y
 }
 
+#[deriving(Copy)]
 pub enum OpInput {
     UseImplied,
     UseImmediate(u8),
@@ -120,6 +121,7 @@ pub enum OpInput {
     UseAddress(Address),
 }
 
+#[deriving(Copy)]
 pub enum AddressingMode
 //                 length
 { Accumulator      // 1    LSR A        work directly on accumulator
