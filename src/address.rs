@@ -28,15 +28,15 @@
 // The idea here is that it doesn't make sense to add two addresses, but it
 // does make sense to add an address and an "address-difference". (If this
 // is too annoying to work with we should let it go.)
-#[deriving(PartialEq, Eq, PartialOrd, Ord, Show)]
+#[deriving(Copy, PartialEq, Eq, PartialOrd, Ord, Show)]
 pub struct AddressDiff(pub i32);
 
-#[deriving(PartialEq, Eq, PartialOrd, Ord, Show)]
+#[deriving(Copy, PartialEq, Eq, PartialOrd, Ord, Show)]
 pub struct Address(pub u16);
 
 impl Add<AddressDiff, Address> for Address {
-    fn add(&self, &AddressDiff(rhs): &AddressDiff) -> Address {
-        let &Address(lhs) = self;
+    fn add(self, AddressDiff(rhs): AddressDiff) -> Address {
+        let Address(lhs) = self;
 
         // TODO akeeton: Do a checked cast.
         Address(((lhs as i32) + rhs) as u16)
@@ -44,8 +44,8 @@ impl Add<AddressDiff, Address> for Address {
 }
 
 impl Add<AddressDiff, AddressDiff> for AddressDiff {
-    fn add(&self, &AddressDiff(rhs): &AddressDiff) -> AddressDiff {
-        let &AddressDiff(lhs) = self;
+    fn add(self, AddressDiff(rhs): AddressDiff) -> AddressDiff {
+        let AddressDiff(lhs) = self;
         AddressDiff(lhs + rhs)
     }
 }

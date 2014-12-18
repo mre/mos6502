@@ -48,6 +48,8 @@ pub const IRQ_INTERRUPT_VECTOR_HI: Address = Address(0xFFFF);
 
 const MEMORY_SIZE: uint = (ADDR_HI_BARE - ADDR_LO_BARE) as uint + 1u;
 
+// FIXME: Should this use indirection for `bytes`?
+#[deriving(Copy)]
 pub struct Memory {
     bytes: [u8, ..MEMORY_SIZE]
 }

@@ -29,6 +29,7 @@ use address::{Address, AddressDiff};
 use memory::{STACK_ADDRESS_LO, STACK_ADDRESS_HI};
 
 // Useful for constructing Status instances
+#[deriving(Copy)]
 pub struct StatusArgs {
     pub negative: bool,
     pub overflow: bool,
@@ -120,7 +121,7 @@ impl Status {
     }
 }
 
-#[deriving(PartialEq, Eq, PartialOrd, Ord, Show)]
+#[deriving(Copy, PartialEq, Eq, PartialOrd, Ord, Show)]
 pub struct StackPointer(pub u8);
 
 impl StackPointer {
@@ -143,7 +144,7 @@ impl StackPointer {
     }
 }
 
-#[deriving(PartialEq, Eq, Show)]
+#[deriving(Copy, PartialEq, Eq, Show)]
 pub struct Registers {
     pub accumulator:     i8,
     pub index_x:         i8,
