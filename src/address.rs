@@ -25,6 +25,8 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+use std::num::Int;
+
 // The idea here is that it doesn't make sense to add two addresses, but it
 // does make sense to add an address and an "address-difference". (If this
 // is too annoying to work with we should let it go.)
@@ -50,30 +52,20 @@ impl Add<AddressDiff, AddressDiff> for AddressDiff {
     }
 }
 
-// rustc doesn't seem to like having multiple implementations of Add for
-// Address. I believe this is a Rust bug (possibly resolved by "associated
-// types" RFC?). Or I wrote it wrong. Anyway, here's some living dead code:
-/*
-#[deriving(PartialEq, Eq, PartialOrd, Ord)]
+#[deriving(Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CheckedAddressDiff(u16);
 
 impl Add<CheckedAddressDiff, Address> for Address {
-    fn add(&self, &CheckedAddressDiff(rhs): &CheckedAddressDiff) -> Address {
-        let &Address(lhs) = self;
+    fn add(self, CheckedAddressDiff(rhs): CheckedAddressDiff) -> Address {
+        let Address(lhs) = self;
 
         // We probably don't want to overflow when doing arithmetic in our own
         // code.
-        debug_assert!({
-            match lhs.checked_add(&rhs) {
-                None => false,
-                _ => true
-            }
-        });
+        debug_assert!(lhs.checked_add(rhs).is_some());
 
         Address(lhs + rhs)
     }
 }
-*/
 
 impl Address {
     pub fn to_u16(&self) -> u16 {
