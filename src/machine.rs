@@ -1230,8 +1230,8 @@ fn compare_with_y_register_test() {
 fn exclusive_or_test() {
     let mut machine = Machine::new();
 
-    for a_before in 0..256 {
-        for val in 0..256 {
+    for a_before in 0us..256 {
+        for val in 0us..256 {
             machine.execute_instruction(
                 (Instruction::LDA, OpInput::UseImmediate(a_before as u8))
             );
