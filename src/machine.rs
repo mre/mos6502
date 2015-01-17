@@ -1227,17 +1227,16 @@ fn compare_with_y_register_test() {
 }
 
 #[test]
-#[allow(overflowing_literals)]
 fn exclusive_or_test() {
     let mut machine = Machine::new();
 
-    for a_before in 0u8..256u8 {
-        for val in 0u8..256u8 {
+    for a_before in 0..256 {
+        for val in 0..256 {
             machine.execute_instruction(
-                (Instruction::LDA, OpInput::UseImmediate(a_before))
+                (Instruction::LDA, OpInput::UseImmediate(a_before as u8))
             );
 
-            machine.exclusive_or(val);
+            machine.exclusive_or(val as u8);
 
             let a_after = a_before ^ val;
             assert_eq!(machine.registers.accumulator, a_after as i8);
@@ -1258,17 +1257,16 @@ fn exclusive_or_test() {
 }
 
 #[test]
-#[allow(overflowing_literals)]
 fn inclusive_or_test() {
     let mut machine = Machine::new();
 
-    for a_before in 0u8..256u8 {
-        for val in 0u8..256u8 {
+    for a_before in 0us..256 {
+        for val in 0us..256 {
             machine.execute_instruction(
-                (Instruction::LDA, OpInput::UseImmediate(a_before))
+                (Instruction::LDA, OpInput::UseImmediate(a_before as u8))
             );
 
-            machine.inclusive_or(val);
+            machine.inclusive_or(val as u8);
 
             let a_after = a_before | val;
             assert_eq!(machine.registers.accumulator, a_after as i8);
