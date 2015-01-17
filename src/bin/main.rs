@@ -42,7 +42,7 @@ fn main() {
     // JAM: FIXME: What's the syntax for specifying the array element type,
     //             but not the length? (For a fixed-size array)
 
-    let zero_page_data: [u8, ..17] = [
+    let zero_page_data: [u8; 17] = [
         // ZeroPage data start
         0x00,
         0x02, // ADC ZeroPage target
@@ -63,7 +63,7 @@ fn main() {
         0x80, // ADC IndirectIndexedY address
     ];
 
-    let program: [u8, ..33] = [
+    let program: [u8; 33] = [
         // Code start
         0xA9, // LDA Immediate
         0x01, //     Immediate operand
@@ -115,7 +115,7 @@ fn main() {
         0xFF, // Something invalid -- the end!
     ];
 
-    let data: [u8, ..25] = [
+    let data: [u8; 25] = [
         0x00,
         0x09, // ADC Absolute target
         0x00,
@@ -151,6 +151,6 @@ fn main() {
 
     machine.run();
 
-    println!("{}", machine);
+    println!("{:?}", machine);
 }
 

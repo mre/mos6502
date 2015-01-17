@@ -46,48 +46,49 @@ pub const STACK_ADDRESS_HI:        Address = Address(0x01FF);
 pub const IRQ_INTERRUPT_VECTOR_LO: Address = Address(0xFFFE);
 pub const IRQ_INTERRUPT_VECTOR_HI: Address = Address(0xFFFF);
 
-const MEMORY_SIZE: uint = (ADDR_HI_BARE - ADDR_LO_BARE) as uint + 1u;
+const MEMORY_SIZE: usize = (ADDR_HI_BARE - ADDR_LO_BARE) as usize + 1us;
 
 // FIXME: Should this use indirection for `bytes`?
-#[deriving(Copy)]
+#[derive(Copy)]
 pub struct Memory {
-    bytes: [u8, ..MEMORY_SIZE]
+    bytes: [u8; MEMORY_SIZE]
 }
 
 impl Memory {
     pub fn new() -> Memory {
-        Memory { bytes: [0, ..MEMORY_SIZE] }
+        Memory { bytes: [0; MEMORY_SIZE] }
     }
 
     pub fn get_byte(&self, address: Address) -> u8 {
-        self.bytes[address.to_uint()]
+        self.bytes[address.to_usize()]
     }
 
     pub fn get_byte_mut_ref(&mut self, address: Address) -> &mut u8 {
-        &mut self.bytes[address.to_uint()]
+        &mut self.bytes[address.to_usize()]
     }
 
     pub fn get_slice(&self, Address(start): Address,
                      AddressDiff(diff): AddressDiff) -> &[u8] {
-        let start = start as uint;
-        let diff = diff as uint;
+        let start = start as usize;
+        let diff = diff as usize;
         let end = start + diff;
-        self.bytes.slice(start, end)
+        &self.bytes[start..end]
     }
 
     // Sets the byte at the given address to the given value and returns the
     // previous value at the address.
     pub fn set_byte(&mut self, address: Address, value: u8) -> u8 {
         let old_value = self.get_byte(address);
-        self.bytes[address.to_uint()] = value;
+        self.bytes[address.to_usize()] = value;
         old_value
     }
 
     pub fn set_bytes(&mut self, Address(start): Address, values: &[u8]) {
-        let start = start as uint;
+        let start = start as usize;
 
         // This panics if the range is invalid
-        let slice = self.bytes.slice_mut(start, start + values.len());
+        let end = start + values.len();
+        let slice = &mut self.bytes[start..end];
 
         // JAM: Is this the best way to do this copy?
         for (dest, src) in slice.iter_mut().zip(values.iter()) {

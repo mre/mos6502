@@ -29,7 +29,7 @@ use address::{Address, AddressDiff};
 use memory::{STACK_ADDRESS_LO, STACK_ADDRESS_HI};
 
 // Useful for constructing Status instances
-#[deriving(Copy)]
+#[derive(Copy)]
 pub struct StatusArgs {
     pub negative: bool,
     pub overflow: bool,
@@ -55,7 +55,8 @@ impl StatusArgs {
 }
 
 pub bitflags! {
-#[deriving(Show)]
+#[allow(unstable)]
+#[derive(Show)]
     flags Status: u8 {
         const PS_NEGATIVE           = 0b10000000,
         const PS_OVERFLOW           = 0b01000000,
@@ -121,7 +122,7 @@ impl Status {
     }
 }
 
-#[deriving(Copy, PartialEq, Eq, PartialOrd, Ord, Show)]
+#[derive(Copy, PartialEq, Eq, PartialOrd, Ord, Show)]
 pub struct StackPointer(pub u8);
 
 impl StackPointer {
@@ -144,7 +145,7 @@ impl StackPointer {
     }
 }
 
-#[deriving(Copy, PartialEq, Eq, Show)]
+#[derive(Copy, PartialEq, Eq, Show)]
 pub struct Registers {
     pub accumulator:     i8,
     pub index_x:         i8,

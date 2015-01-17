@@ -46,7 +46,7 @@ use machine::Machine;
 //       PC | program counter
 //
 
-#[deriving(Copy, Show, PartialEq, Eq)]
+#[derive(Copy, Show, PartialEq, Eq)]
 pub enum Instruction
       //                                  i/o vars should be listed as follows:
       //                                  NV BDIZC A X Y S PC M
@@ -113,7 +113,7 @@ pub enum Instruction
 , TYA // Transfer Y to Accumulator..... | N. ...Z. A            = Y
 }
 
-#[deriving(Copy)]
+#[derive(Copy)]
 pub enum OpInput {
     UseImplied,
     UseImmediate(u8),
@@ -121,7 +121,7 @@ pub enum OpInput {
     UseAddress(Address),
 }
 
-#[deriving(Copy)]
+#[derive(Copy)]
 pub enum AddressingMode
 //                 length
 { Accumulator      // 1    LSR A        work directly on accumulator
@@ -144,7 +144,7 @@ pub enum AddressingMode
 fn arr_to_addr(arr: &[u8]) -> Address {
     debug_assert!(arr.len() == 2);
 
-    let x = (arr[0] as u16) + (arr[1] as u16 << 8u);
+    let x = (arr[0] as u16) + ((arr[1] as u16) << 8us);
     Address(x)
 }
 
@@ -171,7 +171,7 @@ impl AddressingMode {
     pub fn process(self, machine: &Machine, arr: &[u8]) -> OpInput {
 
         debug_assert!({let AddressDiff(x) = self.extra_bytes();
-                       arr.len() == x as uint});
+                       arr.len() == x as usize});
 
         let x = machine.registers.index_x as u8;
         let y = machine.registers.index_y as u8;
@@ -258,7 +258,7 @@ impl AddressingMode {
 
 pub type DecodedInstr = (Instruction, OpInput);
 
-pub static OPCODES: [Option<(Instruction, AddressingMode)>, ..256] = [
+pub static OPCODES: [Option<(Instruction, AddressingMode)>; 256] = [
 /*0x00*/ Some((Instruction::BRK, AddressingMode::Implied)),
 /*0x01*/ Some((Instruction::ORA, AddressingMode::IndexedIndirectX)),
 /*0x02*/ None,

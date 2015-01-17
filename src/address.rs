@@ -26,17 +26,20 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 use std::num::Int;
+use std::ops::Add;
 
 // The idea here is that it doesn't make sense to add two addresses, but it
 // does make sense to add an address and an "address-difference". (If this
 // is too annoying to work with we should let it go.)
-#[deriving(Copy, PartialEq, Eq, PartialOrd, Ord, Show)]
+#[derive(Copy, PartialEq, Eq, PartialOrd, Ord, Show)]
 pub struct AddressDiff(pub i32);
 
-#[deriving(Copy, PartialEq, Eq, PartialOrd, Ord, Show)]
+#[derive(Copy, PartialEq, Eq, PartialOrd, Ord, Show)]
 pub struct Address(pub u16);
 
-impl Add<AddressDiff, Address> for Address {
+impl Add<AddressDiff> for Address {
+    type Output = Address;
+
     fn add(self, AddressDiff(rhs): AddressDiff) -> Address {
         let Address(lhs) = self;
 
@@ -45,17 +48,21 @@ impl Add<AddressDiff, Address> for Address {
     }
 }
 
-impl Add<AddressDiff, AddressDiff> for AddressDiff {
+impl Add for AddressDiff {
+    type Output = AddressDiff;
+
     fn add(self, AddressDiff(rhs): AddressDiff) -> AddressDiff {
         let AddressDiff(lhs) = self;
         AddressDiff(lhs + rhs)
     }
 }
 
-#[deriving(Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CheckedAddressDiff(u16);
 
-impl Add<CheckedAddressDiff, Address> for Address {
+impl Add<CheckedAddressDiff> for Address {
+    type Output = Address;
+
     fn add(self, CheckedAddressDiff(rhs): CheckedAddressDiff) -> Address {
         let Address(lhs) = self;
 
@@ -74,8 +81,8 @@ impl Address {
         }
     }
 
-    pub fn to_uint(&self) -> uint {
-        self.to_u16() as uint
+    pub fn to_usize(&self) -> usize {
+        self.to_u16() as usize
     }
 
     pub fn get_page_number(&self) -> u8 {

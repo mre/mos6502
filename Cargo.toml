@@ -38,3 +38,6 @@ name = "emu6502"
 # This will look in src/bin/emu6502.rs
 name = "emu6502"
 
+[dependencies]
+log = "0.1.0"
+
