@@ -1129,10 +1129,11 @@ fn branch_if_overflow_set_test() {
 }
 
 #[cfg(test)]
-fn compare_test_helper<F: FnMut(&mut Machine, u8)> (
-    compare:          F,
+fn compare_test_helper<F> (
+    compare:          &mut F,
     load_instruction: Instruction
-) {
+) where F: FnMut(&mut Machine, u8)
+{
     let mut machine = Machine::new();
 
     machine.execute_instruction(
@@ -1198,7 +1199,7 @@ fn compare_test_helper<F: FnMut(&mut Machine, u8)> (
 #[test]
 fn compare_with_a_register_test() {
     compare_test_helper(
-        |machine: &mut Machine, val: u8| {
+        &mut |machine: &mut Machine, val: u8| {
             machine.compare_with_a_register(val);
         },
         Instruction::LDA
@@ -1208,7 +1209,7 @@ fn compare_with_a_register_test() {
 #[test]
 fn compare_with_x_register_test() {
     compare_test_helper(
-        |machine: &mut Machine, val: u8| {
+        &mut |machine: &mut Machine, val: u8| {
             machine.compare_with_x_register(val);
         },
         Instruction::LDX
@@ -1218,7 +1219,7 @@ fn compare_with_x_register_test() {
 #[test]
 fn compare_with_y_register_test() {
     compare_test_helper(
-        |machine: &mut Machine, val: u8| {
+        &mut |machine: &mut Machine, val: u8| {
             machine.compare_with_y_register(val);
         },
         Instruction::LDY
@@ -1226,11 +1227,12 @@ fn compare_with_y_register_test() {
 }
 
 #[test]
+#[allow(overflowing_literals)]
 fn exclusive_or_test() {
     let mut machine = Machine::new();
 
-    for a_before in range(0u8, 255u8) {
-        for val in range(0u8, 255u8) {
+    for a_before in 0u8..256u8 {
+        for val in 0u8..256u8 {
             machine.execute_instruction(
                 (Instruction::LDA, OpInput::UseImmediate(a_before))
             );
@@ -1256,11 +1258,12 @@ fn exclusive_or_test() {
 }
 
 #[test]
+#[allow(overflowing_literals)]
 fn inclusive_or_test() {
     let mut machine = Machine::new();
 
-    for a_before in range(0u8, 255u8) {
-        for val in range(0u8, 255u8) {
+    for a_before in 0u8..256u8 {
+        for val in 0u8..256u8 {
             machine.execute_instruction(
                 (Instruction::LDA, OpInput::UseImmediate(a_before))
             );
