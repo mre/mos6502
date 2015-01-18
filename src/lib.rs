@@ -33,4 +33,5 @@ pub mod address;
 pub mod instruction;
 pub mod machine;
 pub mod memory;
+pub mod range_incl;
 pub mod registers;

@@ -31,6 +31,7 @@ use address::{Address, AddressDiff};
 use instruction;
 use instruction::{DecodedInstr, Instruction, OpInput};
 use memory::Memory;
+use range_incl::range_incl;
 use registers::{ Registers, StackPointer, Status, StatusArgs };
 use registers::{ PS_NEGATIVE, PS_DECIMAL_MODE, PS_OVERFLOW, PS_ZERO, PS_CARRY,
                  PS_DISABLE_INTERRUPTS };
@@ -1230,13 +1231,13 @@ fn compare_with_y_register_test() {
 fn exclusive_or_test() {
     let mut machine = Machine::new();
 
-    for a_before in 0us..256 {
-        for val in 0us..256 {
+    for a_before in range_incl(0u8, 255u8) {
+        for val in range_incl(0u8, 255u8) {
             machine.execute_instruction(
-                (Instruction::LDA, OpInput::UseImmediate(a_before as u8))
+                (Instruction::LDA, OpInput::UseImmediate(a_before))
             );
 
-            machine.exclusive_or(val as u8);
+            machine.exclusive_or(val);
 
             let a_after = a_before ^ val;
             assert_eq!(machine.registers.accumulator, a_after as i8);
@@ -1260,13 +1261,13 @@ fn exclusive_or_test() {
 fn inclusive_or_test() {
     let mut machine = Machine::new();
 
-    for a_before in 0us..256 {
-        for val in 0us..256 {
+    for a_before in range_incl(0u8, 255u8) {
+        for val in range_incl(0u8, 255u8) {
             machine.execute_instruction(
-                (Instruction::LDA, OpInput::UseImmediate(a_before as u8))
+                (Instruction::LDA, OpInput::UseImmediate(a_before))
             );
 
-            machine.inclusive_or(val as u8);
+            machine.inclusive_or(val);
 
             let a_after = a_before | val;
             assert_eq!(machine.registers.accumulator, a_after as i8);
