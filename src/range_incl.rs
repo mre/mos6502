@@ -1,5 +1,3 @@
-#![allow(unstable)]
-
 use std::num::Int;
 
 pub struct RangeIncl<T: Int> {

@@ -730,8 +730,7 @@ impl Machine {
     }
 }
 
-#[allow(unstable)]
-impl std::fmt::Show for Machine {
+impl std::fmt::Debug for Machine {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "Machine Dump:\n\nAccumulator: {}",
                self.registers.accumulator)

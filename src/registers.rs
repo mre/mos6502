@@ -55,7 +55,6 @@ impl StatusArgs {
 }
 
 pub bitflags! {
-#[allow(unstable)]
 #[derive(Show)]
     flags Status: u8 {
         const PS_NEGATIVE           = 0b10000000,
