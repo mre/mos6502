@@ -46,7 +46,7 @@ use machine::Machine;
 //       PC | program counter
 //
 
-#[derive(Copy, Show, PartialEq, Eq)]
+#[derive(Copy, Debug, PartialEq, Eq)]
 pub enum Instruction
       //                                  i/o vars should be listed as follows:
       //                                  NV BDIZC A X Y S PC M

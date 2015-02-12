@@ -31,10 +31,10 @@ use std::ops::Add;
 // The idea here is that it doesn't make sense to add two addresses, but it
 // does make sense to add an address and an "address-difference". (If this
 // is too annoying to work with we should let it go.)
-#[derive(Copy, PartialEq, Eq, PartialOrd, Ord, Show)]
+#[derive(Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct AddressDiff(pub i32);
 
-#[derive(Copy, PartialEq, Eq, PartialOrd, Ord, Show)]
+#[derive(Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Address(pub u16);
 
 impl Add<AddressDiff> for Address {

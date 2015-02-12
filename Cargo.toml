@@ -39,5 +39,5 @@ name = "emu6502"
 name = "emu6502"
 
 [dependencies]
-log = "0.2.1"
+log = "0.2.3"
 
