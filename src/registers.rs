@@ -29,7 +29,7 @@ use address::{Address, AddressDiff};
 use memory::{STACK_ADDRESS_LO, STACK_ADDRESS_HI};
 
 // Useful for constructing Status instances
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub struct StatusArgs {
     pub negative: bool,
     pub overflow: bool,
@@ -43,31 +43,32 @@ pub struct StatusArgs {
 
 impl StatusArgs {
     pub fn none() -> StatusArgs {
-        StatusArgs { negative: false,
-                     overflow: false,
-                     unused: false,
-                     brk: false,
-                     decimal_mode: false,
-                     disable_interrupts: false,
-                     zero: false,
-                     carry: false, }
+        StatusArgs {
+            negative: false,
+            overflow: false,
+            unused: false,
+            brk: false,
+            decimal_mode: false,
+            disable_interrupts: false,
+            zero: false,
+            carry: false,
+        }
     }
 }
 
-pub bitflags! {
-#[derive(Debug)]
-    flags Status: u8 {
-        const PS_NEGATIVE           = 0b10000000,
-        const PS_OVERFLOW           = 0b01000000,
-        const PS_UNUSED             = 0b00100000, // JAM: Should this exist?
+bitflags! {
+    pub struct Status: u8 {
+        const PS_NEGATIVE           = 0b10000000;
+        const PS_OVERFLOW           = 0b01000000;
+        const PS_UNUSED             = 0b00100000; // JAM: Should this exist?
                                                   // (note that it affects the
                                                   // behavior of things like
                                                   // from_bits_truncate)
-        const PS_BRK                = 0b00010000,
-        const PS_DECIMAL_MODE       = 0b00001000,
-        const PS_DISABLE_INTERRUPTS = 0b00000100,
-        const PS_ZERO               = 0b00000010,
-        const PS_CARRY              = 0b00000001,
+        const PS_BRK                = 0b00010000;
+        const PS_DECIMAL_MODE       = 0b00001000;
+        const PS_DISABLE_INTERRUPTS = 0b00000100;
+        const PS_ZERO               = 0b00000010;
+        const PS_CARRY              = 0b00000001;
     }
 }
 
@@ -75,14 +76,16 @@ impl Status {
     pub fn default() -> Status {
         // TODO akeeton: Revisit these defaults.
 
-        Status::new(StatusArgs { negative:           false,
-                                 overflow:           false,
-                                 unused:             true,
-                                 brk:                false,
-                                 decimal_mode:       false,
-                                 disable_interrupts: true,
-                                 zero:               false,
-                                 carry:              false, } )
+        Status::new(StatusArgs {
+            negative: false,
+            overflow: false,
+            unused: true,
+            brk: false,
+            decimal_mode: false,
+            disable_interrupts: true,
+            zero: false,
+            carry: false,
+        })
     }
 
     pub fn new(StatusArgs { negative,
@@ -96,14 +99,30 @@ impl Status {
     {
         let mut out = Status::empty();
 
-        if negative           { out = out | PS_NEGATIVE           }
-        if overflow           { out = out | PS_OVERFLOW           }
-        if unused             { out = out | PS_UNUSED             }
-        if brk                { out = out | PS_BRK                }
-        if decimal_mode       { out = out | PS_DECIMAL_MODE       }
-        if disable_interrupts { out = out | PS_DISABLE_INTERRUPTS }
-        if zero               { out = out | PS_ZERO               }
-        if carry              { out = out | PS_CARRY              }
+        if negative {
+            out = out | PS_NEGATIVE
+        }
+        if overflow {
+            out = out | PS_OVERFLOW
+        }
+        if unused {
+            out = out | PS_UNUSED
+        }
+        if brk {
+            out = out | PS_BRK
+        }
+        if decimal_mode {
+            out = out | PS_DECIMAL_MODE
+        }
+        if disable_interrupts {
+            out = out | PS_DISABLE_INTERRUPTS
+        }
+        if zero {
+            out = out | PS_ZERO
+        }
+        if carry {
+            out = out | PS_CARRY
+        }
 
         out
     }
@@ -121,12 +140,11 @@ impl Status {
     }
 }
 
-#[derive(Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct StackPointer(pub u8);
 
 impl StackPointer {
-    pub fn to_address(&self) -> Address
-    {
+    pub fn to_address(&self) -> Address {
         let StackPointer(sp) = *self;
         STACK_ADDRESS_LO + AddressDiff(sp as i32)
     }
@@ -144,27 +162,26 @@ impl StackPointer {
     }
 }
 
-#[derive(Copy, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Registers {
-    pub accumulator:     i8,
-    pub index_x:         i8,
-    pub index_y:         i8,
-    pub stack_pointer:   StackPointer,
+    pub accumulator: i8,
+    pub index_x: i8,
+    pub index_y: i8,
+    pub stack_pointer: StackPointer,
     pub program_counter: Address,
-    pub status:          Status
+    pub status: Status,
 }
 
 impl Registers {
     pub fn new() -> Registers {
         // TODO akeeton: Revisit these defaults.
         Registers {
-            accumulator:     0,
-            index_x:         0,
-            index_y:         0,
-            stack_pointer:   StackPointer(STACK_ADDRESS_HI.get_offset()),
+            accumulator: 0,
+            index_x: 0,
+            index_y: 0,
+            stack_pointer: StackPointer(STACK_ADDRESS_HI.get_offset()),
             program_counter: Address(0),
-            status:          Status::default()
+            status: Status::default(),
         }
     }
 }
-

@@ -25,11 +25,12 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+use std::iter::repeat;
 use address::{Address, AddressDiff};
 
 // JAM: We can probably come up with a better way to represent address ranges.
 //      Address range type?
-// 
+//
 // // Address range -- inclusive on both sides
 // pub struct AddressRangeIncl {
 //     begin: Address,
@@ -39,24 +40,24 @@ use address::{Address, AddressDiff};
 const ADDR_LO_BARE: u16 = 0x0000;
 const ADDR_HI_BARE: u16 = 0xFFFF;
 
-pub const MEMORY_ADDRESS_LO:       Address = Address(ADDR_LO_BARE);
-pub const MEMORY_ADDRESS_HI:       Address = Address(ADDR_HI_BARE);
-pub const STACK_ADDRESS_LO:        Address = Address(0x0100);
-pub const STACK_ADDRESS_HI:        Address = Address(0x01FF);
+pub const MEMORY_ADDRESS_LO: Address = Address(ADDR_LO_BARE);
+pub const MEMORY_ADDRESS_HI: Address = Address(ADDR_HI_BARE);
+pub const STACK_ADDRESS_LO: Address = Address(0x0100);
+pub const STACK_ADDRESS_HI: Address = Address(0x01FF);
 pub const IRQ_INTERRUPT_VECTOR_LO: Address = Address(0xFFFE);
 pub const IRQ_INTERRUPT_VECTOR_HI: Address = Address(0xFFFF);
 
-const MEMORY_SIZE: usize = (ADDR_HI_BARE - ADDR_LO_BARE) as usize + 1us;
+const MEMORY_SIZE: usize = (ADDR_HI_BARE - ADDR_LO_BARE) as usize + 1usize;
 
 // FIXME: Should this use indirection for `bytes`?
-#[derive(Copy)]
+#[derive(Clone)]
 pub struct Memory {
-    bytes: [u8; MEMORY_SIZE]
+    bytes: Vec<u8>,
 }
 
 impl Memory {
     pub fn new() -> Memory {
-        Memory { bytes: [0; MEMORY_SIZE] }
+        Memory { bytes: repeat(0).take(MEMORY_SIZE).collect() }
     }
 
     pub fn get_byte(&self, address: Address) -> u8 {
@@ -67,8 +68,7 @@ impl Memory {
         &mut self.bytes[address.to_usize()]
     }
 
-    pub fn get_slice(&self, Address(start): Address,
-                     AddressDiff(diff): AddressDiff) -> &[u8] {
+    pub fn get_slice(&self, Address(start): Address, AddressDiff(diff): AddressDiff) -> &[u8] {
         let start = start as usize;
         let diff = diff as usize;
         let end = start + diff;
@@ -100,4 +100,3 @@ impl Memory {
         STACK_ADDRESS_LO <= *address && *address <= STACK_ADDRESS_HI
     }
 }
-

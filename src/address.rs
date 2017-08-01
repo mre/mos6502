@@ -25,16 +25,15 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use std::num::Int;
 use std::ops::Add;
 
 // The idea here is that it doesn't make sense to add two addresses, but it
 // does make sense to add an address and an "address-difference". (If this
 // is too annoying to work with we should let it go.)
-#[derive(Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct AddressDiff(pub i32);
 
-#[derive(Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Address(pub u16);
 
 impl Add<AddressDiff> for Address {
@@ -57,7 +56,7 @@ impl Add for AddressDiff {
     }
 }
 
-#[derive(Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CheckedAddressDiff(u16);
 
 impl Add<CheckedAddressDiff> for Address {
@@ -77,7 +76,7 @@ impl Add<CheckedAddressDiff> for Address {
 impl Address {
     pub fn to_u16(&self) -> u16 {
         match *self {
-            Address(address_) => address_
+            Address(address_) => address_,
         }
     }
 
@@ -93,4 +92,3 @@ impl Address {
         (self.to_u16() & 0x00ff) as u8
     }
 }
-
