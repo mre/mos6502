@@ -25,7 +25,6 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use std::iter::repeat;
 use address::{Address, AddressDiff};
 
 // JAM: We can probably come up with a better way to represent address ranges.
@@ -50,14 +49,20 @@ pub const IRQ_INTERRUPT_VECTOR_HI: Address = Address(0xFFFF);
 const MEMORY_SIZE: usize = (ADDR_HI_BARE - ADDR_LO_BARE) as usize + 1usize;
 
 // FIXME: Should this use indirection for `bytes`?
-#[derive(Clone)]
+#[derive(Copy)]
 pub struct Memory {
-    bytes: Vec<u8>,
+    bytes: [u8; MEMORY_SIZE],
+}
+
+impl Clone for Memory {
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 
 impl Memory {
     pub fn new() -> Memory {
-        Memory { bytes: repeat(0).take(MEMORY_SIZE).collect() }
+        Memory { bytes: [0; MEMORY_SIZE] }
     }
 
     pub fn get_byte(&self, address: Address) -> u8 {
