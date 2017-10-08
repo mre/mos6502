@@ -3,3 +3,4 @@
 Alex Weisberger <alex.m.weisberger@gmail.com>
 Andrew Keeton <andrewrkeeton@gmail.com>
 Johannes Muenzel <jmuenzel@gmail.com>
+Matthias Endler <matthias-endler@gmx.net>

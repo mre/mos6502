@@ -25,20 +25,17 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#![feature(core)]
-#![feature(hash)]
-#![feature(rustc_private)]
-
 // Needed for debug! / log! macros
 #[macro_use]
 extern crate log;
 
+extern crate num;
+
 #[macro_use]
-extern crate rustc_bitflags;
+extern crate bitflags;
 
 pub mod address;
 pub mod instruction;
 pub mod machine;
 pub mod memory;
-pub mod range_incl;
 pub mod registers;
