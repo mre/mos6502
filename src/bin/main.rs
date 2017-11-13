@@ -25,17 +25,17 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-extern crate emu6502;
+extern crate mos6502;
 
 #[cfg(not(test))]
-use emu6502::machine;
+use mos6502::cpu;
 
 #[cfg(not(test))]
-use emu6502::address::Address;
+use mos6502::address::Address;
 
 #[cfg(not(test))]
 fn main() {
-    let mut machine = machine::Machine::new();
+    let mut cpu = cpu::CPU::new();
 
     // "Load" a program
 
@@ -67,51 +67,36 @@ fn main() {
         // Code start
         0xA9, // LDA Immediate
         0x01, //     Immediate operand
-
         0x69, // ADC Immediate
         0x07, //     Immediate operand
-
         0x65, // ADC ZeroPage
         0x01, //     ZeroPage operand
-
         0xA2, // LDX Immediate
         0x01, //     Immediate operand
-
         0x75, // ADC ZeroPageX
         0x02, //     ZeroPageX operand
-
         0x6D, // ADC Absolute
         0x01, //     Absolute operand
         0x80, //     Absolute operand
-
         0xA2, // LDX immediate
         0x08, //     Immediate operand
-
         0x7D, // ADC AbsoluteX
         0x00, //     AbsoluteX operand
         0x80, //     AbsoluteX operand
-
         0xA0, // LDY immediate
         0x04, //     Immediate operand
-
         0x79, // ADC AbsoluteY
         0x00, //     AbsoluteY operand
         0x80, //     AbsoluteY operand
-
         0xA2, // LDX immediate
         0x05, //     Immediate operand
-
         0x61, // ADC IndexedIndirectX
         0x03, //     IndexedIndirectX operand
-
         0xA0, // LDY immediate
         0x10, //     Immediate operand
-
         0x71, // ADC IndirectIndexedY
         0x0F, //     IndirectIndexedY operand
-
         0xEA, // NOP :)
-
         0xFF, // Something invalid -- the end!
     ];
 
@@ -143,14 +128,13 @@ fn main() {
         0x06, // ADC IndirectIndexedY target
     ];
 
-    machine.memory.set_bytes(Address(0x0000), &zero_page_data);
-    machine.memory.set_bytes(Address(0x4000), &program);
-    machine.memory.set_bytes(Address(0x8000), &data);
+    cpu.memory.set_bytes(Address(0x0000), &zero_page_data);
+    cpu.memory.set_bytes(Address(0x4000), &program);
+    cpu.memory.set_bytes(Address(0x8000), &data);
 
-    machine.registers.program_counter = Address(0x4000);
+    cpu.registers.program_counter = Address(0x4000);
 
-    machine.run();
+    cpu.run();
 
-    println!("{:?}", machine);
+    println!("{:?}", cpu);
 }
-
