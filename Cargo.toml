@@ -25,6 +25,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+description = "A MOS 6502 Emulator"
+license = "BSD-3-Clause"
+
 [package]
 name = "mos6502"
 version = "0.0.1"
