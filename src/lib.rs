@@ -36,6 +36,6 @@ extern crate bitflags;
 
 pub mod address;
 pub mod instruction;
-pub mod machine;
+pub mod cpu;
 pub mod memory;
 pub mod registers;

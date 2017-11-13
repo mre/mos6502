@@ -26,17 +26,17 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 [package]
-name = "emu6502"
+name = "mos6502"
 version = "0.0.1"
 authors = ["The 6502-rs Developers"]
 
 [lib]
 # This will look in src/lib.rs
-name = "emu6502"
+name = "mos6502"
 
 [[bin]]
-# This will look in src/bin/emu6502.rs
-name = "emu6502"
+# This will look in src/bin/mos6502.rs
+name = "mos6502"
 
 [dependencies]
 bitflags = "0.9.1"
