@@ -776,7 +776,7 @@ mod tests {
 
     #[test]
     fn add_with_carry_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
         CPU.add_with_carry(1);
         assert_eq!(CPU.registers.accumulator, 1);
@@ -799,7 +799,7 @@ mod tests {
         assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
         assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
 
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
         CPU.add_with_carry(127);
         assert_eq!(CPU.registers.accumulator, 127);
@@ -830,7 +830,7 @@ mod tests {
         assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), true);
         assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
 
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
         CPU.add_with_carry(127);
         assert_eq!(CPU.registers.accumulator, 127);
@@ -849,7 +849,7 @@ mod tests {
 
     #[test]
     fn and_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
         CPU.registers.accumulator = 0;
         CPU.and(-1);
@@ -878,7 +878,7 @@ mod tests {
 
     #[test]
     fn subtract_with_carry_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
         CPU.execute_instruction((Instruction::SEC, OpInput::UseImplied));
         CPU.registers.accumulator = 0;
@@ -938,7 +938,7 @@ mod tests {
 
     #[test]
     fn decrement_memory_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
         let addr = Address(0xA1B2);
 
         CPU.memory.set_byte(addr, 5);
@@ -970,7 +970,7 @@ mod tests {
     fn logical_shift_right_test() {
         // Testing UseImplied version (which targets the accumulator) only, for now
 
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
         CPU.execute_instruction((Instruction::LDA, OpInput::UseImmediate(0)));
         CPU.execute_instruction((Instruction::LSR, OpInput::UseImplied));
         assert_eq!(CPU.registers.accumulator, 0);
@@ -1006,7 +1006,7 @@ mod tests {
 
     #[test]
     fn dec_x_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
         CPU.dec_x();
         assert_eq!(CPU.registers.index_x, -1);
@@ -1051,7 +1051,7 @@ mod tests {
 
     #[test]
     fn jump_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
         let addr = Address(0xA1B1);
 
         CPU.jump(addr);
@@ -1060,7 +1060,7 @@ mod tests {
 
     #[test]
     fn branch_if_carry_clear_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
         CPU.execute_instruction((Instruction::SEC, OpInput::UseImplied));
         CPU.branch_if_carry_clear(Address(0xABCD));
@@ -1073,7 +1073,7 @@ mod tests {
 
     #[test]
     fn branch_if_carry_set_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
         CPU.execute_instruction((Instruction::CLC, OpInput::UseImplied));
         CPU.branch_if_carry_set(Address(0xABCD));
@@ -1086,7 +1086,7 @@ mod tests {
 
     #[test]
     fn branch_if_equal_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
         CPU.branch_if_equal(Address(0xABCD));
         assert_eq!(CPU.registers.program_counter, Address(0));
@@ -1099,7 +1099,7 @@ mod tests {
     #[test]
     fn branch_if_minus_test() {
         {
-            let mut CPU = CPU::new();
+            let mut cpu = CPU::new();
             let registers_before = CPU.registers;
 
             CPU.branch_if_minus(Address(0xABCD));
@@ -1108,7 +1108,7 @@ mod tests {
         }
 
         {
-            let mut CPU = CPU::new();
+            let mut cpu = CPU::new();
 
             CPU.registers.status.or(PS_NEGATIVE);
             let registers_before = CPU.registers;
@@ -1121,7 +1121,7 @@ mod tests {
 
     #[test]
     fn branch_if_positive_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
         CPU.registers.status.insert(PS_NEGATIVE);
         CPU.branch_if_positive(Address(0xABCD));
@@ -1134,7 +1134,7 @@ mod tests {
 
     #[test]
     fn branch_if_overflow_clear_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
         CPU.registers.status.insert(PS_OVERFLOW);
         CPU.branch_if_overflow_clear(Address(0xABCD));
@@ -1147,7 +1147,7 @@ mod tests {
 
     #[test]
     fn branch_if_overflow_set_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
         CPU.branch_if_overflow_set(Address(0xABCD));
         assert_eq!(CPU.registers.program_counter, Address(0));
@@ -1160,13 +1160,13 @@ mod tests {
     #[cfg(test)]
     fn compare_test_helper<F>(compare: &mut F, load_instruction: Instruction)
     where
-        F: FnMut(&mut CPU, u8),
+        F: FnMut(&mut cpu, u8),
     {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
         CPU.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
 
-        compare(&mut CPU, 127);
+        compare(&mut cpu, 127);
         assert!(CPU.registers.status.contains(PS_ZERO));
         assert!(CPU.registers.status.contains(PS_CARRY));
         assert!(!CPU.registers.status.contains(PS_NEGATIVE));
@@ -1174,7 +1174,7 @@ mod tests {
 
         CPU.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
 
-        compare(&mut CPU, 1);
+        compare(&mut cpu, 1);
         assert!(!CPU.registers.status.contains(PS_ZERO));
         assert!(CPU.registers.status.contains(PS_CARRY));
         assert!(!CPU.registers.status.contains(PS_NEGATIVE));
@@ -1182,7 +1182,7 @@ mod tests {
 
         CPU.execute_instruction((load_instruction, OpInput::UseImmediate(1)));
 
-        compare(&mut CPU, 2);
+        compare(&mut cpu, 2);
         assert!(!CPU.registers.status.contains(PS_ZERO));
         assert!(!CPU.registers.status.contains(PS_CARRY));
         assert!(CPU.registers.status.contains(PS_NEGATIVE));
@@ -1190,7 +1190,7 @@ mod tests {
 
         CPU.execute_instruction((load_instruction, OpInput::UseImmediate(20)));
 
-        compare(&mut CPU, -50i8 as u8);
+        compare(&mut cpu, -50i8 as u8);
         assert!(!CPU.registers.status.contains(PS_ZERO));
         assert!(!CPU.registers.status.contains(PS_CARRY));
         assert!(!CPU.registers.status.contains(PS_NEGATIVE));
@@ -1198,7 +1198,7 @@ mod tests {
 
         CPU.execute_instruction((load_instruction, OpInput::UseImmediate(1)));
 
-        compare(&mut CPU, -1i8 as u8);
+        compare(&mut cpu, -1i8 as u8);
         assert!(!CPU.registers.status.contains(PS_ZERO));
         assert!(!CPU.registers.status.contains(PS_CARRY));
         assert!(!CPU.registers.status.contains(PS_NEGATIVE));
@@ -1206,7 +1206,7 @@ mod tests {
 
         CPU.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
 
-        compare(&mut CPU, -128i8 as u8);
+        compare(&mut cpu, -128i8 as u8);
         assert!(!CPU.registers.status.contains(PS_ZERO));
         assert!(!CPU.registers.status.contains(PS_CARRY));
         assert!(CPU.registers.status.contains(PS_NEGATIVE));
@@ -1215,7 +1215,7 @@ mod tests {
     #[test]
     fn compare_with_a_register_test() {
         compare_test_helper(
-            &mut |CPU: &mut CPU, val: u8| {
+            &mut |CPU: &mut cpu, val: u8| {
                 CPU.compare_with_a_register(val);
             },
             Instruction::LDA,
@@ -1225,7 +1225,7 @@ mod tests {
     #[test]
     fn compare_with_x_register_test() {
         compare_test_helper(
-            &mut |CPU: &mut CPU, val: u8| {
+            &mut |CPU: &mut cpu, val: u8| {
                 CPU.compare_with_x_register(val);
             },
             Instruction::LDX,
@@ -1235,7 +1235,7 @@ mod tests {
     #[test]
     fn compare_with_y_register_test() {
         compare_test_helper(
-            &mut |CPU: &mut CPU, val: u8| {
+            &mut |CPU: &mut cpu, val: u8| {
                 CPU.compare_with_y_register(val);
             },
             Instruction::LDY,
@@ -1244,7 +1244,7 @@ mod tests {
 
     #[test]
     fn exclusive_or_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
         for a_before in range_inclusive(0u8, 255u8) {
             for val in range_inclusive(0u8, 255u8) {
@@ -1272,7 +1272,7 @@ mod tests {
 
     #[test]
     fn inclusive_or_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
         for a_before in range_inclusive(0u8, 255u8) {
             for val in range_inclusive(0u8, 255u8) {
