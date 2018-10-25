@@ -58,17 +58,17 @@ impl StatusArgs {
 
 bitflags! {
     pub struct Status: u8 {
-        const PS_NEGATIVE           = 0b10000000;
-        const PS_OVERFLOW           = 0b01000000;
-        const PS_UNUSED             = 0b00100000; // JAM: Should this exist?
+        const PS_NEGATIVE           = 0b1000_0000;
+        const PS_OVERFLOW           = 0b0100_0000;
+        const PS_UNUSED             = 0b0010_0000; // JAM: Should this exist?
                                                   // (note that it affects the
                                                   // behavior of things like
                                                   // from_bits_truncate)
-        const PS_BRK                = 0b00010000;
-        const PS_DECIMAL_MODE       = 0b00001000;
-        const PS_DISABLE_INTERRUPTS = 0b00000100;
-        const PS_ZERO               = 0b00000010;
-        const PS_CARRY              = 0b00000001;
+        const PS_BRK                = 0b0001_0000;
+        const PS_DECIMAL_MODE       = 0b0000_1000;
+        const PS_DISABLE_INTERRUPTS = 0b0000_0100;
+        const PS_ZERO               = 0b0000_0010;
+        const PS_CARRY              = 0b0000_0001;
     }
 }
 
