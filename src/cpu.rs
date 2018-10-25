@@ -409,13 +409,10 @@ impl CPU {
     }
 
     pub fn run(&mut self) {
-        loop {
-            if let Some(decoded_instr) = self.fetch_next_and_decode() {
+        while let Some(decoded_instr) = self.fetch_next_and_decode() {
                 self.execute_instruction(decoded_instr);
-            } else {
-                break;
-            }
-        }
+            } 
+        
     }
 
     fn set_flags_from_i8(status: &mut Status, value: i8) {
