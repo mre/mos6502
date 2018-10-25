@@ -25,15 +25,14 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use std;
-
 use address::{Address, AddressDiff};
 use instruction;
 use instruction::{DecodedInstr, Instruction, OpInput};
 use memory::Memory;
 use registers::{Registers, StackPointer, Status, StatusArgs};
-use registers::{PS_CARRY, PS_DECIMAL_MODE, PS_DISABLE_INTERRUPTS, PS_NEGATIVE, PS_OVERFLOW,
-                PS_ZERO};
+use registers::{
+    PS_CARRY, PS_DECIMAL_MODE, PS_DISABLE_INTERRUPTS, PS_NEGATIVE, PS_OVERFLOW, PS_ZERO,
+};
 
 #[derive(Clone)]
 pub struct CPU {
@@ -758,8 +757,8 @@ impl CPU {
     }
 }
 
-impl std::fmt::Debug for CPU {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Debug for CPU {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(
             f,
             "CPU Dump:\n\nAccumulator: {}",
@@ -1171,14 +1170,12 @@ mod tests {
         assert!(CPU.registers.status.contains(PS_CARRY));
         assert!(!CPU.registers.status.contains(PS_NEGATIVE));
 
-
         CPU.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
 
         compare(&mut CPU, 1);
         assert!(!CPU.registers.status.contains(PS_ZERO));
         assert!(CPU.registers.status.contains(PS_CARRY));
         assert!(!CPU.registers.status.contains(PS_NEGATIVE));
-
 
         CPU.execute_instruction((load_instruction, OpInput::UseImmediate(1)));
 
@@ -1187,7 +1184,6 @@ mod tests {
         assert!(!CPU.registers.status.contains(PS_CARRY));
         assert!(CPU.registers.status.contains(PS_NEGATIVE));
 
-
         CPU.execute_instruction((load_instruction, OpInput::UseImmediate(20)));
 
         compare(&mut CPU, -50i8 as u8);
@@ -1195,14 +1191,12 @@ mod tests {
         assert!(!CPU.registers.status.contains(PS_CARRY));
         assert!(!CPU.registers.status.contains(PS_NEGATIVE));
 
-
         CPU.execute_instruction((load_instruction, OpInput::UseImmediate(1)));
 
         compare(&mut CPU, -1i8 as u8);
         assert!(!CPU.registers.status.contains(PS_ZERO));
         assert!(!CPU.registers.status.contains(PS_CARRY));
         assert!(!CPU.registers.status.contains(PS_NEGATIVE));
-
 
         CPU.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
 

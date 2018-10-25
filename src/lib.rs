@@ -25,6 +25,8 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+#![no_std]
+
 // Needed for debug! / log! macros
 #[macro_use]
 extern crate log;
@@ -35,7 +37,7 @@ extern crate num;
 extern crate bitflags;
 
 pub mod address;
-pub mod instruction;
 pub mod cpu;
+pub mod instruction;
 pub mod memory;
 pub mod registers;
