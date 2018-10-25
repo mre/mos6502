@@ -8,3 +8,8 @@ matrix:
     - rust: nightly
   fast_finish: true
 
+install:
+  - pushd /
+  - rustup component add rust-src
+  - rustup target add thumbv7em-none-eabihf
+  - popd
