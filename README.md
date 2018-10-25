@@ -3,10 +3,13 @@
 [![Build Status](https://travis-ci.org/mre/mos6502.svg?branch=master)](https://travis-ci.org/mre/mos6502)
 
 An emulator for the MOS 6502 CPU written in Rust.
-This started off as a fork of [6502-rs](https://github.com/amw-zero/6502-rs),
-which seems to be unmaintained at this point.
 
-It builds with the latest stable Rust.
+## Features
+
+* Builds on stable Rust.
+* Runs on `#[no_std]`, which means it works without the standard library. It is
+  portable, has very few dependencies, and doesn't depend on a full-fledged
+  `libc`.
 
 ## Usage example
 
@@ -117,3 +120,8 @@ fn main() {
     println!("{:?}", cpu);
 }
 ```
+
+## Credits
+
+This started off as a fork of [6502-rs](https://github.com/amw-zero/6502-rs),
+which seems to be unmaintained at this point.
