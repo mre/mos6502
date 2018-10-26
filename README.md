@@ -7,7 +7,7 @@ An emulator for the MOS 6502 CPU written in Rust.
 ## Features
 
 * Builds on stable Rust.
-* Runs on `#[no_std]`, which means it works without the standard library. It is
+* Runs on [`#[no_std]`](https://doc.rust-lang.org/1.7.0/book/no-stdlib.html), which means it works without the standard library. It is
   portable, has very few dependencies, and doesn't depend on a full-fledged
   `libc`.
 
