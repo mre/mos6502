@@ -1160,7 +1160,7 @@ mod tests {
     #[cfg(test)]
     fn compare_test_helper<F>(compare: &mut F, load_instruction: Instruction)
     where
-        F: FnMut(&mut cpu, u8),
+        F: FnMut(&mut CPU, u8),
     {
         let mut cpu = CPU::new();
 
@@ -1215,7 +1215,7 @@ mod tests {
     #[test]
     fn compare_with_a_register_test() {
         compare_test_helper(
-            &mut |CPU: &mut cpu, val: u8| {
+            &mut |cpu: &mut CPU, val: u8| {
                 cpu.compare_with_a_register(val);
             },
             Instruction::LDA,
@@ -1225,7 +1225,7 @@ mod tests {
     #[test]
     fn compare_with_x_register_test() {
         compare_test_helper(
-            &mut |CPU: &mut cpu, val: u8| {
+            &mut |cpu: &mut CPU, val: u8| {
                 cpu.compare_with_x_register(val);
             },
             Instruction::LDX,
@@ -1235,7 +1235,7 @@ mod tests {
     #[test]
     fn compare_with_y_register_test() {
         compare_test_helper(
-            &mut |CPU: &mut cpu, val: u8| {
+            &mut |cpu: &mut CPU, val: u8| {
                 cpu.compare_with_y_register(val);
             },
             Instruction::LDY,
