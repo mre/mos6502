@@ -30,7 +30,7 @@
 name = "mos6502"
 description = "A MOS 6502 Emulator"
 license = "BSD-3-Clause"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["The 6502-rs Developers"]
 
 [lib]
@@ -39,7 +39,7 @@ name = "mos6502"
 
 [dependencies]
 bitflags = "0.9.1"
-log = "0.3.8"
+log = "0.4.6"
 
 [dependencies.num]
 version = "0.2"
