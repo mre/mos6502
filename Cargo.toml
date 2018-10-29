@@ -40,4 +40,8 @@ name = "mos6502"
 [dependencies]
 bitflags = "0.9.1"
 log = "0.3.8"
-num = "0.1"
+
+[dependencies.num]
+version = "0.2"
+# no_std support
+default-features = false
