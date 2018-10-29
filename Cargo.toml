@@ -32,7 +32,6 @@ description = "A MOS 6502 Emulator"
 license = "BSD-3-Clause"
 version = "0.0.1"
 authors = ["The 6502-rs Developers"]
-build = "build.rs"
 
 [lib]
 # This will look in src/lib.rs
@@ -42,9 +41,3 @@ name = "mos6502"
 bitflags = "0.9.1"
 log = "0.3.8"
 num = "0.1"
-
-[build-dependencies]
-skeptic = "0.13"
-
-[dev-dependencies]
-skeptic = "0.13"
