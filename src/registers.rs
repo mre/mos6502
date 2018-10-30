@@ -100,39 +100,39 @@ impl Status {
         let mut out = Status::empty();
 
         if negative {
-            out = out | PS_NEGATIVE
+            out |= PS_NEGATIVE
         }
         if overflow {
-            out = out | PS_OVERFLOW
+            out |= PS_OVERFLOW
         }
         if unused {
-            out = out | PS_UNUSED
+            out |= PS_UNUSED
         }
         if brk {
-            out = out | PS_BRK
+            out |= PS_BRK
         }
         if decimal_mode {
-            out = out | PS_DECIMAL_MODE
+            out |= PS_DECIMAL_MODE
         }
         if disable_interrupts {
-            out = out | PS_DISABLE_INTERRUPTS
+            out |= PS_DISABLE_INTERRUPTS
         }
         if zero {
-            out = out | PS_ZERO
+            out |= PS_ZERO
         }
         if carry {
-            out = out | PS_CARRY
+            out |= PS_CARRY
         }
 
         out
     }
 
     pub fn and(&mut self, rhs: Status) {
-        *self = *self & rhs;
+        *self &= rhs;
     }
 
     pub fn or(&mut self, rhs: Status) {
-        *self = *self | rhs;
+        *self |= rhs;
     }
 
     pub fn set_with_mask(&mut self, mask: Status, rhs: Status) {

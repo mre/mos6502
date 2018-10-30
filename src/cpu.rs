@@ -448,7 +448,7 @@ impl CPU {
     fn shift_right_with_flags(p_val: &mut u8, status: &mut Status) {
         let mask = 1;
         let is_bit_0_set = (*p_val & mask) == mask;
-        *p_val = *p_val >> 1;
+        *p_val >>= 1;
         status.set_with_mask(
             PS_CARRY,
             Status::new(StatusArgs {
