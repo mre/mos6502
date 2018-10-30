@@ -146,7 +146,7 @@ pub struct StackPointer(pub u8);
 impl StackPointer {
     pub fn to_address(&self) -> Address {
         let StackPointer(sp) = *self;
-        STACK_ADDRESS_LO + AddressDiff(sp as i32)
+        STACK_ADDRESS_LO + AddressDiff(i32::from(sp))
     }
 
     // JAM: FIXME: Should we prevent overflow here? What would a 6502 do?

@@ -139,7 +139,7 @@ pub enum AddressingMode {
 fn arr_to_addr(arr: &[u8]) -> Address {
     debug_assert!(arr.len() == 2);
 
-    let x = (arr[0] as u16) + ((arr[1] as u16) << 8usize);
+    let x = u16::from(arr[0]) + (u16::from(arr[1]) << 8usize);
     Address(x)
 }
 
@@ -187,19 +187,19 @@ impl AddressingMode {
                 // Use [u8, ..1] from instruction
                 // Interpret as zero page address
                 // (Output: an 8-bit zero-page address)
-                OpInput::UseAddress(Address(arr[0] as u16))
+                OpInput::UseAddress(Address(u16::from(arr[0])))
             }
             AddressingMode::ZeroPageX => {
                 // Use [u8, ..1] from instruction
                 // Add to X register (as u8 -- the final address is in 0-page)
                 // (Output: an 8-bit zero-page address)
-                OpInput::UseAddress(Address((arr[0] + x) as u16))
+                OpInput::UseAddress(Address(u16::from(arr[0] + x)))
             }
             AddressingMode::ZeroPageY => {
                 // Use [u8, ..1] from instruction
                 // Add to Y register (as u8 -- the final address is in 0-page)
                 // (Output: an 8-bit zero-page address)
-                OpInput::UseAddress(Address((arr[0] + y) as u16))
+                OpInput::UseAddress(Address(u16::from(arr[0] + y)))
             }
             AddressingMode::Relative => {
                 // Use [u8, ..1] from instruction
@@ -214,12 +214,12 @@ impl AddressingMode {
             AddressingMode::AbsoluteX => {
                 // Use [u8, ..2] from instruction as address, add X
                 // (Output: a 16-bit address)
-                OpInput::UseAddress(arr_to_addr(arr) + AddressDiff(x as i32))
+                OpInput::UseAddress(arr_to_addr(arr) + AddressDiff(i32::from(x)))
             }
             AddressingMode::AbsoluteY => {
                 // Use [u8, ..2] from instruction as address, add Y
                 // (Output: a 16-bit address)
-                OpInput::UseAddress(arr_to_addr(arr) + AddressDiff(y as i32))
+                OpInput::UseAddress(arr_to_addr(arr) + AddressDiff(i32::from(y)))
             }
             AddressingMode::Indirect => {
                 // Use [u8, ..2] from instruction as an address. Interpret the
@@ -234,7 +234,7 @@ impl AddressingMode {
                 // This is where the absolute (16-bit) target address is stored.
                 // (Output: a 16-bit address)
                 let start = arr[0] + x;
-                let slice = memory.get_slice(Address(start as u16), AddressDiff(2));
+                let slice = memory.get_slice(Address(u16::from(start)), AddressDiff(2));
                 OpInput::UseAddress(arr_to_addr(slice))
             }
             AddressingMode::IndirectIndexedY => {
@@ -243,8 +243,8 @@ impl AddressingMode {
                 // Add Y register to this address to get the final address
                 // (Output: a 16-bit address)
                 let start = arr[0];
-                let slice = memory.get_slice(Address(start as u16), AddressDiff(2));
-                OpInput::UseAddress(arr_to_addr(slice) + AddressDiff(y as i32))
+                let slice = memory.get_slice(Address(u16::from(start)), AddressDiff(2));
+                OpInput::UseAddress(arr_to_addr(slice) + AddressDiff(i32::from(y)))
             }
         }
     }
