@@ -29,6 +29,15 @@
 
 extern crate mos6502;
 
+use core::panic::PanicInfo;
+
+/// This function is called on panic.
+#[cfg(not(test))]
+#[panic_handler]
+fn panic(_info: &PanicInfo) -> ! {
+    loop {}
+}
+
 #[cfg(not(test))]
 use mos6502::cpu;
 
