@@ -410,9 +410,8 @@ impl CPU {
 
     pub fn run(&mut self) {
         while let Some(decoded_instr) = self.fetch_next_and_decode() {
-                self.execute_instruction(decoded_instr);
-            } 
-        
+            self.execute_instruction(decoded_instr);
+        }
     }
 
     fn set_flags_from_i8(status: &mut Status, value: i8) {
@@ -772,385 +771,385 @@ mod tests {
 
     #[test]
     fn add_with_carry_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
-        CPU.add_with_carry(1);
-        assert_eq!(CPU.registers.accumulator, 1);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), false);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        cpu.add_with_carry(1);
+        assert_eq!(cpu.registers.accumulator, 1);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
 
-        CPU.add_with_carry(-1);
-        assert_eq!(CPU.registers.accumulator, 0);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), true);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), true);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        cpu.add_with_carry(-1);
+        assert_eq!(cpu.registers.accumulator, 0);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), true);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), true);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
 
-        CPU.add_with_carry(1);
-        assert_eq!(CPU.registers.accumulator, 2);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), false);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        cpu.add_with_carry(1);
+        assert_eq!(cpu.registers.accumulator, 2);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
 
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
-        CPU.add_with_carry(127);
-        assert_eq!(CPU.registers.accumulator, 127);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), false);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        cpu.add_with_carry(127);
+        assert_eq!(cpu.registers.accumulator, 127);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
 
-        CPU.add_with_carry(-127);
-        assert_eq!(CPU.registers.accumulator, 0);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), true);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), true);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        cpu.add_with_carry(-127);
+        assert_eq!(cpu.registers.accumulator, 0);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), true);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), true);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
 
-        CPU.registers.status.remove(PS_CARRY);
-        CPU.add_with_carry(-128);
-        assert_eq!(CPU.registers.accumulator, -128);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), false);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), true);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        cpu.registers.status.remove(PS_CARRY);
+        cpu.add_with_carry(-128);
+        assert_eq!(cpu.registers.accumulator, -128);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), true);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
 
-        CPU.add_with_carry(127);
-        assert_eq!(CPU.registers.accumulator, -1);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), false);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), true);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        cpu.add_with_carry(127);
+        assert_eq!(cpu.registers.accumulator, -1);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), true);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
 
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
-        CPU.add_with_carry(127);
-        assert_eq!(CPU.registers.accumulator, 127);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), false);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        cpu.add_with_carry(127);
+        assert_eq!(cpu.registers.accumulator, 127);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
 
-        CPU.add_with_carry(1);
-        assert_eq!(CPU.registers.accumulator, -128);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), false);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), true);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), true);
+        cpu.add_with_carry(1);
+        assert_eq!(cpu.registers.accumulator, -128);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), true);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), true);
     }
 
     #[test]
     fn and_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
-        CPU.registers.accumulator = 0;
-        CPU.and(-1);
-        assert_eq!(CPU.registers.accumulator, 0);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), true);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
+        cpu.registers.accumulator = 0;
+        cpu.and(-1);
+        assert_eq!(cpu.registers.accumulator, 0);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), true);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
 
-        CPU.registers.accumulator = -1;
-        CPU.and(0);
-        assert_eq!(CPU.registers.accumulator, 0);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), true);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
+        cpu.registers.accumulator = -1;
+        cpu.and(0);
+        assert_eq!(cpu.registers.accumulator, 0);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), true);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
 
-        CPU.registers.accumulator = -1;
-        CPU.and(0x0f);
-        assert_eq!(CPU.registers.accumulator, 0x0f);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
+        cpu.registers.accumulator = -1;
+        cpu.and(0x0f);
+        assert_eq!(cpu.registers.accumulator, 0x0f);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
 
-        CPU.registers.accumulator = -1;
-        CPU.and(-128);
-        assert_eq!(CPU.registers.accumulator, -128);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), true);
+        cpu.registers.accumulator = -1;
+        cpu.and(-128);
+        assert_eq!(cpu.registers.accumulator, -128);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), true);
     }
 
     #[test]
     fn subtract_with_carry_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
-        CPU.execute_instruction((Instruction::SEC, OpInput::UseImplied));
-        CPU.registers.accumulator = 0;
+        cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
+        cpu.registers.accumulator = 0;
 
-        CPU.subtract_with_carry(1);
-        assert_eq!(CPU.registers.accumulator, -1);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), true);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), true);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        cpu.subtract_with_carry(1);
+        assert_eq!(cpu.registers.accumulator, -1);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), true);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), true);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
 
-        CPU.execute_instruction((Instruction::SEC, OpInput::UseImplied));
-        CPU.registers.accumulator = -128;
-        CPU.subtract_with_carry(1);
-        assert_eq!(CPU.registers.accumulator, 127);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), false);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), true);
+        cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
+        cpu.registers.accumulator = -128;
+        cpu.subtract_with_carry(1);
+        assert_eq!(cpu.registers.accumulator, 127);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), true);
 
-        CPU.execute_instruction((Instruction::SEC, OpInput::UseImplied));
-        CPU.registers.accumulator = 127;
-        CPU.subtract_with_carry(-1);
-        assert_eq!(CPU.registers.accumulator, -128);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), true);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), true);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), true);
+        cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
+        cpu.registers.accumulator = 127;
+        cpu.subtract_with_carry(-1);
+        assert_eq!(cpu.registers.accumulator, -128);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), true);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), true);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), true);
 
-        CPU.execute_instruction((Instruction::CLC, OpInput::UseImplied));
-        CPU.registers.accumulator = -64;
-        CPU.subtract_with_carry(64);
-        assert_eq!(CPU.registers.accumulator, 127);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), false);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), true);
+        cpu.execute_instruction((Instruction::CLC, OpInput::UseImplied));
+        cpu.registers.accumulator = -64;
+        cpu.subtract_with_carry(64);
+        assert_eq!(cpu.registers.accumulator, 127);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), true);
 
-        CPU.execute_instruction((Instruction::SEC, OpInput::UseImplied));
-        CPU.registers.accumulator = 0;
-        CPU.subtract_with_carry(-128);
-        assert_eq!(CPU.registers.accumulator, -128);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), true);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), true);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), true);
+        cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
+        cpu.registers.accumulator = 0;
+        cpu.subtract_with_carry(-128);
+        assert_eq!(cpu.registers.accumulator, -128);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), true);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), true);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), true);
 
-        CPU.execute_instruction((Instruction::CLC, OpInput::UseImplied));
-        CPU.registers.accumulator = 0;
-        CPU.subtract_with_carry(127);
-        assert_eq!(CPU.registers.accumulator, -128);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), true);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), true);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        cpu.execute_instruction((Instruction::CLC, OpInput::UseImplied));
+        cpu.registers.accumulator = 0;
+        cpu.subtract_with_carry(127);
+        assert_eq!(cpu.registers.accumulator, -128);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), true);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), true);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
     }
 
     #[test]
     fn decrement_memory_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
         let addr = Address(0xA1B2);
 
-        CPU.memory.set_byte(addr, 5);
+        cpu.memory.set_byte(addr, 5);
 
-        CPU.decrement_memory(addr);
-        assert_eq!(CPU.memory.get_byte(addr), 4);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
+        cpu.decrement_memory(addr);
+        assert_eq!(cpu.memory.get_byte(addr), 4);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
 
-        CPU.decrement_memory(addr);
-        assert_eq!(CPU.memory.get_byte(addr), 3);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
+        cpu.decrement_memory(addr);
+        assert_eq!(cpu.memory.get_byte(addr), 3);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
 
-        CPU.decrement_memory(addr);
-        CPU.decrement_memory(addr);
-        CPU.decrement_memory(addr);
-        assert_eq!(CPU.memory.get_byte(addr), 0);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), true);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
+        cpu.decrement_memory(addr);
+        cpu.decrement_memory(addr);
+        cpu.decrement_memory(addr);
+        assert_eq!(cpu.memory.get_byte(addr), 0);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), true);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
 
-        CPU.decrement_memory(addr);
-        assert_eq!(CPU.memory.get_byte(addr) as i8, -1);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), true);
+        cpu.decrement_memory(addr);
+        assert_eq!(cpu.memory.get_byte(addr) as i8, -1);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), true);
     }
 
     #[test]
     fn logical_shift_right_test() {
         // Testing UseImplied version (which targets the accumulator) only, for now
 
-        let mut CPU = CPU::new();
-        CPU.execute_instruction((Instruction::LDA, OpInput::UseImmediate(0)));
-        CPU.execute_instruction((Instruction::LSR, OpInput::UseImplied));
-        assert_eq!(CPU.registers.accumulator, 0);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), false);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), true);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        let mut cpu = CPU::new();
+        cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(0)));
+        cpu.execute_instruction((Instruction::LSR, OpInput::UseImplied));
+        assert_eq!(cpu.registers.accumulator, 0);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), true);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
 
-        CPU.execute_instruction((Instruction::LDA, OpInput::UseImmediate(1)));
-        CPU.execute_instruction((Instruction::LSR, OpInput::UseImplied));
-        assert_eq!(CPU.registers.accumulator, 0);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), true);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), true);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(1)));
+        cpu.execute_instruction((Instruction::LSR, OpInput::UseImplied));
+        assert_eq!(cpu.registers.accumulator, 0);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), true);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), true);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
 
-        CPU.execute_instruction((Instruction::LDA, OpInput::UseImmediate(255)));
-        CPU.execute_instruction((Instruction::LSR, OpInput::UseImplied));
-        assert_eq!(CPU.registers.accumulator, 0x7F);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), true);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(255)));
+        cpu.execute_instruction((Instruction::LSR, OpInput::UseImplied));
+        assert_eq!(cpu.registers.accumulator, 0x7F);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), true);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
 
-        CPU.execute_instruction((Instruction::LDA, OpInput::UseImmediate(254)));
-        CPU.execute_instruction((Instruction::LSR, OpInput::UseImplied));
-        assert_eq!(CPU.registers.accumulator, 0x7F);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), false);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(254)));
+        cpu.execute_instruction((Instruction::LSR, OpInput::UseImplied));
+        assert_eq!(cpu.registers.accumulator, 0x7F);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
     }
 
     #[test]
     fn dec_x_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
-        CPU.dec_x();
-        assert_eq!(CPU.registers.index_x, -1);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), false);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), true);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        cpu.dec_x();
+        assert_eq!(cpu.registers.index_x, -1);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), true);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
 
-        CPU.dec_x();
-        assert_eq!(CPU.registers.index_x, -2);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), false);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), true);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        cpu.dec_x();
+        assert_eq!(cpu.registers.index_x, -2);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), true);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
 
-        CPU.load_x_register(5);
-        CPU.dec_x();
-        assert_eq!(CPU.registers.index_x, 4);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), false);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        cpu.load_x_register(5);
+        cpu.dec_x();
+        assert_eq!(cpu.registers.index_x, 4);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
 
-        CPU.dec_x();
-        CPU.dec_x();
-        CPU.dec_x();
-        CPU.dec_x();
+        cpu.dec_x();
+        cpu.dec_x();
+        cpu.dec_x();
+        cpu.dec_x();
 
-        assert_eq!(CPU.registers.index_x, 0);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), false);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), true);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), false);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        assert_eq!(cpu.registers.index_x, 0);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), true);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
 
-        CPU.dec_x();
-        assert_eq!(CPU.registers.index_x, -1);
-        assert_eq!(CPU.registers.status.contains(PS_CARRY), false);
-        assert_eq!(CPU.registers.status.contains(PS_ZERO), false);
-        assert_eq!(CPU.registers.status.contains(PS_NEGATIVE), true);
-        assert_eq!(CPU.registers.status.contains(PS_OVERFLOW), false);
+        cpu.dec_x();
+        assert_eq!(cpu.registers.index_x, -1);
+        assert_eq!(cpu.registers.status.contains(PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(PS_NEGATIVE), true);
+        assert_eq!(cpu.registers.status.contains(PS_OVERFLOW), false);
     }
 
     #[test]
     fn jump_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
         let addr = Address(0xA1B1);
 
-        CPU.jump(addr);
-        assert_eq!(CPU.registers.program_counter, addr);
+        cpu.jump(addr);
+        assert_eq!(cpu.registers.program_counter, addr);
     }
 
     #[test]
     fn branch_if_carry_clear_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
-        CPU.execute_instruction((Instruction::SEC, OpInput::UseImplied));
-        CPU.branch_if_carry_clear(Address(0xABCD));
-        assert_eq!(CPU.registers.program_counter, Address(0));
+        cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
+        cpu.branch_if_carry_clear(Address(0xABCD));
+        assert_eq!(cpu.registers.program_counter, Address(0));
 
-        CPU.execute_instruction((Instruction::CLC, OpInput::UseImplied));
-        CPU.branch_if_carry_clear(Address(0xABCD));
-        assert_eq!(CPU.registers.program_counter, Address(0xABCD));
+        cpu.execute_instruction((Instruction::CLC, OpInput::UseImplied));
+        cpu.branch_if_carry_clear(Address(0xABCD));
+        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
     }
 
     #[test]
     fn branch_if_carry_set_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
-        CPU.execute_instruction((Instruction::CLC, OpInput::UseImplied));
-        CPU.branch_if_carry_set(Address(0xABCD));
-        assert_eq!(CPU.registers.program_counter, Address(0));
+        cpu.execute_instruction((Instruction::CLC, OpInput::UseImplied));
+        cpu.branch_if_carry_set(Address(0xABCD));
+        assert_eq!(cpu.registers.program_counter, Address(0));
 
-        CPU.execute_instruction((Instruction::SEC, OpInput::UseImplied));
-        CPU.branch_if_carry_set(Address(0xABCD));
-        assert_eq!(CPU.registers.program_counter, Address(0xABCD));
+        cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
+        cpu.branch_if_carry_set(Address(0xABCD));
+        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
     }
 
     #[test]
     fn branch_if_equal_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
-        CPU.branch_if_equal(Address(0xABCD));
-        assert_eq!(CPU.registers.program_counter, Address(0));
+        cpu.branch_if_equal(Address(0xABCD));
+        assert_eq!(cpu.registers.program_counter, Address(0));
 
-        CPU.registers.status.or(PS_ZERO);
-        CPU.branch_if_equal(Address(0xABCD));
-        assert_eq!(CPU.registers.program_counter, Address(0xABCD));
+        cpu.registers.status.or(PS_ZERO);
+        cpu.branch_if_equal(Address(0xABCD));
+        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
     }
 
     #[test]
     fn branch_if_minus_test() {
         {
-            let mut CPU = CPU::new();
-            let registers_before = CPU.registers;
+            let mut cpu = CPU::new();
+            let registers_before = cpu.registers;
 
-            CPU.branch_if_minus(Address(0xABCD));
-            assert_eq!(CPU.registers, registers_before);
-            assert_eq!(CPU.registers.program_counter, Address(0));
+            cpu.branch_if_minus(Address(0xABCD));
+            assert_eq!(cpu.registers, registers_before);
+            assert_eq!(cpu.registers.program_counter, Address(0));
         }
 
         {
-            let mut CPU = CPU::new();
+            let mut cpu = CPU::new();
 
-            CPU.registers.status.or(PS_NEGATIVE);
-            let registers_before = CPU.registers;
+            cpu.registers.status.or(PS_NEGATIVE);
+            let registers_before = cpu.registers;
 
-            CPU.branch_if_minus(Address(0xABCD));
-            assert_eq!(CPU.registers.status, registers_before.status);
-            assert_eq!(CPU.registers.program_counter, Address(0xABCD));
+            cpu.branch_if_minus(Address(0xABCD));
+            assert_eq!(cpu.registers.status, registers_before.status);
+            assert_eq!(cpu.registers.program_counter, Address(0xABCD));
         }
     }
 
     #[test]
     fn branch_if_positive_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
-        CPU.registers.status.insert(PS_NEGATIVE);
-        CPU.branch_if_positive(Address(0xABCD));
-        assert_eq!(CPU.registers.program_counter, Address(0));
+        cpu.registers.status.insert(PS_NEGATIVE);
+        cpu.branch_if_positive(Address(0xABCD));
+        assert_eq!(cpu.registers.program_counter, Address(0));
 
-        CPU.registers.status.remove(PS_NEGATIVE);
-        CPU.branch_if_positive(Address(0xABCD));
-        assert_eq!(CPU.registers.program_counter, Address(0xABCD));
+        cpu.registers.status.remove(PS_NEGATIVE);
+        cpu.branch_if_positive(Address(0xABCD));
+        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
     }
 
     #[test]
     fn branch_if_overflow_clear_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
-        CPU.registers.status.insert(PS_OVERFLOW);
-        CPU.branch_if_overflow_clear(Address(0xABCD));
-        assert_eq!(CPU.registers.program_counter, Address(0));
+        cpu.registers.status.insert(PS_OVERFLOW);
+        cpu.branch_if_overflow_clear(Address(0xABCD));
+        assert_eq!(cpu.registers.program_counter, Address(0));
 
-        CPU.registers.status.remove(PS_OVERFLOW);
-        CPU.branch_if_overflow_clear(Address(0xABCD));
-        assert_eq!(CPU.registers.program_counter, Address(0xABCD));
+        cpu.registers.status.remove(PS_OVERFLOW);
+        cpu.branch_if_overflow_clear(Address(0xABCD));
+        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
     }
 
     #[test]
     fn branch_if_overflow_set_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
-        CPU.branch_if_overflow_set(Address(0xABCD));
-        assert_eq!(CPU.registers.program_counter, Address(0));
+        cpu.branch_if_overflow_set(Address(0xABCD));
+        assert_eq!(cpu.registers.program_counter, Address(0));
 
-        CPU.registers.status.insert(PS_OVERFLOW);
-        CPU.branch_if_overflow_set(Address(0xABCD));
-        assert_eq!(CPU.registers.program_counter, Address(0xABCD));
+        cpu.registers.status.insert(PS_OVERFLOW);
+        cpu.branch_if_overflow_set(Address(0xABCD));
+        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
     }
 
     #[cfg(test)]
@@ -1158,56 +1157,56 @@ mod tests {
     where
         F: FnMut(&mut CPU, u8),
     {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
-        CPU.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
+        cpu.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
 
-        compare(&mut CPU, 127);
-        assert!(CPU.registers.status.contains(PS_ZERO));
-        assert!(CPU.registers.status.contains(PS_CARRY));
-        assert!(!CPU.registers.status.contains(PS_NEGATIVE));
+        compare(&mut cpu, 127);
+        assert!(cpu.registers.status.contains(PS_ZERO));
+        assert!(cpu.registers.status.contains(PS_CARRY));
+        assert!(!cpu.registers.status.contains(PS_NEGATIVE));
 
-        CPU.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
+        cpu.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
 
-        compare(&mut CPU, 1);
-        assert!(!CPU.registers.status.contains(PS_ZERO));
-        assert!(CPU.registers.status.contains(PS_CARRY));
-        assert!(!CPU.registers.status.contains(PS_NEGATIVE));
+        compare(&mut cpu, 1);
+        assert!(!cpu.registers.status.contains(PS_ZERO));
+        assert!(cpu.registers.status.contains(PS_CARRY));
+        assert!(!cpu.registers.status.contains(PS_NEGATIVE));
 
-        CPU.execute_instruction((load_instruction, OpInput::UseImmediate(1)));
+        cpu.execute_instruction((load_instruction, OpInput::UseImmediate(1)));
 
-        compare(&mut CPU, 2);
-        assert!(!CPU.registers.status.contains(PS_ZERO));
-        assert!(!CPU.registers.status.contains(PS_CARRY));
-        assert!(CPU.registers.status.contains(PS_NEGATIVE));
+        compare(&mut cpu, 2);
+        assert!(!cpu.registers.status.contains(PS_ZERO));
+        assert!(!cpu.registers.status.contains(PS_CARRY));
+        assert!(cpu.registers.status.contains(PS_NEGATIVE));
 
-        CPU.execute_instruction((load_instruction, OpInput::UseImmediate(20)));
+        cpu.execute_instruction((load_instruction, OpInput::UseImmediate(20)));
 
-        compare(&mut CPU, -50i8 as u8);
-        assert!(!CPU.registers.status.contains(PS_ZERO));
-        assert!(!CPU.registers.status.contains(PS_CARRY));
-        assert!(!CPU.registers.status.contains(PS_NEGATIVE));
+        compare(&mut cpu, -50i8 as u8);
+        assert!(!cpu.registers.status.contains(PS_ZERO));
+        assert!(!cpu.registers.status.contains(PS_CARRY));
+        assert!(!cpu.registers.status.contains(PS_NEGATIVE));
 
-        CPU.execute_instruction((load_instruction, OpInput::UseImmediate(1)));
+        cpu.execute_instruction((load_instruction, OpInput::UseImmediate(1)));
 
-        compare(&mut CPU, -1i8 as u8);
-        assert!(!CPU.registers.status.contains(PS_ZERO));
-        assert!(!CPU.registers.status.contains(PS_CARRY));
-        assert!(!CPU.registers.status.contains(PS_NEGATIVE));
+        compare(&mut cpu, -1i8 as u8);
+        assert!(!cpu.registers.status.contains(PS_ZERO));
+        assert!(!cpu.registers.status.contains(PS_CARRY));
+        assert!(!cpu.registers.status.contains(PS_NEGATIVE));
 
-        CPU.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
+        cpu.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
 
-        compare(&mut CPU, -128i8 as u8);
-        assert!(!CPU.registers.status.contains(PS_ZERO));
-        assert!(!CPU.registers.status.contains(PS_CARRY));
-        assert!(CPU.registers.status.contains(PS_NEGATIVE));
+        compare(&mut cpu, -128i8 as u8);
+        assert!(!cpu.registers.status.contains(PS_ZERO));
+        assert!(!cpu.registers.status.contains(PS_CARRY));
+        assert!(cpu.registers.status.contains(PS_NEGATIVE));
     }
 
     #[test]
     fn compare_with_a_register_test() {
         compare_test_helper(
-            &mut |CPU: &mut CPU, val: u8| {
-                CPU.compare_with_a_register(val);
+            &mut |cpu: &mut CPU, val: u8| {
+                cpu.compare_with_a_register(val);
             },
             Instruction::LDA,
         );
@@ -1216,8 +1215,8 @@ mod tests {
     #[test]
     fn compare_with_x_register_test() {
         compare_test_helper(
-            &mut |CPU: &mut CPU, val: u8| {
-                CPU.compare_with_x_register(val);
+            &mut |cpu: &mut CPU, val: u8| {
+                cpu.compare_with_x_register(val);
             },
             Instruction::LDX,
         );
@@ -1226,8 +1225,8 @@ mod tests {
     #[test]
     fn compare_with_y_register_test() {
         compare_test_helper(
-            &mut |CPU: &mut CPU, val: u8| {
-                CPU.compare_with_y_register(val);
+            &mut |cpu: &mut CPU, val: u8| {
+                cpu.compare_with_y_register(val);
             },
             Instruction::LDY,
         );
@@ -1235,27 +1234,27 @@ mod tests {
 
     #[test]
     fn exclusive_or_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
         for a_before in range_inclusive(0u8, 255u8) {
             for val in range_inclusive(0u8, 255u8) {
-                CPU.execute_instruction((Instruction::LDA, OpInput::UseImmediate(a_before)));
+                cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(a_before)));
 
-                CPU.exclusive_or(val);
+                cpu.exclusive_or(val);
 
                 let a_after = a_before ^ val;
-                assert_eq!(CPU.registers.accumulator, a_after as i8);
+                assert_eq!(cpu.registers.accumulator, a_after as i8);
 
                 if a_after == 0 {
-                    assert!(CPU.registers.status.contains(PS_ZERO));
+                    assert!(cpu.registers.status.contains(PS_ZERO));
                 } else {
-                    assert!(!CPU.registers.status.contains(PS_ZERO));
+                    assert!(!cpu.registers.status.contains(PS_ZERO));
                 }
 
                 if (a_after as i8) < 0 {
-                    assert!(CPU.registers.status.contains(PS_NEGATIVE));
+                    assert!(cpu.registers.status.contains(PS_NEGATIVE));
                 } else {
-                    assert!(!CPU.registers.status.contains(PS_NEGATIVE));
+                    assert!(!cpu.registers.status.contains(PS_NEGATIVE));
                 }
             }
         }
@@ -1263,27 +1262,27 @@ mod tests {
 
     #[test]
     fn inclusive_or_test() {
-        let mut CPU = CPU::new();
+        let mut cpu = CPU::new();
 
         for a_before in range_inclusive(0u8, 255u8) {
             for val in range_inclusive(0u8, 255u8) {
-                CPU.execute_instruction((Instruction::LDA, OpInput::UseImmediate(a_before)));
+                cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(a_before)));
 
-                CPU.inclusive_or(val);
+                cpu.inclusive_or(val);
 
                 let a_after = a_before | val;
-                assert_eq!(CPU.registers.accumulator, a_after as i8);
+                assert_eq!(cpu.registers.accumulator, a_after as i8);
 
                 if a_after == 0 {
-                    assert!(CPU.registers.status.contains(PS_ZERO));
+                    assert!(cpu.registers.status.contains(PS_ZERO));
                 } else {
-                    assert!(!CPU.registers.status.contains(PS_ZERO));
+                    assert!(!cpu.registers.status.contains(PS_ZERO));
                 }
 
                 if (a_after as i8) < 0 {
-                    assert!(CPU.registers.status.contains(PS_NEGATIVE));
+                    assert!(cpu.registers.status.contains(PS_NEGATIVE));
                 } else {
-                    assert!(!CPU.registers.status.contains(PS_NEGATIVE));
+                    assert!(!cpu.registers.status.contains(PS_NEGATIVE));
                 }
             }
         }

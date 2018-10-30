@@ -26,6 +26,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #![no_std]
+#![feature(start)]
 
 extern crate mos6502;
 
@@ -45,25 +46,34 @@ use mos6502::cpu;
 use mos6502::address::Address;
 
 #[cfg(not(test))]
-fn main() {
+#[start]
+fn main(_argc: isize, _argv: *const *const u8) -> isize {
     let mut cpu = cpu::CPU::new();
 
     // "Load" a program
 
-    // JAM: FIXME: What's the syntax for specifying the array element type,
-    //             but not the length? (For a fixed-size array)
-
-    let zero_page_data: [u8; 17] = [
+    let zero_page_data = [
         // ZeroPage data start
-        0x00, 0x02, // ADC ZeroPage target
-        0x00, 0x04, // ADC ZeroPageX target
-        0x00, 0x00, 0x00, 0x00, 0x10, // ADC IndexedIndirectX address
+        0x00, //
+        0x02, // ADC ZeroPage target
+        0x00, //
+        0x04, // ADC ZeroPageX target
+        0x00, //
+        0x00, //
+        0x00, //
+        0x00, //
+        0x10, // ADC IndexedIndirectX address
         0x80, // ADC IndexedIndirectX address
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x08, // ADC IndirectIndexedY address
+        0x00, //
+        0x00, //
+        0x00, //
+        0x00, //
+        0x00, //
+        0x08, // ADC IndirectIndexedY address
         0x80, // ADC IndirectIndexedY address
     ];
 
-    let program: [u8; 33] = [
+    let program = [
         // Code start
         0xA9, // LDA Immediate
         0x01, //     Immediate operand
@@ -100,12 +110,32 @@ fn main() {
         0xFF, // Something invalid -- the end!
     ];
 
-    let data: [u8; 25] = [
-        0x00, 0x09, // ADC Absolute target
-        0x00, 0x00, 0x40, // ADC AbsoluteY target
-        0x00, 0x00, 0x00, 0x11, // ADC AbsoluteX target
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x12, // ADC IndexedIndirectX target
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, // ADC IndirectIndexedY target
+    let data = [
+        0x00, //
+        0x09, // ADC Absolute target
+        0x00, //
+        0x00, //
+        0x40, // ADC AbsoluteY target
+        0x00, //
+        0x00, //
+        0x00, //
+        0x11, // ADC AbsoluteX target
+        0x00, //
+        0x00, //
+        0x00, //
+        0x00, //
+        0x00, //
+        0x00, //
+        0x00, //
+        0x12, // ADC IndexedIndirectX target
+        0x00, //
+        0x00, //
+        0x00, //
+        0x00, //
+        0x00, //
+        0x00, //
+        0x00, //
+        0x06, // ADC IndirectIndexedY target
     ];
 
     cpu.memory.set_bytes(Address(0x0000), &zero_page_data);
@@ -115,4 +145,5 @@ fn main() {
     cpu.registers.program_counter = Address(0x4000);
 
     cpu.run();
+    0
 }
