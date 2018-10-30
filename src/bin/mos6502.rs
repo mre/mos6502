@@ -27,6 +27,10 @@
 
 #![no_std]
 #![feature(start)]
+#![feature(lang_items)]
+
+#[lang = "eh_personality"]
+extern "C" fn eh_personality() {}
 
 extern crate mos6502;
 
