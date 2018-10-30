@@ -18,10 +18,9 @@ env:
   - TARGET=thumbv7em-none-eabihf
 
 install:
-  - cargo install xargo || true
   - rustup component add rust-src
   - rustup target add $TARGET
 
 script:
-  - xargo build --no-default-features --verbose --target $TARGET
-  - xargo test --no-default-features --verbose --target $TARGET
+  - cargo build --verbose --target $TARGET --no-default-features 
+  - cargo test --verbose --target $TARGET --no-default-features 
