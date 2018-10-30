@@ -14,6 +14,9 @@ An emulator for the MOS 6502 CPU written in Rust.
 ## Usage example
 
 ```rust
+
+#![no_std]
+
 extern crate mos6502;
 
 use mos6502::cpu;
