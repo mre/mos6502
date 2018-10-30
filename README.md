@@ -119,8 +119,6 @@ fn main() {
     cpu.registers.program_counter = Address(0x4000);
 
     cpu.run();
-
-    println!("{:?}", cpu);
 }
 ```
 
