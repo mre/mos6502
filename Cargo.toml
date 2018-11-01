@@ -45,3 +45,12 @@ log = "0.4.6"
 version = "0.2"
 # no_std support
 default-features = false
+
+[target.thumbv7m-linux-eabi.dev-dependencies.utest-macros]
+git = "https://github.com/japaric/utest"
+
+[target.thumbv7m-linux-eabi.dev-dependencies.test]
+git = "https://github.com/japaric/utest"
+
+[target.thumbv7m-linux-eabi.dev-dependencies.utest-cortex-m-qemu]
+git = "https://github.com/japaric/utest"

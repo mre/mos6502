@@ -6,6 +6,12 @@ rust:
   - beta
   - nightly
 
+addons:
+  apt:
+    packages:
+      - qemu
+      - qemu-system-arm
+
 matrix:
   allow_failures:
     - rust: nightly
@@ -23,4 +29,5 @@ install:
 
 script:
   - cargo build --verbose --target $TARGET --no-default-features 
-  - cargo test --verbose --target $TARGET --no-default-features 
+  - cargo test --target thumbv7m-linux-eabi --no-run
+  - qemu-arm target/thumbv7m-linux-eabi/debug/mos6502

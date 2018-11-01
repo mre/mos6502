@@ -9,6 +9,11 @@ version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "compiler_builtins"
+version = "0.1.0"
+source = "git+https://github.com/rust-lang-nursery/compiler-builtins#939cbca6e9d829265d6cf006d3532142a4061cd3"
+
+[[package]]
 name = "log"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -23,6 +28,9 @@ dependencies = [
  "bitflags 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "num 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "test 0.1.0 (git+https://github.com/japaric/utest)",
+ "utest-cortex-m-qemu 0.1.0 (git+https://github.com/japaric/utest)",
+ "utest-macros 0.1.0 (git+https://github.com/japaric/utest)",
 ]
 
 [[package]]
@@ -76,9 +84,34 @@ name = "num-traits"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
+[[package]]
+name = "sc"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "test"
+version = "0.1.0"
+source = "git+https://github.com/japaric/utest#70dd2f2c1b6b38ed203c031b487d67507e26fae8"
+
+[[package]]
+name = "utest-cortex-m-qemu"
+version = "0.1.0"
+source = "git+https://github.com/japaric/utest#70dd2f2c1b6b38ed203c031b487d67507e26fae8"
+dependencies = [
+ "compiler_builtins 0.1.0 (git+https://github.com/rust-lang-nursery/compiler-builtins)",
+ "sc 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "utest-macros"
+version = "0.1.0"
+source = "git+https://github.com/japaric/utest#70dd2f2c1b6b38ed203c031b487d67507e26fae8"
+
 [metadata]
 "checksum bitflags 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4efd02e230a02e18f92fc2735f44597385ed02ad8f831e7c1c1156ee5e1ab3a5"
 "checksum cfg-if 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "082bb9b28e00d3c9d39cc03e64ce4cea0f1bb9b3fde493f0cbc008472d22bdf4"
+"checksum compiler_builtins 0.1.0 (git+https://github.com/rust-lang-nursery/compiler-builtins)" = "<none>"
 "checksum log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)" = "c84ec4b527950aa83a329754b01dbe3f58361d1c5efacd1f6d68c494d08a17c6"
 "checksum num 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "cf4825417e1e1406b3782a8ce92f4d53f26ec055e3622e1881ca8e9f5f9e08db"
 "checksum num-complex 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "107b9be86cd2481930688277b675b0114578227f034674726605b8a482d8baf8"
@@ -86,3 +119,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum num-iter 0.1.37 (registry+https://github.com/rust-lang/crates.io-index)" = "af3fdbbc3291a5464dc57b03860ec37ca6bf915ed6ee385e7c6c052c422b2124"
 "checksum num-rational 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4e96f040177bb3da242b5b1ecf3f54b5d5af3efbbfb18608977a5d2767b22f10"
 "checksum num-traits 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "0b3a5d7cc97d6d30d8b9bc8fa19bf45349ffe46241e8816f50f62f6d6aaabee1"
+"checksum sc 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "4ebbb026ba4a707c25caec2db5ef59ad8b41f7ad77cad06257e06229c891f376"
+"checksum test 0.1.0 (git+https://github.com/japaric/utest)" = "<none>"
+"checksum utest-cortex-m-qemu 0.1.0 (git+https://github.com/japaric/utest)" = "<none>"
+"checksum utest-macros 0.1.0 (git+https://github.com/japaric/utest)" = "<none>"
