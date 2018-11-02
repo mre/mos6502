@@ -2,8 +2,8 @@ language: rust
 
 cache: cargo
 rust:
-  - stable
-  - beta
+  # - stable
+  # - beta
   - nightly
 
 addons:
@@ -18,16 +18,17 @@ matrix:
   fast_finish: true
 
 env:
-  - TARGET=aarch64-unknown-linux-gnu
-  - TARGET=arm-unknown-linux-gnueabi
-  - TARGET=armv7-unknown-linux-gnueabihf
+  # - TARGET=aarch64-unknown-linux-gnu
+  # - TARGET=arm-unknown-linux-gnueabi
+  # - TARGET=armv7-unknown-linux-gnueabihf
   - TARGET=thumbv7em-none-eabihf
 
 install:
   - rustup component add rust-src
   - rustup target add $TARGET
+  - cargo install xargo || true
 
 script:
-  - cargo build --verbose --target $TARGET --no-default-features 
-  - cargo test --target thumbv7m-linux-eabi --no-run
+  - xargo build --verbose --target $TARGET --no-default-features 
+  - xargo test --target thumbv7m-linux-eabi --no-run
   - qemu-arm target/thumbv7m-linux-eabi/debug/mos6502
