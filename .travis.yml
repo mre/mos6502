@@ -34,6 +34,5 @@ before_script:
 
 script:
   # - xargo build --verbose --target $TARGET --no-default-features 
-  - xargo --print target-list
-  - xargo test --target thumbv7m-linux-eabi --no-run
+  - TERM=dumb xargo test --target thumbv7m-linux-eabi --no-run
   - qemu-arm target/thumbv7m-linux-eabi/debug/mos6502
