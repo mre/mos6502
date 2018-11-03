@@ -33,6 +33,6 @@ before_script:
   - export RUST_TARGET_PATH=`pwd`
 
 script:
-  - xargo build --verbose --target $TARGET --no-default-features 
+  # - xargo build --verbose --target $TARGET --no-default-features 
   - xargo test --target thumbv7m-linux-eabi --no-run
   - qemu-arm target/thumbv7m-linux-eabi/debug/mos6502
