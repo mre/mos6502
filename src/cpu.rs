@@ -108,17 +108,17 @@ impl CPU {
             }
 
             (Instruction::BCC, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(rel as i32);
+                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
                 self.branch_if_carry_clear(addr);
             }
 
             (Instruction::BCS, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(rel as i32);
+                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
                 self.branch_if_carry_set(addr);
             }
 
             (Instruction::BEQ, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(rel as i32);
+                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
                 self.branch_if_equal(addr);
             }
 
@@ -148,23 +148,23 @@ impl CPU {
             }
 
             (Instruction::BMI, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(rel as i32);
+                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
                 debug!("branch if minus relative. address: {:?}", addr);
                 self.branch_if_minus(addr);
             }
 
             (Instruction::BPL, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(rel as i32);
+                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
                 self.branch_if_positive(addr);
             }
 
             (Instruction::BVC, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(rel as i32);
+                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
                 self.branch_if_overflow_clear(addr);
             }
 
             (Instruction::BVS, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(rel as i32);
+                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
                 self.branch_if_overflow_set(addr);
             }
 
@@ -446,7 +446,7 @@ impl CPU {
     fn shift_right_with_flags(p_val: &mut u8, status: &mut Status) {
         let mask = 1;
         let is_bit_0_set = (*p_val & mask) == mask;
-        *p_val = *p_val >> 1;
+        *p_val >>= 1;
         status.set_with_mask(
             PS_CARRY,
             Status::new(StatusArgs {
@@ -1288,4 +1288,3 @@ mod tests {
         }
     }
 }
-
