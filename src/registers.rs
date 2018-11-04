@@ -58,17 +58,17 @@ impl StatusArgs {
 
 bitflags! {
     pub struct Status: u8 {
-        const PS_NEGATIVE           = 0b10000000;
-        const PS_OVERFLOW           = 0b01000000;
-        const PS_UNUSED             = 0b00100000; // JAM: Should this exist?
+        const PS_NEGATIVE           = 0b1000_0000;
+        const PS_OVERFLOW           = 0b0100_0000;
+        const PS_UNUSED             = 0b0010_0000; // JAM: Should this exist?
                                                   // (note that it affects the
                                                   // behavior of things like
                                                   // from_bits_truncate)
-        const PS_BRK                = 0b00010000;
-        const PS_DECIMAL_MODE       = 0b00001000;
-        const PS_DISABLE_INTERRUPTS = 0b00000100;
-        const PS_ZERO               = 0b00000010;
-        const PS_CARRY              = 0b00000001;
+        const PS_BRK                = 0b0001_0000;
+        const PS_DECIMAL_MODE       = 0b0000_1000;
+        const PS_DISABLE_INTERRUPTS = 0b0000_0100;
+        const PS_ZERO               = 0b0000_0010;
+        const PS_CARRY              = 0b0000_0001;
     }
 }
 
@@ -100,39 +100,39 @@ impl Status {
         let mut out = Status::empty();
 
         if negative {
-            out = out | PS_NEGATIVE
+            out |= PS_NEGATIVE
         }
         if overflow {
-            out = out | PS_OVERFLOW
+            out |= PS_OVERFLOW
         }
         if unused {
-            out = out | PS_UNUSED
+            out |= PS_UNUSED
         }
         if brk {
-            out = out | PS_BRK
+            out |= PS_BRK
         }
         if decimal_mode {
-            out = out | PS_DECIMAL_MODE
+            out |= PS_DECIMAL_MODE
         }
         if disable_interrupts {
-            out = out | PS_DISABLE_INTERRUPTS
+            out |= PS_DISABLE_INTERRUPTS
         }
         if zero {
-            out = out | PS_ZERO
+            out |= PS_ZERO
         }
         if carry {
-            out = out | PS_CARRY
+            out |= PS_CARRY
         }
 
         out
     }
 
     pub fn and(&mut self, rhs: Status) {
-        *self = *self & rhs;
+        *self &= rhs;
     }
 
     pub fn or(&mut self, rhs: Status) {
-        *self = *self | rhs;
+        *self |= rhs;
     }
 
     pub fn set_with_mask(&mut self, mask: Status, rhs: Status) {
@@ -146,7 +146,7 @@ pub struct StackPointer(pub u8);
 impl StackPointer {
     pub fn to_address(&self) -> Address {
         let StackPointer(sp) = *self;
-        STACK_ADDRESS_LO + AddressDiff(sp as i32)
+        STACK_ADDRESS_LO + AddressDiff(i32::from(sp))
     }
 
     // JAM: FIXME: Should we prevent overflow here? What would a 6502 do?

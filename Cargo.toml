@@ -30,18 +30,25 @@
 name = "mos6502"
 description = "A MOS 6502 Emulator"
 license = "BSD-3-Clause"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["The 6502-rs Developers"]
+build = "build.rs"
 
 [lib]
 # This will look in src/lib.rs
 name = "mos6502"
 
-[[bin]]
-# This will look in src/bin/mos6502.rs
-name = "mos6502"
-
 [dependencies]
 bitflags = "0.9.1"
-log = "0.3.8"
-num = "0.1"
+log = "0.4.6"
+
+[dependencies.num]
+version = "0.2"
+# no_std support
+default-features = false
+
+[build-dependencies]
+skeptic = "0.13"
+
+[dev-dependencies]
+skeptic = "0.13"
