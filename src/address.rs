@@ -25,7 +25,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use std::ops::Add;
+use core::ops::Add;
 
 // The idea here is that it doesn't make sense to add two addresses, but it
 // does make sense to add an address and an "address-difference". (If this

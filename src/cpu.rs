@@ -25,15 +25,14 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use std;
-
 use address::{Address, AddressDiff};
 use instruction;
 use instruction::{DecodedInstr, Instruction, OpInput};
 use memory::Memory;
 use registers::{Registers, StackPointer, Status, StatusArgs};
-use registers::{PS_CARRY, PS_DECIMAL_MODE, PS_DISABLE_INTERRUPTS, PS_NEGATIVE, PS_OVERFLOW,
-                PS_ZERO};
+use registers::{
+    PS_CARRY, PS_DECIMAL_MODE, PS_DISABLE_INTERRUPTS, PS_NEGATIVE, PS_OVERFLOW, PS_ZERO,
+};
 
 #[derive(Clone)]
 pub struct CPU {
@@ -411,9 +410,8 @@ impl CPU {
 
     pub fn run(&mut self) {
         while let Some(decoded_instr) = self.fetch_next_and_decode() {
-                self.execute_instruction(decoded_instr);
-            } 
-        
+            self.execute_instruction(decoded_instr);
+        }
     }
 
     fn set_flags_from_i8(status: &mut Status, value: i8) {
@@ -755,8 +753,8 @@ impl CPU {
     }
 }
 
-impl std::fmt::Debug for CPU {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Debug for CPU {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(
             f,
             "CPU Dump:\n\nAccumulator: {}",
@@ -1168,14 +1166,12 @@ mod tests {
         assert!(cpu.registers.status.contains(PS_CARRY));
         assert!(!cpu.registers.status.contains(PS_NEGATIVE));
 
-
         cpu.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
 
         compare(&mut cpu, 1);
         assert!(!cpu.registers.status.contains(PS_ZERO));
         assert!(cpu.registers.status.contains(PS_CARRY));
         assert!(!cpu.registers.status.contains(PS_NEGATIVE));
-
 
         cpu.execute_instruction((load_instruction, OpInput::UseImmediate(1)));
 
@@ -1184,7 +1180,6 @@ mod tests {
         assert!(!cpu.registers.status.contains(PS_CARRY));
         assert!(cpu.registers.status.contains(PS_NEGATIVE));
 
-
         cpu.execute_instruction((load_instruction, OpInput::UseImmediate(20)));
 
         compare(&mut cpu, -50i8 as u8);
@@ -1192,14 +1187,12 @@ mod tests {
         assert!(!cpu.registers.status.contains(PS_CARRY));
         assert!(!cpu.registers.status.contains(PS_NEGATIVE));
 
-
         cpu.execute_instruction((load_instruction, OpInput::UseImmediate(1)));
 
         compare(&mut cpu, -1i8 as u8);
         assert!(!cpu.registers.status.contains(PS_ZERO));
         assert!(!cpu.registers.status.contains(PS_CARRY));
         assert!(!cpu.registers.status.contains(PS_NEGATIVE));
-
 
         cpu.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
 
