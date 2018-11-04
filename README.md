@@ -6,7 +6,7 @@ An emulator for the [MOS 6502 CPU](https://en.wikipedia.org/wiki/MOS_Technology_
 This started off as a fork of [6502-rs](https://github.com/amw-zero/6502-rs),
 which seems to be unmaintained at this point.
 
-It builds with the latest stable Rust and supports `#[no_std]` targets.
+It builds with the latest stable Rust and supports `#[no_std]` targets. (See `no-std-example` folder for more info.)
 
 ## Usage example
 

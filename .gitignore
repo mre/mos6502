@@ -52,7 +52,6 @@
 .settings/
 .valgrindrc
 /*-*-*-*/
-/*-*-*/
 /Makefile
 /doc
 target/
