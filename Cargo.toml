@@ -39,7 +39,7 @@ build = "build.rs"
 name = "mos6502"
 
 [dependencies]
-bitflags = "0.9.1"
+bitflags = "1"
 log = "0.4.6"
 
 [dependencies.num]

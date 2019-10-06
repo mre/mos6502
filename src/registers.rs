@@ -100,28 +100,28 @@ impl Status {
         let mut out = Status::empty();
 
         if negative {
-            out |= PS_NEGATIVE
+            out |= Status::PS_NEGATIVE
         }
         if overflow {
-            out |= PS_OVERFLOW
+            out |= Status::PS_OVERFLOW
         }
         if unused {
-            out |= PS_UNUSED
+            out |= Status::PS_UNUSED
         }
         if brk {
-            out |= PS_BRK
+            out |= Status::PS_BRK
         }
         if decimal_mode {
-            out |= PS_DECIMAL_MODE
+            out |= Status::PS_DECIMAL_MODE
         }
         if disable_interrupts {
-            out |= PS_DISABLE_INTERRUPTS
+            out |= Status::PS_DISABLE_INTERRUPTS
         }
         if zero {
-            out |= PS_ZERO
+            out |= Status::PS_ZERO
         }
         if carry {
-            out |= PS_CARRY
+            out |= Status::PS_CARRY
         }
 
         out
