@@ -100,28 +100,28 @@ impl Status {
         let mut out = Status::empty();
 
         if negative {
-            out |= PS_NEGATIVE
+            out |= Status::PS_NEGATIVE
         }
         if overflow {
-            out |= PS_OVERFLOW
+            out |= Status::PS_OVERFLOW
         }
         if unused {
-            out |= PS_UNUSED
+            out |= Status::PS_UNUSED
         }
         if brk {
-            out |= PS_BRK
+            out |= Status::PS_BRK
         }
         if decimal_mode {
-            out |= PS_DECIMAL_MODE
+            out |= Status::PS_DECIMAL_MODE
         }
         if disable_interrupts {
-            out |= PS_DISABLE_INTERRUPTS
+            out |= Status::PS_DISABLE_INTERRUPTS
         }
         if zero {
-            out |= PS_ZERO
+            out |= Status::PS_ZERO
         }
         if carry {
-            out |= PS_CARRY
+            out |= Status::PS_CARRY
         }
 
         out
@@ -144,21 +144,18 @@ impl Status {
 pub struct StackPointer(pub u8);
 
 impl StackPointer {
-    pub fn to_address(&self) -> Address {
-        let StackPointer(sp) = *self;
-        STACK_ADDRESS_LO + AddressDiff(i32::from(sp))
+    pub fn to_address(self) -> Address {
+        STACK_ADDRESS_LO + AddressDiff(i32::from(self.0))
     }
 
     // JAM: FIXME: Should we prevent overflow here? What would a 6502 do?
 
     pub fn decrement(&mut self) {
-        let StackPointer(val) = *self;
-        *self = StackPointer(val - 1);
+        self.0 -= 1;
     }
 
     pub fn increment(&mut self) {
-        let StackPointer(val) = *self;
-        *self = StackPointer(val + 1);
+        self.0 += 1;
     }
 }
 
