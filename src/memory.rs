@@ -49,15 +49,9 @@ pub const IRQ_INTERRUPT_VECTOR_HI: Address = Address(0xFFFF);
 const MEMORY_SIZE: usize = (ADDR_HI_BARE - ADDR_LO_BARE) as usize + 1usize;
 
 // FIXME: Should this use indirection for `bytes`?
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub struct Memory {
     bytes: [u8; MEMORY_SIZE],
-}
-
-impl Clone for Memory {
-    fn clone(&self) -> Self {
-        *self
-    }
 }
 
 impl Memory {
@@ -73,11 +67,8 @@ impl Memory {
         &mut self.bytes[address.to_usize()]
     }
 
-    pub fn get_slice(&self, Address(start): Address, AddressDiff(diff): AddressDiff) -> &[u8] {
-        let start = start as usize;
-        let diff = diff as usize;
-        let end = start + diff;
-        &self.bytes[start..end]
+    pub fn get_slice(&self, start: Address, diff: AddressDiff) -> &[u8] {
+        &self.bytes[start.to_usize()..(start + diff).to_usize()]
     }
 
     // Sets the byte at the given address to the given value and returns the
@@ -88,20 +79,35 @@ impl Memory {
         old_value
     }
 
-    pub fn set_bytes(&mut self, Address(start): Address, values: &[u8]) {
-        let start = start as usize;
+    pub fn set_bytes(&mut self, start: Address, values: &[u8]) {
+        let start = start.to_usize();
 
         // This panics if the range is invalid
         let end = start + values.len();
-        let slice = &mut self.bytes[start..end];
 
-        // JAM: Is this the best way to do this copy?
-        for (dest, src) in slice.iter_mut().zip(values.iter()) {
-            *dest = *src;
-        }
+        self.bytes[start..end].copy_from_slice(values);
     }
 
-    pub fn is_stack_address(address: &Address) -> bool {
-        STACK_ADDRESS_LO <= *address && *address <= STACK_ADDRESS_HI
+    pub fn is_stack_address(address: Address) -> bool {
+        (STACK_ADDRESS_LO..=STACK_ADDRESS_HI).contains(&address)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_memory_set_bytes() {
+        let mut memory = Memory::new();
+        memory.set_bytes(Address(0x0100), &[1, 2, 3, 4, 5]);
+        assert_eq!(memory.get_slice(Address(0x00FF), AddressDiff(7)), &[0, 1, 2, 3, 4, 5, 0]);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_memory_overflow_panic() {
+        let mut memory = Memory::new();
+        memory.set_bytes(Address(0xFFFE), &[1, 2, 3]);
     }
 }

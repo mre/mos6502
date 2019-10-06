@@ -73,21 +73,19 @@ impl Add<CheckedAddressDiff> for Address {
 }
 
 impl Address {
-    pub fn to_u16(&self) -> u16 {
-        match *self {
-            Address(address_) => address_,
-        }
+    pub fn to_u16(self) -> u16 {
+        self.0
     }
 
-    pub fn to_usize(&self) -> usize {
+    pub fn to_usize(self) -> usize {
         self.to_u16() as usize
     }
 
-    pub fn get_page_number(&self) -> u8 {
+    pub fn get_page_number(self) -> u8 {
         (self.to_u16() & 0xff00 >> 8) as u8
     }
 
-    pub fn get_offset(&self) -> u8 {
+    pub fn get_offset(self) -> u8 {
         (self.to_u16() & 0x00ff) as u8
     }
 }

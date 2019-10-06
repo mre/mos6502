@@ -144,21 +144,18 @@ impl Status {
 pub struct StackPointer(pub u8);
 
 impl StackPointer {
-    pub fn to_address(&self) -> Address {
-        let StackPointer(sp) = *self;
-        STACK_ADDRESS_LO + AddressDiff(i32::from(sp))
+    pub fn to_address(self) -> Address {
+        STACK_ADDRESS_LO + AddressDiff(i32::from(self.0))
     }
 
     // JAM: FIXME: Should we prevent overflow here? What would a 6502 do?
 
     pub fn decrement(&mut self) {
-        let StackPointer(val) = *self;
-        *self = StackPointer(val - 1);
+        self.0 -= 1;
     }
 
     pub fn increment(&mut self) {
-        let StackPointer(val) = *self;
-        *self = StackPointer(val + 1);
+        self.0 += 1;
     }
 }
 
