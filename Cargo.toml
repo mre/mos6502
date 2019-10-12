@@ -33,6 +33,7 @@ license = "BSD-3-Clause"
 version = "0.1.0"
 authors = ["The 6502-rs Developers"]
 build = "build.rs"
+exclude = ["examples/**"]
 
 [lib]
 # This will look in src/lib.rs
