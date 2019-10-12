@@ -3,16 +3,16 @@ use mos6502::address::Address;
 use mos6502::cpu;
 
 fn main() {
+    println!("Enter two numbers (< 128) to know their GCD:");
     let mut input = String::new();
     std::io::stdin().read_line(&mut input).unwrap();
-    let nums = input
+
+    let zero_page_data = input
         .trim()
         .split(' ')
         .map(|s| s.parse::<u8>().unwrap())
         .collect::<Vec<u8>>();
-    let (first, second) = (nums[0], nums[1]);
 
-    let zero_page_data = [first, second];
     let program = [
     // (F)irst | (S)econd
     // .algo
