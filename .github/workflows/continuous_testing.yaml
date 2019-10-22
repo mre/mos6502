@@ -1,0 +1,21 @@
+name: test
+on: push
+
+jobs:
+  build_and_test:
+    name: test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@master
+      - name: Install cargo
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Run test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
