@@ -17,15 +17,8 @@ use mos6502::address::Address;
 use mos6502::cpu;
 
 fn main() {
-    println!("Enter two numbers (< 128) to know their GCD:");
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input).unwrap();
 
-    let zero_page_data = input
-        .trim()
-        .split(' ')
-        .map(|s| s.parse::<u8>().unwrap())
-        .collect::<Vec<u8>>();
+    let zero_page_data = [56, 49];
 
     let program = [
     // (F)irst | (S)econd
@@ -57,6 +50,7 @@ fn main() {
 
     cpu.run();
 
-    println!("GCD is {:?}", cpu.registers.accumulator);
+    assert_eq!(7, cpu.registers.accumulator);
+    
 }
 ```
