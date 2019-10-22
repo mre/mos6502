@@ -13,106 +13,50 @@ It builds with the latest stable Rust and supports `#[no_std]` targets.
 
 ```rust
 extern crate mos6502;
-
-use mos6502::cpu;
 use mos6502::address::Address;
+use mos6502::cpu;
 
 fn main() {
-    let mut cpu = cpu::CPU::new();
+    println!("Enter two numbers (< 128) to know their GCD:");
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).unwrap();
 
-    let zero_page_data = [
-        // ZeroPage data start
-        0x00,
-        0x02, // ADC ZeroPage target
-        0x00,
-        0x04, // ADC ZeroPageX target
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x10, // ADC IndexedIndirectX address
-        0x80, // ADC IndexedIndirectX address
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x08, // ADC IndirectIndexedY address
-        0x80, // ADC IndirectIndexedY address
-    ];
+    let zero_page_data = input
+        .trim()
+        .split(' ')
+        .map(|s| s.parse::<u8>().unwrap())
+        .collect::<Vec<u8>>();
 
     let program = [
-        // Code start
-        0xA9, // LDA Immediate
-        0x01, //     Immediate operand
-        0x69, // ADC Immediate
-        0x07, //     Immediate operand
-        0x65, // ADC ZeroPage
-        0x01, //     ZeroPage operand
-        0xA2, // LDX Immediate
-        0x01, //     Immediate operand
-        0x75, // ADC ZeroPageX
-        0x02, //     ZeroPageX operand
-        0x6D, // ADC Absolute
-        0x01, //     Absolute operand
-        0x80, //     Absolute operand
-        0xA2, // LDX immediate
-        0x08, //     Immediate operand
-        0x7D, // ADC AbsoluteX
-        0x00, //     AbsoluteX operand
-        0x80, //     AbsoluteX operand
-        0xA0, // LDY immediate
-        0x04, //     Immediate operand
-        0x79, // ADC AbsoluteY
-        0x00, //     AbsoluteY operand
-        0x80, //     AbsoluteY operand
-        0xA2, // LDX immediate
-        0x05, //     Immediate operand
-        0x61, // ADC IndexedIndirectX
-        0x03, //     IndexedIndirectX operand
-        0xA0, // LDY immediate
-        0x10, //     Immediate operand
-        0x71, // ADC IndirectIndexedY
-        0x0F, //     IndirectIndexedY operand
-        0xEA, // NOP :)
-        0xFF, // Something invalid -- the end!
+    // (F)irst | (S)econd
+    // .algo
+        0xa5, 0x00,       // Load from F to A
+    // .algo_
+        0x38,             // Set carry flag
+        0xe5, 0x01,       // Substract S from number in A (from F)
+        0xf0, 0x07,       // Jump to .end if diff is zero
+        0x30, 0x08,       // Jump to .swap if diff is negative
+        0x85, 0x00,       // Load A to F
+        0x4c, 0x12, 0x00, // Jump to .algo_
+    // .end
+        0xa5, 0x00,       // Load from S to A
+        0xff, 
+    // .swap
+        0xa6, 0x00,       // load F to X
+        0xa4, 0x01,       // load S to Y
+        0x86, 0x01,       // Store X to F
+        0x84, 0x00,       // Store Y to S
+        0x4c, 0x10, 0x00, // Jump to .algo
     ];
 
-    let data: [u8; 25] = [
-        0x00,
-        0x09, // ADC Absolute target
-        0x00,
-        0x00,
-        0x40, // ADC AbsoluteY target
-        0x00,
-        0x00,
-        0x00,
-        0x11, // ADC AbsoluteX target
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x12, // ADC IndexedIndirectX target
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x06, // ADC IndirectIndexedY target
-    ];
+    let mut cpu = cpu::CPU::new();
 
-    // "Load" a program
-    cpu.memory.set_bytes(Address(0x0000), &zero_page_data);
-    cpu.memory.set_bytes(Address(0x4000), &program);
-    cpu.memory.set_bytes(Address(0x8000), &data);
-
-    cpu.registers.program_counter = Address(0x4000);
+    cpu.memory.set_bytes(Address(0x00), &zero_page_data);
+    cpu.memory.set_bytes(Address(0x10), &program);
+    cpu.registers.program_counter = Address(0x10);
 
     cpu.run();
+
+    println!("GCD is {:?}", cpu.registers.accumulator);
 }
 ```
