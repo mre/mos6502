@@ -515,45 +515,51 @@ impl CPU {
         );
     }
 
-    fn add_with_carry(&mut self, value: i8) {
-        if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
-            // TODO akeeton: Implement binary-coded decimal.
-            debug!("binary-coded decimal not implemented for add_with_carry");
-        } else {
-            let a_before: i8 = self.registers.accumulator;
-            let c_before: i8 = if self.registers.status.contains(Status::PS_CARRY) {
-                1
-            } else {
-                0
-            };
-            let a_after: i8 = a_before.wrapping_add(c_before).wrapping_add(value);
+	fn add_with_carry(&mut self, value: i8) {
+		let a_before: i8 = self.registers.accumulator;
+		let c_before: i8 = if self.registers.status.contains(Status::PS_CARRY) {
+			1
+		} else {
+			0
+		};
+		let a_after: i8 = a_before.wrapping_add(c_before).wrapping_add(value);
 
-            debug_assert_eq!(
-                a_after as u8,
-                a_before.wrapping_add(c_before).wrapping_add(value) as u8
-            );
+		debug_assert_eq!(
+				a_after as u8,
+				a_before.wrapping_add(c_before).wrapping_add(value) as u8
+				);
 
-            let did_carry = (a_after as u8) < (a_before as u8);
+		let bcd1: i8 = if (a_after & 0x0f) as u8 > 0x09 {
+			0x06
+		} else {
+			0x00
+		};
 
-            let did_overflow = (a_before < 0 && value < 0 && a_after >= 0)
-                || (a_before > 0 && value > 0 && a_after <= 0);
+		let bcd2: i8 = if (a_after.wrapping_add(bcd1) as u8 & 0xf0) as u8 > 0x90 {
+			0x60
+		} else {
+			0x00
+		};
 
-            let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
+		let result: i8 = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
+			a_after.wrapping_add(bcd1).wrapping_add(bcd2)
+		} else {
+			a_after
+		};
 
-            self.registers.status.set_with_mask(
-                mask,
-                Status::new(StatusArgs {
-                    carry: did_carry,
-                    overflow: did_overflow,
-                    ..StatusArgs::none()
-                }),
-            );
+		let did_carry = (result as u8) < (a_before as u8);
 
-            self.load_accumulator(a_after);
+		let did_overflow = (a_before < 0 && value < 0 && a_after >= 0)
+			|| (a_before > 0 && value > 0 && a_after <= 0);
 
-            debug!("accumulator: {}", self.registers.accumulator);
-        }
-    }
+		let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
+
+		self.registers.status.set_with_mask( mask, Status::new(StatusArgs { carry: did_carry, overflow: did_overflow, ..StatusArgs::none() }),);
+
+		self.load_accumulator(result);
+
+		debug!("accumulator: {}", self.registers.accumulator);
+	}
 
     fn and(&mut self, value: i8) {
         let a_after = self.registers.accumulator & value;
