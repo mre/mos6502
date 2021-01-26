@@ -772,6 +772,34 @@ mod tests {
     use super::*;
     use num::range_inclusive;
 
+	#[test]
+	fn decimal_mode_test() {
+		let mut cpu = CPU::new();
+		cpu.registers.status.or(Status::PS_DECIMAL_MODE);
+		
+		cpu.add_with_carry(0x09);
+        assert_eq!(cpu.registers.accumulator, 0x09);
+        assert_eq!(cpu.registers.status.contains(Status::PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(Status::PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(Status::PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(Status::PS_OVERFLOW), false);
+
+		cpu.add_with_carry(0x43);
+        assert_eq!(cpu.registers.accumulator, 0x52);
+        assert_eq!(cpu.registers.status.contains(Status::PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(Status::PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(Status::PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(Status::PS_OVERFLOW), false);
+
+		cpu.add_with_carry(0x48);
+        assert_eq!(cpu.registers.accumulator, 0x00);
+        assert_eq!(cpu.registers.status.contains(Status::PS_CARRY), true);
+        assert_eq!(cpu.registers.status.contains(Status::PS_ZERO), true);
+        assert_eq!(cpu.registers.status.contains(Status::PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(Status::PS_OVERFLOW), true);
+		
+	}
+
     #[test]
     fn add_with_carry_test() {
         let mut cpu = CPU::new();
