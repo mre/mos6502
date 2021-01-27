@@ -567,56 +567,45 @@ impl CPU {
     }
 
     // TODO: Implement binary-coded decimal
-    fn subtract_with_carry(&mut self, value: i8) {
-        if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
-            debug!(
-                "binary-coded decimal not implemented for \
-                 subtract_with_carry"
-            );
-        } else {
-            // A - M - (1 - C)
+	fn subtract_with_carry(&mut self, value: i8) {
+		// A - M - (1 - C)
 
-            // nc -- 'not carry'
-            let nc: i8 = if self.registers.status.contains(Status::PS_CARRY) {
-                0
-            } else {
-                1
-            };
+		// nc -- 'not carry'
+		let nc: i8 = if self.registers.status.contains(Status::PS_CARRY) {
+			0
+		} else {
+			1
+		};
 
-            let a_before: i8 = self.registers.accumulator;
+		let a_before: i8 = self.registers.accumulator;
 
-            let a_after = a_before.wrapping_sub(value).wrapping_sub(nc);
+		let a_after = a_before.wrapping_sub(value).wrapping_sub(nc);
 
-            // The carry flag is set on unsigned overflow.
-            let did_carry = (a_after as u8) > (a_before as u8);
+		// The carry flag is set on unsigned overflow.
+		let did_carry = (a_after as u8) > (a_before as u8);
 
-            // The overflow flag is set on two's-complement overflow.
-            //
-            // range of A              is  -128 to 127
-            // range of - M - (1 - C)  is  -128 to 128
-            //                            -(127 + 1) to -(-128 + 0)
-            //
-            let over =
-                ((nc == 0 && value < 0) || (nc == 1 && value < -1)) && a_before >= 0 && a_after < 0;
+		// The overflow flag is set on two's-complement overflow.
+		//
+		// range of A              is  -128 to 127
+		// range of - M - (1 - C)  is  -128 to 128
+		//                             -(127 + 1) to -(-128 + 0)
+		//
+		let over =
+			((nc == 0 && value < 0) || (nc == 1 && value < -1)) && a_before >= 0 && a_after < 0;
 
-            let under = (a_before < 0) && (-value - nc < 0) && a_after >= 0;
+		let under = (a_before < 0) && (-value - nc < 0) && a_after >= 0;
 
-            let did_overflow = over || under;
+		let did_overflow = over || under;
 
-            let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
+		let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
 
-            self.registers.status.set_with_mask(
-                mask,
-                Status::new(StatusArgs {
-                    carry: did_carry,
-                    overflow: did_overflow,
-                    ..StatusArgs::none()
-                }),
-            );
+		self.registers.status.set_with_mask(
+				mask,
+				Status::new(StatusArgs { carry: did_carry, overflow: did_overflow, ..StatusArgs::none() }),
+				);
 
-            self.load_accumulator(a_after);
-        }
-    }
+		self.load_accumulator(a_after);
+	}
 
     fn decrement_memory(&mut self, addr: Address) {
         let value_new = self.memory.get_byte(addr).wrapping_sub(1);
