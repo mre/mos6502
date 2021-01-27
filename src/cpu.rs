@@ -581,9 +581,6 @@ impl CPU {
 
 		let a_after = a_before.wrapping_sub(value).wrapping_sub(nc);
 
-		// The carry flag is set on unsigned overflow.
-		let did_carry = (a_after as u8) > (a_before as u8);
-
 		// The overflow flag is set on two's-complement overflow.
 		//
 		// range of A              is  -128 to 127
@@ -599,12 +596,34 @@ impl CPU {
 
 		let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
 
+		let bcd1: i8 = if (a_before & 0x0f).wrapping_sub(nc) < (value & 0x0f) {
+			0x06
+		} else {
+			0x00
+		};
+
+		let bcd2: i8 = if (a_after.wrapping_sub(bcd1) as u8 & 0xf0) as u8 > 0x90 {
+			0x60
+		} else {
+			0x00
+		};
+		
+		let result: i8 = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
+			a_after.wrapping_sub(bcd1).wrapping_sub(bcd2)
+		} else {
+			a_after
+		};
+
+		// The carry flag is set on unsigned overflow.
+		let did_carry = (result as u8) > (a_before as u8);
+
 		self.registers.status.set_with_mask(
 				mask,
 				Status::new(StatusArgs { carry: did_carry, overflow: did_overflow, ..StatusArgs::none() }),
 				);
 
-		self.load_accumulator(a_after);
+
+		self.load_accumulator(result);
 	}
 
     fn decrement_memory(&mut self, addr: Address) {
@@ -786,7 +805,19 @@ mod tests {
         assert_eq!(cpu.registers.status.contains(Status::PS_ZERO), true);
         assert_eq!(cpu.registers.status.contains(Status::PS_NEGATIVE), false);
         assert_eq!(cpu.registers.status.contains(Status::PS_OVERFLOW), true);
-		
+
+		cpu.subtract_with_carry(0x48);
+        assert_eq!(cpu.registers.accumulator as u8, 0x52);
+        assert_eq!(cpu.registers.status.contains(Status::PS_CARRY), true);
+        assert_eq!(cpu.registers.status.contains(Status::PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(Status::PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(Status::PS_OVERFLOW), false);
+
+		cpu.subtract_with_carry(0x43);
+        assert_eq!(cpu.registers.status.contains(Status::PS_CARRY), false);
+        assert_eq!(cpu.registers.status.contains(Status::PS_ZERO), false);
+        assert_eq!(cpu.registers.status.contains(Status::PS_NEGATIVE), false);
+        assert_eq!(cpu.registers.status.contains(Status::PS_OVERFLOW), false);
 	}
 
     #[test]
