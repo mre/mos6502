@@ -1,24 +1,17 @@
-# mos6502
-
-![](https://github.com/mre/mos6502/workflows/test/badge.svg)
-[![docs.rs](https://docs.rs/mos6502/badge.svg)](https://docs.rs/mos6502)
-
-An emulator for the [MOS 6502 CPU](https://en.wikipedia.org/wiki/MOS_Technology_6502) written in Rust.  
-This started off as a fork of [amw-zero/6502-rs](https://github.com/amw-zero/6502-rs),
-which seems to be [unmaintained](https://github.com/amw-zero/6502-rs/pull/36) at this point.
-
-It builds with the latest stable Rust and supports `#[no_std]` targets. (See `no-std-example` folder for more info.)
-
-## Usage example
-
-```rust
 extern crate mos6502;
 use mos6502::address::Address;
 use mos6502::cpu;
 
 fn main() {
+    println!("Enter two numbers (< 128) to know their GCD:");
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).unwrap();
 
-    let zero_page_data = [56, 49];
+    let zero_page_data = input
+        .trim()
+        .split(' ')
+        .map(|s| s.parse::<u8>().unwrap())
+        .collect::<Vec<u8>>();
 
     let program = [
     // (F)irst | (S)econd
@@ -50,7 +43,5 @@ fn main() {
 
     cpu.run();
 
-    assert_eq!(7, cpu.registers.accumulator);
-    
+    println!("GCD is {:?}", cpu.registers.accumulator);
 }
-```
