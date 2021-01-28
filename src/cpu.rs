@@ -809,7 +809,8 @@ mod tests {
 	#[test]
 	fn decimal_subtract_test() {
 		let mut cpu = CPU::new();
-		cpu.registers.status.or(Status::PS_DECIMAL_MODE);
+		cpu.registers.status.or(Status::PS_DECIMAL_MODE | Status::PS_CARRY);
+        cpu.registers.accumulator = 0;
 		
 		cpu.subtract_with_carry(0x48);
         assert_eq!(cpu.registers.accumulator as u8, 0x52);
