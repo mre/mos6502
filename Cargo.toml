@@ -1,4 +1,4 @@
-# Copyright (C) 2014 The 6502-rs Developers
+# Copyright (C) 2014-2021 The 6502-rs Developers
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,7 @@
 name = "mos6502"
 description = "A MOS 6502 Emulator"
 license = "BSD-3-Clause"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["The 6502-rs Developers"]
 build = "build.rs"
 exclude = ["examples/**"]
