@@ -566,7 +566,6 @@ impl CPU {
         self.load_accumulator(a_after);
     }
 
-    // TODO: Implement binary-coded decimal
 	fn subtract_with_carry(&mut self, value: i8) {
 		// A - M - (1 - C)
 
