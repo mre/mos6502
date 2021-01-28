@@ -54,9 +54,17 @@ pub struct Memory {
     bytes: [u8; MEMORY_SIZE],
 }
 
+impl Default for Memory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Memory {
     pub fn new() -> Memory {
-        Memory { bytes: [0; MEMORY_SIZE] }
+        Memory {
+            bytes: [0; MEMORY_SIZE],
+        }
     }
 
     pub fn get_byte(&self, address: Address) -> u8 {
@@ -101,7 +109,10 @@ mod tests {
     fn test_memory_set_bytes() {
         let mut memory = Memory::new();
         memory.set_bytes(Address(0x0100), &[1, 2, 3, 4, 5]);
-        assert_eq!(memory.get_slice(Address(0x00FF), AddressDiff(7)), &[0, 1, 2, 3, 4, 5, 0]);
+        assert_eq!(
+            memory.get_slice(Address(0x00FF), AddressDiff(7)),
+            &[0, 1, 2, 3, 4, 5, 0]
+        );
     }
 
     #[test]

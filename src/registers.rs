@@ -26,7 +26,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 use address::{Address, AddressDiff};
-use memory::{STACK_ADDRESS_LO, STACK_ADDRESS_HI};
+use memory::{STACK_ADDRESS_HI, STACK_ADDRESS_LO};
 
 // Useful for constructing Status instances
 #[derive(Copy, Clone)]
@@ -88,15 +88,18 @@ impl Status {
         })
     }
 
-    pub fn new(StatusArgs { negative,
-                            overflow,
-                            unused,
-                            brk,
-                            decimal_mode,
-                            disable_interrupts,
-                            zero,
-                            carry }: StatusArgs) -> Status
-    {
+    pub fn new(
+        StatusArgs {
+            negative,
+            overflow,
+            unused,
+            brk,
+            decimal_mode,
+            disable_interrupts,
+            zero,
+            carry,
+        }: StatusArgs,
+    ) -> Status {
         let mut out = Status::empty();
 
         if negative {
@@ -167,6 +170,12 @@ pub struct Registers {
     pub stack_pointer: StackPointer,
     pub program_counter: Address,
     pub status: Status,
+}
+
+impl Default for Registers {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Registers {
