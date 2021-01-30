@@ -26,7 +26,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 use address::{Address, AddressDiff};
-use memory::{STACK_ADDRESS_LO, STACK_ADDRESS_HI};
+use memory::{STACK_ADDRESS_HI, STACK_ADDRESS_LO};
 
 // Useful for constructing Status instances
 #[derive(Copy, Clone)]
@@ -88,15 +88,18 @@ impl Status {
         })
     }
 
-    pub fn new(StatusArgs { negative,
-                            overflow,
-                            unused,
-                            brk,
-                            decimal_mode,
-                            disable_interrupts,
-                            zero,
-                            carry }: StatusArgs) -> Status
-    {
+    pub fn new(
+        StatusArgs {
+            negative,
+            overflow,
+            unused,
+            brk,
+            decimal_mode,
+            disable_interrupts,
+            zero,
+            carry,
+        }: StatusArgs,
+    ) -> Status {
         let mut out = Status::empty();
 
         if negative {
@@ -151,11 +154,11 @@ impl StackPointer {
     // JAM: FIXME: Should we prevent overflow here? What would a 6502 do?
 
     pub fn decrement(&mut self) {
-        self.0 -= 1;
+		self.0 = self.0.wrapping_sub(1);
     }
 
     pub fn increment(&mut self) {
-        self.0 += 1;
+		self.0 = self.0.wrapping_add(1);
     }
 }
 
@@ -167,6 +170,12 @@ pub struct Registers {
     pub stack_pointer: StackPointer,
     pub program_counter: Address,
     pub status: Status,
+}
+
+impl Default for Registers {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Registers {
