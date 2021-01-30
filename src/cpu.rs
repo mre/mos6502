@@ -1361,5 +1361,11 @@ mod tests {
                 }
             }
         }
+	}
+
+	#[test]
+	fn stack_underflow() {
+		let mut cpu = CPU::new();
+		let _val: u8 = cpu.pull_from_stack();
     }
 }

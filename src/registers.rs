@@ -154,11 +154,11 @@ impl StackPointer {
     // JAM: FIXME: Should we prevent overflow here? What would a 6502 do?
 
     pub fn decrement(&mut self) {
-        self.0 -= 1;
+		self.0 = self.0.wrapping_sub(1);
     }
 
     pub fn increment(&mut self) {
-        self.0 += 1;
+		self.0 = self.0.wrapping_add(1);
     }
 }
 
