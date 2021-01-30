@@ -37,6 +37,12 @@ pub struct CPU {
     pub memory: Memory,
 }
 
+impl Default for CPU {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CPU {
     pub fn new() -> CPU {
         CPU {
@@ -515,115 +521,125 @@ impl CPU {
         );
     }
 
-	fn add_with_carry(&mut self, value: i8) {
-		let a_before: i8 = self.registers.accumulator;
-		let c_before: i8 = if self.registers.status.contains(Status::PS_CARRY) {
-			1
-		} else {
-			0
-		};
-		let a_after: i8 = a_before.wrapping_add(c_before).wrapping_add(value);
+    fn add_with_carry(&mut self, value: i8) {
+        let a_before: i8 = self.registers.accumulator;
+        let c_before: i8 = if self.registers.status.contains(Status::PS_CARRY) {
+            1
+        } else {
+            0
+        };
+        let a_after: i8 = a_before.wrapping_add(c_before).wrapping_add(value);
 
-		debug_assert_eq!(
-				a_after as u8,
-				a_before.wrapping_add(c_before).wrapping_add(value) as u8
-				);
+        debug_assert_eq!(
+            a_after as u8,
+            a_before.wrapping_add(c_before).wrapping_add(value) as u8
+        );
 
-		let bcd1: i8 = if (a_after & 0x0f) as u8 > 0x09 {
-			0x06
-		} else {
-			0x00
-		};
+        let bcd1: i8 = if (a_after & 0x0f) as u8 > 0x09 {
+            0x06
+        } else {
+            0x00
+        };
 
-		let bcd2: i8 = if (a_after.wrapping_add(bcd1) as u8 & 0xf0) as u8 > 0x90 {
-			0x60
-		} else {
-			0x00
-		};
+        let bcd2: i8 = if (a_after.wrapping_add(bcd1) as u8 & 0xf0) as u8 > 0x90 {
+            0x60
+        } else {
+            0x00
+        };
 
-		let result: i8 = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
-			a_after.wrapping_add(bcd1).wrapping_add(bcd2)
-		} else {
-			a_after
-		};
+        let result: i8 = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
+            a_after.wrapping_add(bcd1).wrapping_add(bcd2)
+        } else {
+            a_after
+        };
 
-		let did_carry = (result as u8) < (a_before as u8);
+        let did_carry = (result as u8) < (a_before as u8);
 
-		let did_overflow = (a_before < 0 && value < 0 && a_after >= 0)
-			|| (a_before > 0 && value > 0 && a_after <= 0);
+        let did_overflow = (a_before < 0 && value < 0 && a_after >= 0)
+            || (a_before > 0 && value > 0 && a_after <= 0);
 
-		let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
+        let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
 
-		self.registers.status.set_with_mask( mask, Status::new(StatusArgs { carry: did_carry, overflow: did_overflow, ..StatusArgs::none() }),);
+        self.registers.status.set_with_mask(
+            mask,
+            Status::new(StatusArgs {
+                carry: did_carry,
+                overflow: did_overflow,
+                ..StatusArgs::none()
+            }),
+        );
 
-		self.load_accumulator(result);
+        self.load_accumulator(result);
 
-		debug!("accumulator: {}", self.registers.accumulator);
-	}
+        debug!("accumulator: {}", self.registers.accumulator);
+    }
 
     fn and(&mut self, value: i8) {
         let a_after = self.registers.accumulator & value;
         self.load_accumulator(a_after);
     }
 
-	fn subtract_with_carry(&mut self, value: i8) {
-		// A - M - (1 - C)
+    fn subtract_with_carry(&mut self, value: i8) {
+        // A - M - (1 - C)
 
-		// nc -- 'not carry'
-		let nc: i8 = if self.registers.status.contains(Status::PS_CARRY) {
-			0
-		} else {
-			1
-		};
+        // nc -- 'not carry'
+        let nc: i8 = if self.registers.status.contains(Status::PS_CARRY) {
+            0
+        } else {
+            1
+        };
 
-		let a_before: i8 = self.registers.accumulator;
+        let a_before: i8 = self.registers.accumulator;
 
-		let a_after = a_before.wrapping_sub(value).wrapping_sub(nc);
+        let a_after = a_before.wrapping_sub(value).wrapping_sub(nc);
 
-		// The overflow flag is set on two's-complement overflow.
-		//
-		// range of A              is  -128 to 127
-		// range of - M - (1 - C)  is  -128 to 128
-		//                             -(127 + 1) to -(-128 + 0)
-		//
-		let over =
-			((nc == 0 && value < 0) || (nc == 1 && value < -1)) && a_before >= 0 && a_after < 0;
+        // The overflow flag is set on two's-complement overflow.
+        //
+        // range of A              is  -128 to 127
+        // range of - M - (1 - C)  is  -128 to 128
+        //                             -(127 + 1) to -(-128 + 0)
+        //
+        let over =
+            ((nc == 0 && value < 0) || (nc == 1 && value < -1)) && a_before >= 0 && a_after < 0;
 
-		let under = (a_before < 0) && (-value - nc < 0) && a_after >= 0;
+        let under = (a_before < 0) && (-value - nc < 0) && a_after >= 0;
 
-		let did_overflow = over || under;
+        let did_overflow = over || under;
 
-		let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
+        let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
 
-		let bcd1: i8 = if (a_before & 0x0f).wrapping_sub(nc) < (value & 0x0f) {
-			0x06
-		} else {
-			0x00
-		};
+        let bcd1: i8 = if (a_before & 0x0f).wrapping_sub(nc) < (value & 0x0f) {
+            0x06
+        } else {
+            0x00
+        };
 
-		let bcd2: i8 = if (a_after.wrapping_sub(bcd1) as u8 & 0xf0) as u8 > 0x90 {
-			0x60
-		} else {
-			0x00
-		};
-		
-		let result: i8 = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
-			a_after.wrapping_sub(bcd1).wrapping_sub(bcd2)
-		} else {
-			a_after
-		};
+        let bcd2: i8 = if (a_after.wrapping_sub(bcd1) as u8 & 0xf0) as u8 > 0x90 {
+            0x60
+        } else {
+            0x00
+        };
 
-		// The carry flag is set on unsigned overflow.
-		let did_carry = (result as u8) > (a_before as u8);
+        let result: i8 = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
+            a_after.wrapping_sub(bcd1).wrapping_sub(bcd2)
+        } else {
+            a_after
+        };
 
-		self.registers.status.set_with_mask(
-				mask,
-				Status::new(StatusArgs { carry: did_carry, overflow: did_overflow, ..StatusArgs::none() }),
-				);
+        // The carry flag is set on unsigned overflow.
+        let did_carry = (result as u8) > (a_before as u8);
 
+        self.registers.status.set_with_mask(
+            mask,
+            Status::new(StatusArgs {
+                carry: did_carry,
+                overflow: did_overflow,
+                ..StatusArgs::none()
+            }),
+        );
 
-		self.load_accumulator(result);
-	}
+        self.load_accumulator(result);
+    }
 
     fn decrement_memory(&mut self, addr: Address) {
         let value_new = self.memory.get_byte(addr).wrapping_sub(1);
@@ -779,51 +795,54 @@ mod tests {
     use super::*;
     use num::range_inclusive;
 
-	#[test]
-	fn decimal_add_test() {
-		let mut cpu = CPU::new();
-		cpu.registers.status.or(Status::PS_DECIMAL_MODE);
-		
-		cpu.add_with_carry(0x09);
+    #[test]
+    fn decimal_add_test() {
+        let mut cpu = CPU::new();
+        cpu.registers.status.or(Status::PS_DECIMAL_MODE);
+
+        cpu.add_with_carry(0x09);
         assert_eq!(cpu.registers.accumulator, 0x09);
         assert_eq!(cpu.registers.status.contains(Status::PS_CARRY), false);
         assert_eq!(cpu.registers.status.contains(Status::PS_ZERO), false);
         assert_eq!(cpu.registers.status.contains(Status::PS_NEGATIVE), false);
         assert_eq!(cpu.registers.status.contains(Status::PS_OVERFLOW), false);
 
-		cpu.add_with_carry(0x43);
+        cpu.add_with_carry(0x43);
         assert_eq!(cpu.registers.accumulator, 0x52);
         assert_eq!(cpu.registers.status.contains(Status::PS_CARRY), false);
         assert_eq!(cpu.registers.status.contains(Status::PS_ZERO), false);
         assert_eq!(cpu.registers.status.contains(Status::PS_NEGATIVE), false);
         assert_eq!(cpu.registers.status.contains(Status::PS_OVERFLOW), false);
 
-		cpu.add_with_carry(0x48);
+        cpu.add_with_carry(0x48);
         assert_eq!(cpu.registers.accumulator, 0x00);
         assert_eq!(cpu.registers.status.contains(Status::PS_CARRY), true);
         assert_eq!(cpu.registers.status.contains(Status::PS_ZERO), true);
         assert_eq!(cpu.registers.status.contains(Status::PS_NEGATIVE), false);
         assert_eq!(cpu.registers.status.contains(Status::PS_OVERFLOW), true);
-	}
+    }
 
-	#[test]
-	fn decimal_subtract_test() {
-		let mut cpu = CPU::new();
-		cpu.registers.status.or(Status::PS_DECIMAL_MODE);
-		
-		cpu.subtract_with_carry(0x48);
+    #[test]
+    fn decimal_subtract_test() {
+        let mut cpu = CPU::new();
+        cpu.registers
+            .status
+            .or(Status::PS_DECIMAL_MODE | Status::PS_CARRY);
+        cpu.registers.accumulator = 0;
+
+        cpu.subtract_with_carry(0x48);
         assert_eq!(cpu.registers.accumulator as u8, 0x52);
         assert_eq!(cpu.registers.status.contains(Status::PS_CARRY), true);
         assert_eq!(cpu.registers.status.contains(Status::PS_ZERO), false);
         assert_eq!(cpu.registers.status.contains(Status::PS_NEGATIVE), false);
         assert_eq!(cpu.registers.status.contains(Status::PS_OVERFLOW), false);
 
-		cpu.subtract_with_carry(0x43);
+        cpu.subtract_with_carry(0x43);
         assert_eq!(cpu.registers.status.contains(Status::PS_CARRY), false);
         assert_eq!(cpu.registers.status.contains(Status::PS_ZERO), false);
         assert_eq!(cpu.registers.status.contains(Status::PS_NEGATIVE), false);
         assert_eq!(cpu.registers.status.contains(Status::PS_OVERFLOW), false);
-	}
+    }
 
     #[test]
     fn add_with_carry_test() {
@@ -1342,5 +1361,11 @@ mod tests {
                 }
             }
         }
+	}
+
+	#[test]
+	fn stack_underflow() {
+		let mut cpu = CPU::new();
+		let _val: u8 = cpu.pull_from_stack();
     }
 }
