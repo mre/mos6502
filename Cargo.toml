@@ -44,7 +44,7 @@ bitflags = "1"
 log = "0.4.14"
 
 [dependencies.num]
-version = "0.3"
+version = "0.4"
 # no_std support
 default-features = false
 
