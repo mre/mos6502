@@ -4,10 +4,7 @@
 [![docs.rs](https://docs.rs/mos6502/badge.svg)](https://docs.rs/mos6502)
 
 An emulator for the [MOS 6502 CPU](https://en.wikipedia.org/wiki/MOS_Technology_6502) written in Rust.  
-This started off as a fork of [amw-zero/6502-rs](https://github.com/amw-zero/6502-rs),
-which seems to be [unmaintained](https://github.com/amw-zero/6502-rs/pull/36) at this point.
-
-It builds with the latest stable Rust and supports `#[no_std]` targets.
+It builds on stable Rust and supports `#[no_std]` targets.
 
 ## Usage example
 
@@ -52,3 +49,8 @@ fn main() {
     assert_eq!(7, cpu.registers.accumulator);
 }
 ```
+
+## Credits
+
+This started off as a fork of [amw-zero/6502-rs](https://github.com/amw-zero/6502-rs),
+which seems to be [unmaintained](https://github.com/amw-zero/6502-rs/pull/36) at this point.
