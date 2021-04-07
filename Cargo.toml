@@ -41,16 +41,16 @@ edition = "2018"
 name = "mos6502"
 
 [dependencies]
-bitflags = "1"
+bitflags = "1.2.1"
 log = "0.4.14"
 
 [dependencies.num]
-version = "0.4"
+version = "0.4.0"
 # no_std support
 default-features = false
 
 [build-dependencies]
-skeptic = "0.13"
+skeptic = "0.13.6"
 
 [dev-dependencies]
-skeptic = "0.13"
+skeptic = "0.13.6"
