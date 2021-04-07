@@ -25,9 +25,9 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use address::Address;
-use address::AddressDiff;
-use cpu::CPU;
+use crate::address::Address;
+use crate::address::AddressDiff;
+use crate::cpu::CPU;
 
 // Abbreviations
 //

@@ -25,8 +25,8 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use address::{Address, AddressDiff};
-use memory::{STACK_ADDRESS_HI, STACK_ADDRESS_LO};
+use crate::address::{Address, AddressDiff};
+use crate::memory::{STACK_ADDRESS_HI, STACK_ADDRESS_LO};
 
 // Useful for constructing Status instances
 #[derive(Copy, Clone)]

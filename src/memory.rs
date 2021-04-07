@@ -25,7 +25,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use address::{Address, AddressDiff};
+use crate::address::{Address, AddressDiff};
 
 // JAM: We can probably come up with a better way to represent address ranges.
 //      Address range type?

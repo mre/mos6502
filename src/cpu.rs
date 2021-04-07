@@ -25,11 +25,10 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use address::{Address, AddressDiff};
-use instruction;
-use instruction::{DecodedInstr, Instruction, OpInput};
-use memory::Memory;
-use registers::{Registers, StackPointer, Status, StatusArgs};
+use crate::address::{Address, AddressDiff};
+use crate::instruction::{self, DecodedInstr, Instruction, OpInput};
+use crate::memory::Memory;
+use crate::registers::{Registers, StackPointer, Status, StatusArgs};
 
 #[derive(Clone)]
 pub struct CPU {

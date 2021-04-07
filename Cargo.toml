@@ -34,6 +34,7 @@ version = "0.2.0"
 authors = ["The 6502-rs Developers"]
 build = "build.rs"
 exclude = ["examples/**"]
+edition = "2018"
 
 [lib]
 # This will look in src/lib.rs
