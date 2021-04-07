@@ -6,7 +6,16 @@
 An emulator for the [MOS 6502 CPU](https://en.wikipedia.org/wiki/MOS_Technology_6502) written in Rust.  
 It builds on stable Rust and supports `#[no_std]` targets.
 
-## Usage example
+## What is the MOS 6502?
+
+> The MOS Technology 6502 (typically pronounced "sixty-five-oh-two" or "six-five-oh-two") is an 8-bit microprocessor that was designed by a small team led by Chuck Peddle for MOS Technology. [...]
+>
+> When it was introduced in 1975, the 6502 was the **least expensive microprocessor on the market** by a considerable margin. It initially sold for less than one-sixth the cost of competing designs from larger companies, such as the 6800 or Intel 8080. Its introduction caused rapid decreases in pricing across the entire processor market. **Along with the Zilog Z80, it sparked a series of projects that resulted in the home computer revolution of the early 1980s.**
+
+Source: [Wikipedia](https://en.wikipedia.org/wiki/MOS_Technology_6502)
+
+
+## How to use this library
 
 ```rust
 use mos6502::address::Address;
