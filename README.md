@@ -9,11 +9,12 @@ It builds on stable Rust and supports `#[no_std]` targets.
 ## Usage example
 
 ```rust
-extern crate mos6502;
 use mos6502::address::Address;
 use mos6502::cpu;
 
 fn main() {
+    // Calculate the greatest common divisor of 56 and 49
+    // using Euclid's algorithm.
     let zero_page_data = [56, 49];
 
     let program = [
@@ -46,6 +47,7 @@ fn main() {
 
     cpu.run();
 
+    // The expected GCD is 7
     assert_eq!(7, cpu.registers.accumulator);
 }
 ```
