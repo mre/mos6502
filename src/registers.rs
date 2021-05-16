@@ -151,8 +151,6 @@ impl StackPointer {
         STACK_ADDRESS_LO + AddressDiff(i32::from(self.0))
     }
 
-    // JAM: FIXME: Should we prevent overflow here? What would a 6502 do?
-
     pub fn decrement(&mut self) {
 		self.0 = self.0.wrapping_sub(1);
     }
