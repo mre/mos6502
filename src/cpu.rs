@@ -914,6 +914,12 @@ mod tests {
         assert_eq!(cpu.registers.status.contains(Status::PS_ZERO), false);
         assert_eq!(cpu.registers.status.contains(Status::PS_NEGATIVE), true);
         assert_eq!(cpu.registers.status.contains(Status::PS_OVERFLOW), true);
+
+        let mut cpu = CPU::new();
+        cpu.registers.status.or(Status::PS_CARRY);
+        cpu.add_with_carry(-1);
+        assert_eq!(cpu.registers.accumulator, 0);
+        assert_eq!(cpu.registers.status.contains(Status::PS_CARRY), true);
     }
 
     #[test]
