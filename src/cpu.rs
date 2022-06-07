@@ -552,7 +552,7 @@ impl CPU {
             a_after
         };
 
-        let did_carry = (result as u8) < (a_before as u8);
+        let did_carry = (result as u8) < (a_before as u8) || (c_before == 1 && value == -1);
 
         let did_overflow = (a_before < 0 && value < 0 && a_after >= 0)
             || (a_before > 0 && value > 0 && a_after <= 0);
