@@ -9,7 +9,7 @@ fn main() {
 
     let zero_page_data = input
         .trim()
-        .split(' ')
+        .split_whitespace()
         .map(|s| s.parse::<u8>().unwrap())
         .collect::<Vec<u8>>();
 
@@ -42,5 +42,5 @@ fn main() {
 
     cpu.run();
 
-    println!("GCD is {:?}", cpu.registers.accumulator);
+    println!("GCD is {}", cpu.registers.accumulator);
 }
