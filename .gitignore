@@ -65,3 +65,4 @@ TAGS.vi
 \#*\#
 src/.DS_Store
 tmp.*.rs
+.vscode

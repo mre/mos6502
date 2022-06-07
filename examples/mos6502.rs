@@ -39,25 +39,13 @@ fn main() {
 
     // "Load" a program
 
-
     let zero_page_data = [
         // ZeroPage data start
-        0x00,
-        0x02, // ADC ZeroPage target
-        0x00,
-        0x04, // ADC ZeroPageX target
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x10, // ADC IndexedIndirectX address
+        0x00, 0x02, // ADC ZeroPage target
+        0x00, 0x04, // ADC ZeroPageX target
+        0x00, 0x00, 0x00, 0x00, 0x10, // ADC IndexedIndirectX address
         0x80, // ADC IndexedIndirectX address
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x08, // ADC IndirectIndexedY address
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x08, // ADC IndirectIndexedY address
         0x80, // ADC IndirectIndexedY address
     ];
 
@@ -99,31 +87,11 @@ fn main() {
     ];
 
     let data = [
-        0x00,
-        0x09, // ADC Absolute target
-        0x00,
-        0x00,
-        0x40, // ADC AbsoluteY target
-        0x00,
-        0x00,
-        0x00,
-        0x11, // ADC AbsoluteX target
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x12, // ADC IndexedIndirectX target
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x06, // ADC IndirectIndexedY target
+        0x00, 0x09, // ADC Absolute target
+        0x00, 0x00, 0x40, // ADC AbsoluteY target
+        0x00, 0x00, 0x00, 0x11, // ADC AbsoluteX target
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x12, // ADC IndexedIndirectX target
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, // ADC IndirectIndexedY target
     ];
 
     cpu.memory.set_bytes(Address(0x0000), &zero_page_data);
