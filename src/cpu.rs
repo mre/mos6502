@@ -552,7 +552,7 @@ impl CPU {
             a_after
         };
 
-        let did_carry = (result as u8) < (a_before as u8);
+        let did_carry = (result as u8) < (a_before as u8) || (c_before == 1 && value == -1);
 
         let did_overflow = (a_before < 0 && value < 0 && a_after >= 0)
             || (a_before > 0 && value > 0 && a_after <= 0);
@@ -914,6 +914,12 @@ mod tests {
         assert_eq!(cpu.registers.status.contains(Status::PS_ZERO), false);
         assert_eq!(cpu.registers.status.contains(Status::PS_NEGATIVE), true);
         assert_eq!(cpu.registers.status.contains(Status::PS_OVERFLOW), true);
+
+        let mut cpu = CPU::new();
+        cpu.registers.status.or(Status::PS_CARRY);
+        cpu.add_with_carry(-1);
+        assert_eq!(cpu.registers.accumulator, 0);
+        assert_eq!(cpu.registers.status.contains(Status::PS_CARRY), true);
     }
 
     #[test]
