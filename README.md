@@ -1,5 +1,7 @@
 # mos6502
 
+![MOS6502](assets/6502.jpg)
+
 ![](https://github.com/mre/mos6502/workflows/test/badge.svg)
 [![docs.rs](https://docs.rs/mos6502/badge.svg)](https://docs.rs/mos6502)
 
