@@ -30,11 +30,11 @@
 name = "mos6502"
 description = "A MOS 6502 Emulator"
 license = "BSD-3-Clause"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["The 6502-rs Developers"]
 build = "build.rs"
 exclude = ["examples/**"]
-edition = "2018"
+edition = "2021"
 
 [lib]
 # This will look in src/lib.rs
