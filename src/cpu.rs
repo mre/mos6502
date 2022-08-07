@@ -803,6 +803,28 @@ mod tests {
     use num::range_inclusive;
 
     #[cfg_attr(feature = "decimal_mode", test)]
+    fn invalid_decimal_values_test() {
+        let mut cpu = CPU::new();
+        cpu.registers.status.remove(Status::PS_CARRY);
+
+        cpu.add_with_carry(0x0e);
+        assert_eq!(cpu.registers.accumulator, 0x0e);
+        cpu.registers.status.or(Status::PS_DECIMAL_MODE);
+        assert_eq!(cpu.registers.accumulator, 0x0e);
+        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+        assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
+
+        cpu.add_with_carry(-92); // hex $a4
+        assert_eq!(cpu.registers.accumulator, 0x18);
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
+        assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
+    }
+
+    #[cfg_attr(feature = "decimal_mode", test)]
     fn decimal_add_test() {
         let mut cpu = CPU::new();
         cpu.registers.status.or(Status::PS_DECIMAL_MODE);
