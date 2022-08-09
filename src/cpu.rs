@@ -802,7 +802,7 @@ mod tests {
     use super::*;
     use num::range_inclusive;
 
-    #[test]
+    #[cfg_attr(not(feature = "disable_decimal_mode"), test)]
     fn decimal_add_test() {
         let mut cpu = CPU::new();
         cpu.registers.status.or(Status::PS_DECIMAL_MODE);
@@ -829,7 +829,7 @@ mod tests {
         assert!(cpu.registers.status.contains(Status::PS_OVERFLOW));
     }
 
-    #[test]
+    #[cfg_attr(not(feature = "disable_decimal_mode"), test)]
     fn decimal_subtract_test() {
         let mut cpu = CPU::new();
         cpu.registers
