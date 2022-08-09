@@ -8,7 +8,6 @@ fn main() {
     std::io::stdin().read_line(&mut input).unwrap();
 
     let zero_page_data = input
-        .trim()
         .split_whitespace()
         .map(|s| s.parse::<u8>().unwrap())
         .collect::<Vec<u8>>();
