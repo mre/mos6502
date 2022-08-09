@@ -54,3 +54,7 @@ skeptic = "0.13.7"
 
 [dev-dependencies]
 skeptic = "0.13.7"
+
+[features]
+disable_decimal_mode = []
+default = []
