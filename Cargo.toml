@@ -56,5 +56,5 @@ skeptic = "0.13.7"
 skeptic = "0.13.7"
 
 [features]
-disable_decimal_mode = []
-default = []
+decimal_mode = []
+default = ["decimal_mode"]
