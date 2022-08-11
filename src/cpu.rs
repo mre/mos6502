@@ -546,11 +546,15 @@ impl CPU {
             0x00
         };
 
+        #[cfg(feature = "decimal_mode")]
         let result: i8 = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
             a_after.wrapping_add(bcd1).wrapping_add(bcd2)
         } else {
             a_after
         };
+
+        #[cfg(not(feature = "decimal_mode"))]
+        let result: i8 = a_after;
 
         let did_carry = (result as u8) < (a_before as u8) || (c_before == 1 && value == -1);
 
@@ -619,11 +623,15 @@ impl CPU {
             0x00
         };
 
+        #[cfg(feature = "decimal_mode")]
         let result: i8 = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
             a_after.wrapping_sub(bcd1).wrapping_sub(bcd2)
         } else {
             a_after
         };
+
+        #[cfg(not(feature = "decimal_mode"))]
+        let result: i8 = a_after;
 
         // The carry flag is set on unsigned overflow.
         let did_carry = (result as u8) > (a_before as u8);
@@ -794,7 +802,7 @@ mod tests {
     use super::*;
     use num::range_inclusive;
 
-    #[test]
+    #[cfg_attr(feature = "decimal_mode", test)]
     fn decimal_add_test() {
         let mut cpu = CPU::new();
         cpu.registers.status.or(Status::PS_DECIMAL_MODE);
@@ -821,7 +829,7 @@ mod tests {
         assert!(cpu.registers.status.contains(Status::PS_OVERFLOW));
     }
 
-    #[test]
+    #[cfg_attr(feature = "decimal_mode", test)]
     fn decimal_subtract_test() {
         let mut cpu = CPU::new();
         cpu.registers
