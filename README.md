@@ -52,9 +52,9 @@ fn main() {
 
     let mut cpu = cpu::CPU::new();
 
-    cpu.memory.set_bytes(Address(0x00), &zero_page_data);
-    cpu.memory.set_bytes(Address(0x10), &program);
-    cpu.registers.program_counter = Address(0x10);
+    cpu.memory.set_bytes(0x00, &zero_page_data);
+    cpu.memory.set_bytes(0x10, &program);
+    cpu.registers.program_counter = 0x10;
 
     cpu.run();
 

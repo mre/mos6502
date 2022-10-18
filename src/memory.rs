@@ -25,8 +25,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use crate::address::{Address};
-
+use crate::address::Address;
 
 // JAM: We can probably come up with a better way to represent address ranges.
 //      Address range type?
@@ -112,17 +111,14 @@ mod tests {
     #[test]
     fn test_memory_set_bytes() {
         let mut memory = Memory::new();
-        memory.set_bytes(Address(0x0100), &[1, 2, 3, 4, 5]);
-        assert_eq!(
-            memory.get_slice(Address(0x00FF), AddressDiff(7)),
-            &[0, 1, 2, 3, 4, 5, 0]
-        );
+        memory.set_bytes(0x0100, &[1, 2, 3, 4, 5]);
+        assert_eq!(memory.get_slice(0x00FF, 7), &[0, 1, 2, 3, 4, 5, 0]);
     }
 
     #[test]
     #[should_panic]
     fn test_memory_overflow_panic() {
         let mut memory = Memory::new();
-        memory.set_bytes(Address(0xFFFE), &[1, 2, 3]);
+        memory.set_bytes(0xFFFE, &[1, 2, 3]);
     }
 }

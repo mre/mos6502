@@ -25,7 +25,6 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-
 use crate::instruction::{self, DecodedInstr, Instruction, OpInput};
 use crate::memory::Memory;
 use crate::registers::{Registers, StackPointer, Status, StatusArgs};
@@ -68,7 +67,8 @@ impl CPU {
                 let am_out = am.process(self, slice);
 
                 // Increment program counter
-                self.registers.program_counter = self.registers.program_counter.wrapping_add(num_bytes);
+                self.registers.program_counter =
+                    self.registers.program_counter.wrapping_add(num_bytes);
 
                 Some((instr, am_out))
             }
@@ -1022,7 +1022,7 @@ mod tests {
     #[test]
     fn decrement_memory_test() {
         let mut cpu = CPU::new();
-        let addr = Address(0xA1B2);
+        let addr: u16 = 0xA1B2;
 
         cpu.memory.set_byte(addr, 5);
 
@@ -1135,7 +1135,7 @@ mod tests {
     #[test]
     fn jump_test() {
         let mut cpu = CPU::new();
-        let addr = Address(0xA1B1);
+        let addr: u16 = 0xA1B1;
 
         cpu.jump(addr);
         assert_eq!(cpu.registers.program_counter, addr);
@@ -1146,12 +1146,12 @@ mod tests {
         let mut cpu = CPU::new();
 
         cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
-        cpu.branch_if_carry_clear(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0));
+        cpu.branch_if_carry_clear(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0));
 
         cpu.execute_instruction((Instruction::CLC, OpInput::UseImplied));
-        cpu.branch_if_carry_clear(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
+        cpu.branch_if_carry_clear(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0xABCD));
     }
 
     #[test]
@@ -1159,24 +1159,24 @@ mod tests {
         let mut cpu = CPU::new();
 
         cpu.execute_instruction((Instruction::CLC, OpInput::UseImplied));
-        cpu.branch_if_carry_set(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0));
+        cpu.branch_if_carry_set(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0));
 
         cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
-        cpu.branch_if_carry_set(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
+        cpu.branch_if_carry_set(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0xABCD));
     }
 
     #[test]
     fn branch_if_equal_test() {
         let mut cpu = CPU::new();
 
-        cpu.branch_if_equal(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0));
+        cpu.branch_if_equal(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0));
 
         cpu.registers.status.or(Status::PS_ZERO);
-        cpu.branch_if_equal(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
+        cpu.branch_if_equal(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0xABCD));
     }
 
     #[test]
@@ -1185,9 +1185,9 @@ mod tests {
             let mut cpu = CPU::new();
             let registers_before = cpu.registers;
 
-            cpu.branch_if_minus(Address(0xABCD));
+            cpu.branch_if_minus(0xABCD);
             assert_eq!(cpu.registers, registers_before);
-            assert_eq!(cpu.registers.program_counter, Address(0));
+            assert_eq!(cpu.registers.program_counter, (0));
         }
 
         {
@@ -1196,9 +1196,9 @@ mod tests {
             cpu.registers.status.or(Status::PS_NEGATIVE);
             let registers_before = cpu.registers;
 
-            cpu.branch_if_minus(Address(0xABCD));
+            cpu.branch_if_minus(0xABCD);
             assert_eq!(cpu.registers.status, registers_before.status);
-            assert_eq!(cpu.registers.program_counter, Address(0xABCD));
+            assert_eq!(cpu.registers.program_counter, (0xABCD));
         }
     }
 
@@ -1207,12 +1207,12 @@ mod tests {
         let mut cpu = CPU::new();
 
         cpu.registers.status.insert(Status::PS_NEGATIVE);
-        cpu.branch_if_positive(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0));
+        cpu.branch_if_positive(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0));
 
         cpu.registers.status.remove(Status::PS_NEGATIVE);
-        cpu.branch_if_positive(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
+        cpu.branch_if_positive(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0xABCD));
     }
 
     #[test]
@@ -1220,24 +1220,24 @@ mod tests {
         let mut cpu = CPU::new();
 
         cpu.registers.status.insert(Status::PS_OVERFLOW);
-        cpu.branch_if_overflow_clear(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0));
+        cpu.branch_if_overflow_clear(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0));
 
         cpu.registers.status.remove(Status::PS_OVERFLOW);
-        cpu.branch_if_overflow_clear(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
+        cpu.branch_if_overflow_clear(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0xABCD));
     }
 
     #[test]
     fn branch_if_overflow_set_test() {
         let mut cpu = CPU::new();
 
-        cpu.branch_if_overflow_set(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0));
+        cpu.branch_if_overflow_set(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0));
 
         cpu.registers.status.insert(Status::PS_OVERFLOW);
-        cpu.branch_if_overflow_set(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
+        cpu.branch_if_overflow_set(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0xABCD));
     }
 
     #[cfg(test)]
