@@ -1229,6 +1229,16 @@ mod tests {
     }
 
     #[test]
+    fn branch_across_end_of_address_space() {
+        let mut cpu = CPU::new();
+        cpu.registers.program_counter = 0xffff;
+
+        cpu.registers.status.insert(Status::PS_OVERFLOW);
+        cpu.branch_if_overflow_set(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0xABCD));
+    }
+
+    #[test]
     fn branch_if_overflow_set_test() {
         let mut cpu = CPU::new();
 
