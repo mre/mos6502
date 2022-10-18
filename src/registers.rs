@@ -25,8 +25,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use crate::address::{Address, AddressDiff};
-use crate::memory::{STACK_ADDRESS_HI, STACK_ADDRESS_LO};
+
 
 // Useful for constructing Status instances
 #[derive(Copy, Clone)]
@@ -147,10 +146,6 @@ impl Status {
 pub struct StackPointer(pub u8);
 
 impl StackPointer {
-    pub fn to_address(self) -> Address {
-        STACK_ADDRESS_LO + AddressDiff(i32::from(self.0))
-    }
-
     pub fn to_u16(self) -> u16 {
         let StackPointer(val) = self;
         u16::from_le_bytes([val, 0x01])
@@ -188,7 +183,7 @@ impl Registers {
             accumulator: 0,
             index_x: 0,
             index_y: 0,
-            stack_pointer: StackPointer(STACK_ADDRESS_HI.get_offset()),
+            stack_pointer: StackPointer(0),
             program_counter: 0,
             status: Status::default(),
         }
