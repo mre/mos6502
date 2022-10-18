@@ -68,7 +68,7 @@ impl CPU {
                 let am_out = am.process(self, slice);
 
                 // Increment program counter
-                self.registers.program_counter = self.registers.program_counter + num_bytes;
+                self.registers.program_counter = self.registers.program_counter.wrapping_add(num_bytes);
 
                 Some((instr, am_out))
             }
