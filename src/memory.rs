@@ -25,8 +25,8 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use crate::address::{Address, AddressDiff};
-use crate::num::ToPrimitive;
+use crate::address::{Address};
+
 
 // JAM: We can probably come up with a better way to represent address ranges.
 //      Address range type?

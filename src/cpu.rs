@@ -25,7 +25,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use crate::address::{Address, AddressDiff};
+
 use crate::instruction::{self, DecodedInstr, Instruction, OpInput};
 use crate::memory::Memory;
 use crate::registers::{Registers, StackPointer, Status, StatusArgs};

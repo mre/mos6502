@@ -25,8 +25,8 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use crate::address::Address;
-use crate::address::AddressDiff;
+
+
 use crate::cpu::CPU;
 
 // Abbreviations
@@ -247,7 +247,7 @@ impl AddressingMode {
                 // Add Y register to this address to get the final address
                 // (Output: a 16-bit address)
                 let start = arr[0];
-                let slice = memory.get_slice(u16::from(start), (2));
+                let slice = memory.get_slice(u16::from(start), 2);
                 OpInput::UseAddress(arr_to_addr(slice).wrapping_add(xextend(y)))
             }
         }
