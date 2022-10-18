@@ -775,13 +775,19 @@ mod tests {
     #[test]
     fn zeropage_wrap_around() {
         use crate::instruction::AddressingMode;
-        use crate::instruction::CPU;
         use crate::instruction::OpInput;
+        use crate::instruction::CPU;
 
         let mut cpu = CPU::new();
         cpu.registers.index_x = 9;
 
-        assert!(matches!(AddressingMode::ZeroPageX.process(&cpu, &[10]), OpInput::UseAddress(19)));
-        assert!(matches!(AddressingMode::ZeroPageX.process(&cpu, &[250]), OpInput::UseAddress(3)));
+        assert!(matches!(
+            AddressingMode::ZeroPageX.process(&cpu, &[10]),
+            OpInput::UseAddress(19)
+        ));
+        assert!(matches!(
+            AddressingMode::ZeroPageX.process(&cpu, &[250]),
+            OpInput::UseAddress(3)
+        ));
     }
 }
