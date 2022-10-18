@@ -60,9 +60,9 @@ impl CPU {
         match instruction::OPCODES[x as usize] {
             Some((instr, am)) => {
                 let extra_bytes = am.extra_bytes();
-                let num_bytes = AddressDiff(1) + extra_bytes;
+                let num_bytes = extra_bytes + 1;
 
-                let data_start = self.registers.program_counter + AddressDiff(1);
+                let data_start = self.registers.program_counter.wrapping_add(1);
 
                 let slice = self.memory.get_slice(data_start, extra_bytes);
                 let am_out = am.process(self, slice);
@@ -110,17 +110,17 @@ impl CPU {
             }
 
             (Instruction::BCC, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
+                let addr = self.registers.program_counter.wrapping_add(rel);
                 self.branch_if_carry_clear(addr);
             }
 
             (Instruction::BCS, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
+                let addr = self.registers.program_counter.wrapping_add(rel);
                 self.branch_if_carry_set(addr);
             }
 
             (Instruction::BEQ, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
+                let addr = self.registers.program_counter.wrapping_add(rel);
                 self.branch_if_equal(addr);
             }
 
@@ -150,23 +150,23 @@ impl CPU {
             }
 
             (Instruction::BMI, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
+                let addr = self.registers.program_counter.wrapping_add(rel);
                 debug!("branch if minus relative. address: {:?}", addr);
                 self.branch_if_minus(addr);
             }
 
             (Instruction::BPL, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
+                let addr = self.registers.program_counter.wrapping_add(rel);
                 self.branch_if_positive(addr);
             }
 
             (Instruction::BVC, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
+                let addr = self.registers.program_counter.wrapping_add(rel);
                 self.branch_if_overflow_clear(addr);
             }
 
             (Instruction::BVS, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
+                let addr = self.registers.program_counter.wrapping_add(rel);
                 self.branch_if_overflow_set(addr);
             }
 
@@ -648,7 +648,7 @@ impl CPU {
         self.load_accumulator(result);
     }
 
-    fn decrement_memory(&mut self, addr: Address) {
+    fn decrement_memory(&mut self, addr: u16) {
         let value_new = self.memory.get_byte(addr).wrapping_sub(1);
 
         self.memory.set_byte(addr, value_new);
@@ -671,47 +671,47 @@ impl CPU {
         self.load_x_register(val - 1);
     }
 
-    fn jump(&mut self, addr: Address) {
+    fn jump(&mut self, addr: u16) {
         self.registers.program_counter = addr;
     }
 
-    fn branch_if_carry_clear(&mut self, addr: Address) {
+    fn branch_if_carry_clear(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_CARRY) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_carry_set(&mut self, addr: Address) {
+    fn branch_if_carry_set(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_CARRY) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_equal(&mut self, addr: Address) {
+    fn branch_if_equal(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_ZERO) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_minus(&mut self, addr: Address) {
+    fn branch_if_minus(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_NEGATIVE) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_positive(&mut self, addr: Address) {
+    fn branch_if_positive(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_NEGATIVE) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_overflow_clear(&mut self, addr: Address) {
+    fn branch_if_overflow_clear(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_OVERFLOW) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_overflow_set(&mut self, addr: Address) {
+    fn branch_if_overflow_set(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_OVERFLOW) {
             self.registers.program_counter = addr;
         }
@@ -773,13 +773,13 @@ impl CPU {
     }
 
     fn push_on_stack(&mut self, val: u8) {
-        let addr = self.registers.stack_pointer.to_address();
+        let addr = self.registers.stack_pointer.to_u16();
         self.memory.set_byte(addr, val);
         self.registers.stack_pointer.decrement();
     }
 
     fn pull_from_stack(&mut self) -> u8 {
-        let addr = self.registers.stack_pointer.to_address();
+        let addr = self.registers.stack_pointer.to_u16();
         let out = self.memory.get_byte(addr);
         self.registers.stack_pointer.increment();
         out
