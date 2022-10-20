@@ -648,6 +648,23 @@ impl CPU {
         self.load_accumulator(result);
     }
 
+    fn decrement(&mut self, val: &mut u8) {
+        let value_new = val.wrapping_sub(1);
+        *val = value_new;
+
+        let is_negative = (value_new as i8) < 0;
+        let is_zero = value_new == 0;
+
+        self.registers.status.set_with_mask(
+            Status::PS_NEGATIVE | Status::PS_ZERO,
+            Status::new(StatusArgs {
+                negative: is_negative,
+                zero: is_zero,
+                ..StatusArgs::none()
+            }),
+        );
+    }
+
     fn decrement_memory(&mut self, addr: Address) {
         let value_new = self.memory.get_byte(addr).wrapping_sub(1);
 
@@ -667,8 +684,9 @@ impl CPU {
     }
 
     fn dec_x(&mut self) {
-        let val = self.registers.index_x;
-        self.load_x_register(val - 1);
+        let mut r = u8::from_ne_bytes(self.registers.index_x.to_ne_bytes());
+        self.decrement(&mut r);
+        self.load_x_register(i8::from_ne_bytes(r.to_ne_bytes()));
     }
 
     fn jump(&mut self, addr: Address) {
