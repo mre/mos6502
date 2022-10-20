@@ -209,6 +209,12 @@ impl CPU {
 
             (Instruction::DEC, OpInput::UseAddress(addr)) => self.decrement_memory(addr),
 
+            (Instruction::DEY, OpInput::UseImplied) => {
+                let mut r = u8::from_ne_bytes(self.registers.index_y.to_ne_bytes());
+                self.decrement(&mut r);
+                self.load_y_register(i8::from_ne_bytes(r.to_ne_bytes()));
+            }
+
             (Instruction::DEX, OpInput::UseImplied) => {
                 self.dec_x();
             }
