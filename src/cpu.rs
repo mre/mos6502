@@ -1047,6 +1047,33 @@ mod tests {
         assert_eq!(cpu.memory.get_byte(addr) as i8, -1);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
+
+        cpu.memory.set_byte(addr, 0);
+
+        cpu.decrement_memory(addr);
+        assert_eq!(cpu.memory.get_byte(addr), 0xff);
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
+    }
+
+    #[test]
+    fn decrement_x_test() {
+        let mut cpu = CPU::new();
+        cpu.registers.index_x = -128;
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
+        assert_eq!(cpu.registers.index_x, 127);
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+    }
+
+    #[test]
+    fn decrement_y_test() {
+        let mut cpu = CPU::new();
+        cpu.registers.index_y = -128;
+        cpu.execute_instruction((Instruction::DEY, OpInput::UseImplied));
+        assert_eq!(cpu.registers.index_y, 127);
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
     }
 
     #[test]
