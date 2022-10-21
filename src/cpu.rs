@@ -707,12 +707,6 @@ impl CPU {
         );
     }
 
-    fn dec_x(&mut self) {
-        let mut r = self.registers.index_x;
-        CPU::decrement(&mut r, &mut self.registers.status);
-        self.load_x_register(r);
-    }
-
     fn jump(&mut self, addr: Address) {
         self.registers.program_counter = addr;
     }
@@ -1160,14 +1154,14 @@ mod tests {
     fn dec_x_test() {
         let mut cpu = CPU::new();
 
-        cpu.dec_x();
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
         assert_eq!(cpu.registers.index_x, 0xff);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        cpu.dec_x();
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
         assert_eq!(cpu.registers.index_x, 0xfe);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
@@ -1175,17 +1169,17 @@ mod tests {
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
         cpu.load_x_register(5);
-        cpu.dec_x();
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
         assert_eq!(cpu.registers.index_x, 4);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        cpu.dec_x();
-        cpu.dec_x();
-        cpu.dec_x();
-        cpu.dec_x();
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
 
         assert_eq!(cpu.registers.index_x, 0);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
@@ -1193,7 +1187,7 @@ mod tests {
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        cpu.dec_x();
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
         assert_eq!(cpu.registers.index_x, 0xff);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
