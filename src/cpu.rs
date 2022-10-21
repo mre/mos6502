@@ -207,10 +207,19 @@ impl CPU {
                 self.compare_with_y_register(val);
             }
 
-            (Instruction::DEC, OpInput::UseAddress(addr)) => self.decrement_memory(addr),
+            (Instruction::DEC, OpInput::UseAddress(addr)) => {
+                CPU::decrement(
+                    self.memory.get_byte_mut_ref(addr),
+                    &mut self.registers.status,
+                );
+            }
+
+            (Instruction::DEY, OpInput::UseImplied) => {
+                CPU::decrement(&mut self.registers.index_y, &mut self.registers.status);
+            }
 
             (Instruction::DEX, OpInput::UseImplied) => {
-                self.dec_x();
+                CPU::decrement(&mut self.registers.index_x, &mut self.registers.status);
             }
 
             (Instruction::EOR, OpInput::UseImmediate(val)) => {
@@ -222,19 +231,16 @@ impl CPU {
             }
 
             (Instruction::INC, OpInput::UseAddress(addr)) => {
-                let m = self.memory.get_byte(addr);
-                let m = m + 1;
-                self.memory.set_byte(addr, m);
-                let i = m as i8;
-                CPU::set_flags_from_i8(&mut self.registers.status, i);
+                CPU::increment(
+                    self.memory.get_byte_mut_ref(addr),
+                    &mut self.registers.status,
+                );
             }
             (Instruction::INX, OpInput::UseImplied) => {
-                let x = self.registers.index_x + 1;
-                self.load_x_register(x);
+                CPU::increment(&mut self.registers.index_x, &mut self.registers.status);
             }
             (Instruction::INY, OpInput::UseImplied) => {
-                let y = self.registers.index_y + 1;
-                self.load_y_register(y);
+                CPU::increment(&mut self.registers.index_x, &mut self.registers.status);
             }
 
             (Instruction::JMP, OpInput::UseAddress(addr)) => self.jump(addr),
@@ -251,22 +257,22 @@ impl CPU {
 
             (Instruction::LDX, OpInput::UseImmediate(val)) => {
                 debug!("load X immediate: {}", val);
-                self.load_x_register(val as i8);
+                self.load_x_register(val);
             }
             (Instruction::LDX, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
                 debug!("load X. address: {:?}. value: {}", addr, val);
-                self.load_x_register(val as i8);
+                self.load_x_register(val);
             }
 
             (Instruction::LDY, OpInput::UseImmediate(val)) => {
                 debug!("load Y immediate: {}", val);
-                self.load_y_register(val as i8);
+                self.load_y_register(val);
             }
             (Instruction::LDY, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
                 debug!("load Y. address: {:?}. value: {}", addr, val);
-                self.load_y_register(val as i8);
+                self.load_y_register(val);
             }
 
             (Instruction::LSR, OpInput::UseImplied) => {
@@ -371,20 +377,19 @@ impl CPU {
 
             (Instruction::TAX, OpInput::UseImplied) => {
                 let val = self.registers.accumulator;
-                self.load_x_register(val);
+                self.load_x_register(val as u8);
             }
             (Instruction::TAY, OpInput::UseImplied) => {
                 let val = self.registers.accumulator;
-                self.load_y_register(val);
+                self.load_y_register(val as u8);
             }
             (Instruction::TSX, OpInput::UseImplied) => {
                 let StackPointer(val) = self.registers.stack_pointer;
-                let val = val as i8;
                 self.load_x_register(val);
             }
             (Instruction::TXA, OpInput::UseImplied) => {
                 let val = self.registers.index_x;
-                self.load_accumulator(val);
+                self.load_accumulator(val as i8);
             }
             (Instruction::TXS, OpInput::UseImplied) => {
                 // Note that this is the only 'transfer' instruction that does
@@ -395,7 +400,7 @@ impl CPU {
             }
             (Instruction::TYA, OpInput::UseImplied) => {
                 let val = self.registers.index_y;
-                self.load_accumulator(val);
+                self.load_accumulator(val as i8);
             }
 
             (Instruction::NOP, OpInput::UseImplied) => {
@@ -419,6 +424,20 @@ impl CPU {
     fn set_flags_from_i8(status: &mut Status, value: i8) {
         let is_zero = value == 0;
         let is_negative = value < 0;
+
+        status.set_with_mask(
+            Status::PS_ZERO | Status::PS_NEGATIVE,
+            Status::new(StatusArgs {
+                zero: is_zero,
+                negative: is_negative,
+                ..StatusArgs::none()
+            }),
+        );
+    }
+
+    fn set_flags_from_u8(status: &mut Status, value: u8) {
+        let is_zero = value == 0;
+        let is_negative = value > 127;
 
         status.set_with_mask(
             Status::PS_ZERO | Status::PS_NEGATIVE,
@@ -491,21 +510,26 @@ impl CPU {
         CPU::set_flags_from_i8(status, *p_val as i8);
     }
 
+    fn set_u8_with_flags(mem: &mut u8, status: &mut Status, value: u8) {
+        *mem = value;
+        CPU::set_flags_from_u8(status, value);
+    }
+
     fn set_i8_with_flags(mem: &mut i8, status: &mut Status, value: i8) {
         *mem = value;
         CPU::set_flags_from_i8(status, value);
     }
 
-    fn load_x_register(&mut self, value: i8) {
-        CPU::set_i8_with_flags(
+    fn load_x_register(&mut self, value: u8) {
+        CPU::set_u8_with_flags(
             &mut self.registers.index_x,
             &mut self.registers.status,
             value,
         );
     }
 
-    fn load_y_register(&mut self, value: i8) {
-        CPU::set_i8_with_flags(
+    fn load_y_register(&mut self, value: u8) {
+        CPU::set_u8_with_flags(
             &mut self.registers.index_y,
             &mut self.registers.status,
             value,
@@ -648,15 +672,14 @@ impl CPU {
         self.load_accumulator(result);
     }
 
-    fn decrement_memory(&mut self, addr: u16) {
-        let value_new = self.memory.get_byte(addr).wrapping_sub(1);
-
-        self.memory.set_byte(addr, value_new);
+    fn increment(val: &mut u8, flags: &mut Status) {
+        let value_new = val.wrapping_add(1);
+        *val = value_new;
 
         let is_negative = (value_new as i8) < 0;
         let is_zero = value_new == 0;
 
-        self.registers.status.set_with_mask(
+        flags.set_with_mask(
             Status::PS_NEGATIVE | Status::PS_ZERO,
             Status::new(StatusArgs {
                 negative: is_negative,
@@ -666,9 +689,21 @@ impl CPU {
         );
     }
 
-    fn dec_x(&mut self) {
-        let val = self.registers.index_x;
-        self.load_x_register(val - 1);
+    fn decrement(val: &mut u8, flags: &mut Status) {
+        let value_new = val.wrapping_sub(1);
+        *val = value_new;
+
+        let is_negative = (value_new as i8) < 0;
+        let is_zero = value_new == 0;
+
+        flags.set_with_mask(
+            Status::PS_NEGATIVE | Status::PS_ZERO,
+            Status::new(StatusArgs {
+                negative: is_negative,
+                zero: is_zero,
+                ..StatusArgs::none()
+            }),
+        );
     }
 
     fn jump(&mut self, addr: u16) {
@@ -754,12 +789,12 @@ impl CPU {
         debug!("compare_with_x_register");
 
         let x = self.registers.index_x;
-        self.compare(x, val);
+        self.compare(x as i8, val);
     }
 
     fn compare_with_y_register(&mut self, val: u8) {
         let y = self.registers.index_y;
-        self.compare(y, val);
+        self.compare(y as i8, val);
     }
 
     fn exclusive_or(&mut self, val: u8) {
@@ -1026,27 +1061,54 @@ mod tests {
 
         cpu.memory.set_byte(addr, 5);
 
-        cpu.decrement_memory(addr);
+        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
         assert_eq!(cpu.memory.get_byte(addr), 4);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
 
-        cpu.decrement_memory(addr);
+        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
         assert_eq!(cpu.memory.get_byte(addr), 3);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
 
-        cpu.decrement_memory(addr);
-        cpu.decrement_memory(addr);
-        cpu.decrement_memory(addr);
+        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
+        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
+        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
         assert_eq!(cpu.memory.get_byte(addr), 0);
         assert!(cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
 
-        cpu.decrement_memory(addr);
+        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
         assert_eq!(cpu.memory.get_byte(addr) as i8, -1);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
+
+        cpu.memory.set_byte(addr, 0);
+
+        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
+        assert_eq!(cpu.memory.get_byte(addr), 0xff);
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
+    }
+
+    #[test]
+    fn decrement_x_test() {
+        let mut cpu = CPU::new();
+        cpu.registers.index_x = 0x80;
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
+        assert_eq!(cpu.registers.index_x, 127);
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+    }
+
+    #[test]
+    fn decrement_y_test() {
+        let mut cpu = CPU::new();
+        cpu.registers.index_y = 0x80;
+        cpu.execute_instruction((Instruction::DEY, OpInput::UseImplied));
+        assert_eq!(cpu.registers.index_y, 127);
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
     }
 
     #[test]
@@ -1091,32 +1153,32 @@ mod tests {
     fn dec_x_test() {
         let mut cpu = CPU::new();
 
-        cpu.dec_x();
-        assert_eq!(cpu.registers.index_x, -1);
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
+        assert_eq!(cpu.registers.index_x, 0xff);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        cpu.dec_x();
-        assert_eq!(cpu.registers.index_x, -2);
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
+        assert_eq!(cpu.registers.index_x, 0xfe);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
         cpu.load_x_register(5);
-        cpu.dec_x();
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
         assert_eq!(cpu.registers.index_x, 4);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        cpu.dec_x();
-        cpu.dec_x();
-        cpu.dec_x();
-        cpu.dec_x();
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
 
         assert_eq!(cpu.registers.index_x, 0);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
@@ -1124,8 +1186,8 @@ mod tests {
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        cpu.dec_x();
-        assert_eq!(cpu.registers.index_x, -1);
+        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
+        assert_eq!(cpu.registers.index_x, 0xff);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
