@@ -31,9 +31,6 @@ extern crate mos6502;
 use mos6502::cpu;
 
 #[cfg(not(test))]
-use mos6502::address::Address;
-
-#[cfg(not(test))]
 fn main() {
     let mut cpu = cpu::CPU::new();
 
@@ -94,11 +91,11 @@ fn main() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, // ADC IndirectIndexedY target
     ];
 
-    cpu.memory.set_bytes(Address(0x0000), &zero_page_data);
-    cpu.memory.set_bytes(Address(0x4000), &program);
-    cpu.memory.set_bytes(Address(0x8000), &data);
+    cpu.memory.set_bytes(0x0000, &zero_page_data);
+    cpu.memory.set_bytes(0x4000, &program);
+    cpu.memory.set_bytes(0x8000, &data);
 
-    cpu.registers.program_counter = Address(0x4000);
+    cpu.registers.program_counter = 0x4000;
 
     cpu.run();
 
