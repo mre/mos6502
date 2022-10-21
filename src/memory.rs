@@ -25,8 +25,6 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use crate::address::{Address, AddressDiff};
-
 // JAM: We can probably come up with a better way to represent address ranges.
 //      Address range type?
 //
@@ -39,12 +37,12 @@ use crate::address::{Address, AddressDiff};
 const ADDR_LO_BARE: u16 = 0x0000;
 const ADDR_HI_BARE: u16 = 0xFFFF;
 
-pub const MEMORY_ADDRESS_LO: Address = Address(ADDR_LO_BARE);
-pub const MEMORY_ADDRESS_HI: Address = Address(ADDR_HI_BARE);
-pub const STACK_ADDRESS_LO: Address = Address(0x0100);
-pub const STACK_ADDRESS_HI: Address = Address(0x01FF);
-pub const IRQ_INTERRUPT_VECTOR_LO: Address = Address(0xFFFE);
-pub const IRQ_INTERRUPT_VECTOR_HI: Address = Address(0xFFFF);
+pub const MEMORY_ADDRESS_LO: u16 = ADDR_LO_BARE;
+pub const MEMORY_ADDRESS_HI: u16 = ADDR_HI_BARE;
+pub const STACK_ADDRESS_LO: u16 = 0x0100;
+pub const STACK_ADDRESS_HI: u16 = 0x01FF;
+pub const IRQ_INTERRUPT_VECTOR_LO: u16 = 0xFFFE;
+pub const IRQ_INTERRUPT_VECTOR_HI: u16 = 0xFFFF;
 
 const MEMORY_SIZE: usize = (ADDR_HI_BARE - ADDR_LO_BARE) as usize + 1usize;
 
@@ -67,28 +65,31 @@ impl Memory {
         }
     }
 
-    pub fn get_byte(&self, address: Address) -> u8 {
-        self.bytes[address.to_usize()]
+    pub fn get_byte(&self, address: u16) -> u8 {
+        self.bytes[address as usize]
     }
 
-    pub fn get_byte_mut_ref(&mut self, address: Address) -> &mut u8 {
-        &mut self.bytes[address.to_usize()]
+    pub fn get_byte_mut_ref(&mut self, address: u16) -> &mut u8 {
+        &mut self.bytes[address as usize]
     }
 
-    pub fn get_slice(&self, start: Address, diff: AddressDiff) -> &[u8] {
-        &self.bytes[start.to_usize()..(start + diff).to_usize()]
+    pub fn get_slice(&self, start: u16, diff: u16) -> &[u8] {
+        let orig: usize = start.into();
+        let end = orig + diff as usize;
+
+        &self.bytes[orig..end]
     }
 
     // Sets the byte at the given address to the given value and returns the
     // previous value at the address.
-    pub fn set_byte(&mut self, address: Address, value: u8) -> u8 {
+    pub fn set_byte(&mut self, address: u16, value: u8) -> u8 {
         let old_value = self.get_byte(address);
-        self.bytes[address.to_usize()] = value;
+        self.bytes[address as usize] = value;
         old_value
     }
 
-    pub fn set_bytes(&mut self, start: Address, values: &[u8]) {
-        let start = start.to_usize();
+    pub fn set_bytes(&mut self, start: u16, values: &[u8]) {
+        let start = start as usize;
 
         // This panics if the range is invalid
         let end = start + values.len();
@@ -96,8 +97,8 @@ impl Memory {
         self.bytes[start..end].copy_from_slice(values);
     }
 
-    pub fn is_stack_address(address: Address) -> bool {
-        (STACK_ADDRESS_LO..=STACK_ADDRESS_HI).contains(&address)
+    pub fn is_stack_address(address: u16) -> bool {
+        address > 0xff && address < 0x200
     }
 }
 
@@ -108,17 +109,14 @@ mod tests {
     #[test]
     fn test_memory_set_bytes() {
         let mut memory = Memory::new();
-        memory.set_bytes(Address(0x0100), &[1, 2, 3, 4, 5]);
-        assert_eq!(
-            memory.get_slice(Address(0x00FF), AddressDiff(7)),
-            &[0, 1, 2, 3, 4, 5, 0]
-        );
+        memory.set_bytes(0x0100, &[1, 2, 3, 4, 5]);
+        assert_eq!(memory.get_slice(0x00FF, 7), &[0, 1, 2, 3, 4, 5, 0]);
     }
 
     #[test]
     #[should_panic]
     fn test_memory_overflow_panic() {
         let mut memory = Memory::new();
-        memory.set_bytes(Address(0xFFFE), &[1, 2, 3]);
+        memory.set_bytes(0xFFFE, &[1, 2, 3]);
     }
 }

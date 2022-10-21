@@ -20,7 +20,6 @@ Source: [Wikipedia](https://en.wikipedia.org/wiki/MOS_Technology_6502)
 ## How to use this library
 
 ```rust
-use mos6502::address::Address;
 use mos6502::cpu;
 
 fn main() {
@@ -52,9 +51,9 @@ fn main() {
 
     let mut cpu = cpu::CPU::new();
 
-    cpu.memory.set_bytes(Address(0x00), &zero_page_data);
-    cpu.memory.set_bytes(Address(0x10), &program);
-    cpu.registers.program_counter = Address(0x10);
+    cpu.memory.set_bytes(0x00, &zero_page_data);
+    cpu.memory.set_bytes(0x10, &program);
+    cpu.registers.program_counter = 0x10;
 
     cpu.run();
 

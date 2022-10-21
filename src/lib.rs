@@ -35,7 +35,6 @@ extern crate num;
 #[macro_use]
 extern crate bitflags;
 
-pub mod address;
 pub mod cpu;
 pub mod instruction;
 pub mod memory;

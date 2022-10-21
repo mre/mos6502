@@ -25,7 +25,6 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use crate::address::{Address, AddressDiff};
 use crate::instruction::{self, DecodedInstr, Instruction, OpInput};
 use crate::memory::Memory;
 use crate::registers::{Registers, StackPointer, Status, StatusArgs};
@@ -60,15 +59,16 @@ impl CPU {
         match instruction::OPCODES[x as usize] {
             Some((instr, am)) => {
                 let extra_bytes = am.extra_bytes();
-                let num_bytes = AddressDiff(1) + extra_bytes;
+                let num_bytes = extra_bytes + 1;
 
-                let data_start = self.registers.program_counter + AddressDiff(1);
+                let data_start = self.registers.program_counter.wrapping_add(1);
 
                 let slice = self.memory.get_slice(data_start, extra_bytes);
                 let am_out = am.process(self, slice);
 
                 // Increment program counter
-                self.registers.program_counter = self.registers.program_counter + num_bytes;
+                self.registers.program_counter =
+                    self.registers.program_counter.wrapping_add(num_bytes);
 
                 Some((instr, am_out))
             }
@@ -110,17 +110,17 @@ impl CPU {
             }
 
             (Instruction::BCC, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
+                let addr = self.registers.program_counter.wrapping_add(rel);
                 self.branch_if_carry_clear(addr);
             }
 
             (Instruction::BCS, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
+                let addr = self.registers.program_counter.wrapping_add(rel);
                 self.branch_if_carry_set(addr);
             }
 
             (Instruction::BEQ, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
+                let addr = self.registers.program_counter.wrapping_add(rel);
                 self.branch_if_equal(addr);
             }
 
@@ -150,23 +150,23 @@ impl CPU {
             }
 
             (Instruction::BMI, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
+                let addr = self.registers.program_counter.wrapping_add(rel);
                 debug!("branch if minus relative. address: {:?}", addr);
                 self.branch_if_minus(addr);
             }
 
             (Instruction::BPL, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
+                let addr = self.registers.program_counter.wrapping_add(rel);
                 self.branch_if_positive(addr);
             }
 
             (Instruction::BVC, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
+                let addr = self.registers.program_counter.wrapping_add(rel);
                 self.branch_if_overflow_clear(addr);
             }
 
             (Instruction::BVS, OpInput::UseRelative(rel)) => {
-                let addr = self.registers.program_counter + AddressDiff(i32::from(rel));
+                let addr = self.registers.program_counter.wrapping_add(rel);
                 self.branch_if_overflow_set(addr);
             }
 
@@ -648,7 +648,7 @@ impl CPU {
         self.load_accumulator(result);
     }
 
-    fn decrement_memory(&mut self, addr: Address) {
+    fn decrement_memory(&mut self, addr: u16) {
         let value_new = self.memory.get_byte(addr).wrapping_sub(1);
 
         self.memory.set_byte(addr, value_new);
@@ -671,47 +671,47 @@ impl CPU {
         self.load_x_register(val - 1);
     }
 
-    fn jump(&mut self, addr: Address) {
+    fn jump(&mut self, addr: u16) {
         self.registers.program_counter = addr;
     }
 
-    fn branch_if_carry_clear(&mut self, addr: Address) {
+    fn branch_if_carry_clear(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_CARRY) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_carry_set(&mut self, addr: Address) {
+    fn branch_if_carry_set(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_CARRY) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_equal(&mut self, addr: Address) {
+    fn branch_if_equal(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_ZERO) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_minus(&mut self, addr: Address) {
+    fn branch_if_minus(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_NEGATIVE) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_positive(&mut self, addr: Address) {
+    fn branch_if_positive(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_NEGATIVE) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_overflow_clear(&mut self, addr: Address) {
+    fn branch_if_overflow_clear(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_OVERFLOW) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_overflow_set(&mut self, addr: Address) {
+    fn branch_if_overflow_set(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_OVERFLOW) {
             self.registers.program_counter = addr;
         }
@@ -773,13 +773,13 @@ impl CPU {
     }
 
     fn push_on_stack(&mut self, val: u8) {
-        let addr = self.registers.stack_pointer.to_address();
+        let addr = self.registers.stack_pointer.to_u16();
         self.memory.set_byte(addr, val);
         self.registers.stack_pointer.decrement();
     }
 
     fn pull_from_stack(&mut self) -> u8 {
-        let addr = self.registers.stack_pointer.to_address();
+        let addr = self.registers.stack_pointer.to_u16();
         let out = self.memory.get_byte(addr);
         self.registers.stack_pointer.increment();
         out
@@ -1022,7 +1022,7 @@ mod tests {
     #[test]
     fn decrement_memory_test() {
         let mut cpu = CPU::new();
-        let addr = Address(0xA1B2);
+        let addr: u16 = 0xA1B2;
 
         cpu.memory.set_byte(addr, 5);
 
@@ -1135,7 +1135,7 @@ mod tests {
     #[test]
     fn jump_test() {
         let mut cpu = CPU::new();
-        let addr = Address(0xA1B1);
+        let addr: u16 = 0xA1B1;
 
         cpu.jump(addr);
         assert_eq!(cpu.registers.program_counter, addr);
@@ -1146,12 +1146,12 @@ mod tests {
         let mut cpu = CPU::new();
 
         cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
-        cpu.branch_if_carry_clear(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0));
+        cpu.branch_if_carry_clear(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0));
 
         cpu.execute_instruction((Instruction::CLC, OpInput::UseImplied));
-        cpu.branch_if_carry_clear(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
+        cpu.branch_if_carry_clear(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0xABCD));
     }
 
     #[test]
@@ -1159,24 +1159,24 @@ mod tests {
         let mut cpu = CPU::new();
 
         cpu.execute_instruction((Instruction::CLC, OpInput::UseImplied));
-        cpu.branch_if_carry_set(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0));
+        cpu.branch_if_carry_set(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0));
 
         cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
-        cpu.branch_if_carry_set(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
+        cpu.branch_if_carry_set(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0xABCD));
     }
 
     #[test]
     fn branch_if_equal_test() {
         let mut cpu = CPU::new();
 
-        cpu.branch_if_equal(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0));
+        cpu.branch_if_equal(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0));
 
         cpu.registers.status.or(Status::PS_ZERO);
-        cpu.branch_if_equal(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
+        cpu.branch_if_equal(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0xABCD));
     }
 
     #[test]
@@ -1185,9 +1185,9 @@ mod tests {
             let mut cpu = CPU::new();
             let registers_before = cpu.registers;
 
-            cpu.branch_if_minus(Address(0xABCD));
+            cpu.branch_if_minus(0xABCD);
             assert_eq!(cpu.registers, registers_before);
-            assert_eq!(cpu.registers.program_counter, Address(0));
+            assert_eq!(cpu.registers.program_counter, (0));
         }
 
         {
@@ -1196,9 +1196,9 @@ mod tests {
             cpu.registers.status.or(Status::PS_NEGATIVE);
             let registers_before = cpu.registers;
 
-            cpu.branch_if_minus(Address(0xABCD));
+            cpu.branch_if_minus(0xABCD);
             assert_eq!(cpu.registers.status, registers_before.status);
-            assert_eq!(cpu.registers.program_counter, Address(0xABCD));
+            assert_eq!(cpu.registers.program_counter, (0xABCD));
         }
     }
 
@@ -1207,12 +1207,12 @@ mod tests {
         let mut cpu = CPU::new();
 
         cpu.registers.status.insert(Status::PS_NEGATIVE);
-        cpu.branch_if_positive(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0));
+        cpu.branch_if_positive(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0));
 
         cpu.registers.status.remove(Status::PS_NEGATIVE);
-        cpu.branch_if_positive(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
+        cpu.branch_if_positive(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0xABCD));
     }
 
     #[test]
@@ -1220,24 +1220,34 @@ mod tests {
         let mut cpu = CPU::new();
 
         cpu.registers.status.insert(Status::PS_OVERFLOW);
-        cpu.branch_if_overflow_clear(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0));
+        cpu.branch_if_overflow_clear(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0));
 
         cpu.registers.status.remove(Status::PS_OVERFLOW);
-        cpu.branch_if_overflow_clear(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
+        cpu.branch_if_overflow_clear(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0xABCD));
+    }
+
+    #[test]
+    fn branch_across_end_of_address_space() {
+        let mut cpu = CPU::new();
+        cpu.registers.program_counter = 0xffff;
+
+        cpu.registers.status.insert(Status::PS_OVERFLOW);
+        cpu.branch_if_overflow_set(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0xABCD));
     }
 
     #[test]
     fn branch_if_overflow_set_test() {
         let mut cpu = CPU::new();
 
-        cpu.branch_if_overflow_set(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0));
+        cpu.branch_if_overflow_set(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0));
 
         cpu.registers.status.insert(Status::PS_OVERFLOW);
-        cpu.branch_if_overflow_set(Address(0xABCD));
-        assert_eq!(cpu.registers.program_counter, Address(0xABCD));
+        cpu.branch_if_overflow_set(0xABCD);
+        assert_eq!(cpu.registers.program_counter, (0xABCD));
     }
 
     #[cfg(test)]
