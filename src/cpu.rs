@@ -231,19 +231,16 @@ impl CPU {
             }
 
             (Instruction::INC, OpInput::UseAddress(addr)) => {
-                let m = self.memory.get_byte(addr);
-                let m = m + 1;
-                self.memory.set_byte(addr, m);
-                let i = m as i8;
-                CPU::set_flags_from_i8(&mut self.registers.status, i);
+                CPU::increment(
+                    self.memory.get_byte_mut_ref(addr),
+                    &mut self.registers.status,
+                );
             }
             (Instruction::INX, OpInput::UseImplied) => {
-                let x = self.registers.index_x + 1;
-                self.load_x_register(x);
+                CPU::increment(&mut self.registers.index_x, &mut self.registers.status);
             }
             (Instruction::INY, OpInput::UseImplied) => {
-                let y = self.registers.index_y + 1;
-                self.load_y_register(y);
+                CPU::increment(&mut self.registers.index_x, &mut self.registers.status);
             }
 
             (Instruction::JMP, OpInput::UseAddress(addr)) => self.jump(addr),
@@ -673,6 +670,23 @@ impl CPU {
         );
 
         self.load_accumulator(result);
+    }
+
+    fn increment(val: &mut u8, flags: &mut Status) {
+        let value_new = val.wrapping_add(1);
+        *val = value_new;
+
+        let is_negative = (value_new as i8) < 0;
+        let is_zero = value_new == 0;
+
+        flags.set_with_mask(
+            Status::PS_NEGATIVE | Status::PS_ZERO,
+            Status::new(StatusArgs {
+                negative: is_negative,
+                zero: is_zero,
+                ..StatusArgs::none()
+            }),
+        );
     }
 
     fn decrement(val: &mut u8, flags: &mut Status) {
