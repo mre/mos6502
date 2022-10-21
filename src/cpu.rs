@@ -208,7 +208,7 @@ impl CPU {
             }
 
             (Instruction::DEC, OpInput::UseAddress(addr)) => {
-                CPU::decrement(&mut self.memory.get_byte_mut_ref(addr), &mut self.registers.status);
+                CPU::decrement(self.memory.get_byte_mut_ref(addr), &mut self.registers.status);
             }
 
             (Instruction::DEY, OpInput::UseImplied) => {
