@@ -689,24 +689,6 @@ impl CPU {
         );
     }
 
-    fn decrement_memory(&mut self, addr: Address) {
-        let value_new = self.memory.get_byte(addr).wrapping_sub(1);
-
-        self.memory.set_byte(addr, value_new);
-
-        let is_negative = (value_new as i8) < 0;
-        let is_zero = value_new == 0;
-
-        self.registers.status.set_with_mask(
-            Status::PS_NEGATIVE | Status::PS_ZERO,
-            Status::new(StatusArgs {
-                negative: is_negative,
-                zero: is_zero,
-                ..StatusArgs::none()
-            }),
-        );
-    }
-
     fn jump(&mut self, addr: Address) {
         self.registers.program_counter = addr;
     }
@@ -1062,31 +1044,31 @@ mod tests {
 
         cpu.memory.set_byte(addr, 5);
 
-        cpu.decrement_memory(addr);
+        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
         assert_eq!(cpu.memory.get_byte(addr), 4);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
 
-        cpu.decrement_memory(addr);
+        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
         assert_eq!(cpu.memory.get_byte(addr), 3);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
 
-        cpu.decrement_memory(addr);
-        cpu.decrement_memory(addr);
-        cpu.decrement_memory(addr);
+        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
+        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
+        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
         assert_eq!(cpu.memory.get_byte(addr), 0);
         assert!(cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
 
-        cpu.decrement_memory(addr);
+        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
         assert_eq!(cpu.memory.get_byte(addr) as i8, -1);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
 
         cpu.memory.set_byte(addr, 0);
 
-        cpu.decrement_memory(addr);
+        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
         assert_eq!(cpu.memory.get_byte(addr), 0xff);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
