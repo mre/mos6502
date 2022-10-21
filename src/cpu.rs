@@ -207,16 +207,16 @@ impl CPU {
                 self.compare_with_y_register(val);
             }
 
-            (Instruction::DEC, OpInput::UseAddress(addr)) => self.decrement_memory(addr),
+            (Instruction::DEC, OpInput::UseAddress(addr)) => {
+                CPU::decrement(&mut self.memory.get_byte_mut_ref(addr), &mut self.registers.status);
+            }
 
             (Instruction::DEY, OpInput::UseImplied) => {
-                let mut r = u8::from_ne_bytes(self.registers.index_y.to_ne_bytes());
-                self.decrement(&mut r);
-                self.load_y_register(r);
+                CPU::decrement(&mut self.registers.index_y, &mut self.registers.status);
             }
 
             (Instruction::DEX, OpInput::UseImplied) => {
-                self.dec_x();
+                CPU::decrement(&mut self.registers.index_x, &mut self.registers.status);
             }
 
             (Instruction::EOR, OpInput::UseImmediate(val)) => {
@@ -672,14 +672,14 @@ impl CPU {
         self.load_accumulator(result);
     }
 
-    fn decrement(&mut self, val: &mut u8) {
+    fn decrement(val: &mut u8, flags: &mut Status) {
         let value_new = val.wrapping_sub(1);
         *val = value_new;
 
         let is_negative = (value_new as i8) < 0;
         let is_zero = value_new == 0;
 
-        self.registers.status.set_with_mask(
+        flags.set_with_mask(
             Status::PS_NEGATIVE | Status::PS_ZERO,
             Status::new(StatusArgs {
                 negative: is_negative,
@@ -708,8 +708,8 @@ impl CPU {
     }
 
     fn dec_x(&mut self) {
-        let mut r = u8::from_ne_bytes(self.registers.index_x.to_ne_bytes());
-        self.decrement(&mut r);
+        let mut r = self.registers.index_x;
+        CPU::decrement(&mut r, &mut self.registers.status);
         self.load_x_register(r);
     }
 
