@@ -432,7 +432,7 @@ pub static OPCODES: [Option<(Instruction, AddressingMode)>; 256] = [
     /*0x57*/
     None,
     /*0x58*/
-    None,
+    Some((Instruction::CLI, AddressingMode::Implied)),
     /*0x59*/
     Some((Instruction::EOR, AddressingMode::AbsoluteY)),
     /*0x5A*/
