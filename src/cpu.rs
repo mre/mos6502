@@ -629,7 +629,8 @@ impl CPU {
         let over =
             ((nc == 0 && value < 0) || (nc == 1 && value < -1)) && a_before >= 0 && a_after < 0;
 
-        let under = (a_before < 0) && (-value - nc < 0) && a_after >= 0;
+        let under =
+            (a_before < 0) && (0i8.wrapping_sub(value).wrapping_sub(nc) < 0) && a_after >= 0;
 
         let did_overflow = over || under;
 
