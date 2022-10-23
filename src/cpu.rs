@@ -845,6 +845,11 @@ mod tests {
         assert_eq!(cpu.registers.accumulator, -128);
         cpu.add_with_carry(-128);
         assert_eq!(cpu.registers.accumulator, 0);
+
+        cpu.subtract_with_carry(-128);
+        assert_eq!(cpu.registers.accumulator, -128);
+        cpu.subtract_with_carry(-128);
+        assert_eq!(cpu.registers.accumulator, 0);
     }
 
     #[cfg_attr(feature = "decimal_mode", test)]
