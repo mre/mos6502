@@ -837,6 +837,15 @@ mod tests {
     use super::*;
     use num::range_inclusive;
 
+    #[test]
+    fn dont_panic_for_overflow() {
+        let mut cpu = CPU::new();
+        cpu.add_with_carry(-128);
+        assert_eq!(cpu.registers.accumulator, -128);
+        cpu.add_with_carry(-128);
+        assert_eq!(cpu.registers.accumulator, 0);
+    }
+
     #[cfg_attr(feature = "decimal_mode", test)]
     fn decimal_add_test() {
         let mut cpu = CPU::new();
