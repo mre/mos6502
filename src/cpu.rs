@@ -629,7 +629,8 @@ impl CPU {
         let over =
             ((nc == 0 && value < 0) || (nc == 1 && value < -1)) && a_before >= 0 && a_after < 0;
 
-        let under = (a_before < 0) && (-value - nc < 0) && a_after >= 0;
+        let under =
+            (a_before < 0) && (0i8.wrapping_sub(value).wrapping_sub(nc) < 0) && a_after >= 0;
 
         let did_overflow = over || under;
 
@@ -836,6 +837,20 @@ mod tests {
 
     use super::*;
     use num::range_inclusive;
+
+    #[test]
+    fn dont_panic_for_overflow() {
+        let mut cpu = CPU::new();
+        cpu.add_with_carry(-128);
+        assert_eq!(cpu.registers.accumulator, -128);
+        cpu.add_with_carry(-128);
+        assert_eq!(cpu.registers.accumulator, 0);
+
+        cpu.subtract_with_carry(-128);
+        assert_eq!(cpu.registers.accumulator, -128);
+        cpu.subtract_with_carry(-128);
+        assert_eq!(cpu.registers.accumulator, 0);
+    }
 
     #[cfg_attr(feature = "decimal_mode", test)]
     fn decimal_add_test() {
