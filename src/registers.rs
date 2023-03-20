@@ -54,6 +54,7 @@ impl StatusArgs {
 }
 
 bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Status: u8 {
         const PS_NEGATIVE           = 0b1000_0000;
         const PS_OVERFLOW           = 0b0100_0000;
