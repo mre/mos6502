@@ -93,7 +93,7 @@ impl CPU {
             }
             (Instruction::AND, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr) as i8;
-                self.and(val as i8);
+                self.and(val);
             }
 
             (Instruction::ASL, OpInput::UseImplied) => {
@@ -369,10 +369,10 @@ impl CPU {
                 self.memory.set_byte(addr, self.registers.accumulator as u8);
             }
             (Instruction::STX, OpInput::UseAddress(addr)) => {
-                self.memory.set_byte(addr, self.registers.index_x as u8);
+                self.memory.set_byte(addr, self.registers.index_x);
             }
             (Instruction::STY, OpInput::UseAddress(addr)) => {
-                self.memory.set_byte(addr, self.registers.index_y as u8);
+                self.memory.set_byte(addr, self.registers.index_y);
             }
 
             (Instruction::TAX, OpInput::UseImplied) => {
@@ -396,7 +396,7 @@ impl CPU {
                 // NOT set the zero and negative flags. (Because the target
                 // is the stack pointer)
                 let val = self.registers.index_x;
-                self.registers.stack_pointer = StackPointer(val as u8);
+                self.registers.stack_pointer = StackPointer(val);
             }
             (Instruction::TYA, OpInput::UseImplied) => {
                 let val = self.registers.index_y;
@@ -564,7 +564,7 @@ impl CPU {
             0x00
         };
 
-        let bcd2: i8 = if (a_after.wrapping_add(bcd1) as u8 & 0xf0) as u8 > 0x90 {
+        let bcd2: i8 = if (a_after.wrapping_add(bcd1) as u8 & 0xf0) > 0x90 {
             0x60
         } else {
             0x00
@@ -642,7 +642,7 @@ impl CPU {
             0x00
         };
 
-        let bcd2: i8 = if (a_after.wrapping_sub(bcd1) as u8 & 0xf0) as u8 > 0x90 {
+        let bcd2: i8 = if (a_after.wrapping_sub(bcd1) as u8 & 0xf0) > 0x90 {
             0x60
         } else {
             0x00
@@ -761,13 +761,13 @@ impl CPU {
     //   ...
     //   The N flag contains most significant bit of the subtraction result.
     fn compare(&mut self, r: i8, val: u8) {
-        if r as u8 >= val as u8 {
+        if r as u8 >= val {
             self.registers.status.insert(Status::PS_CARRY);
         } else {
             self.registers.status.remove(Status::PS_CARRY);
         }
 
-        if r as i8 == val as i8 {
+        if r == val as i8 {
             self.registers.status.insert(Status::PS_ZERO);
         } else {
             self.registers.status.remove(Status::PS_ZERO);
