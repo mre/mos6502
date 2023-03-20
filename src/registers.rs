@@ -70,21 +70,6 @@ bitflags! {
 }
 
 impl Status {
-    pub fn default() -> Status {
-        // TODO akeeton: Revisit these defaults.
-
-        Status::new(StatusArgs {
-            negative: false,
-            overflow: false,
-            unused: true,
-            brk: false,
-            decimal_mode: false,
-            disable_interrupts: true,
-            zero: false,
-            carry: false,
-        })
-    }
-
     pub fn new(
         StatusArgs {
             negative,
@@ -137,6 +122,22 @@ impl Status {
 
     pub fn set_with_mask(&mut self, mask: Status, rhs: Status) {
         *self = (*self & !mask) | rhs;
+    }
+}
+
+impl Default for Status {
+    fn default() -> Self {
+        // TODO akeeton: Revisit these defaults.
+        Status::new(StatusArgs {
+            negative: false,
+            overflow: false,
+            unused: true,
+            brk: false,
+            decimal_mode: false,
+            disable_interrupts: true,
+            zero: false,
+            carry: false,
+        })
     }
 }
 

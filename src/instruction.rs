@@ -166,8 +166,8 @@ impl AddressingMode {
     pub fn process(self, cpu: &CPU, arr: &[u8]) -> OpInput {
         debug_assert!(arr.len() == self.extra_bytes() as usize);
 
-        let x = cpu.registers.index_x as u8;
-        let y = cpu.registers.index_y as u8;
+        let x = cpu.registers.index_x;
+        let y = cpu.registers.index_y;
 
         let memory = &cpu.memory;
 
