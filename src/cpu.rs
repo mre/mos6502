@@ -415,6 +415,12 @@ impl CPU {
         };
     }
 
+    pub fn single_step(&mut self) {
+        if let Some(decoded_instr) = self.fetch_next_and_decode() {
+            self.execute_instruction(decoded_instr);
+        }
+    }
+
     pub fn run(&mut self) {
         while let Some(decoded_instr) = self.fetch_next_and_decode() {
             self.execute_instruction(decoded_instr);
