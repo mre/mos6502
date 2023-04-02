@@ -103,10 +103,9 @@ impl CPU {
                 self.registers.accumulator = val as i8;
             }
             (Instruction::ASL, OpInput::UseAddress(addr)) => {
-                CPU::shift_left_with_flags(
-                    self.memory.get_byte_mut_ref(addr),
-                    &mut self.registers.status,
-                );
+                let mut operand: u8 = self.memory.get_byte(addr);
+                CPU::shift_left_with_flags(&mut operand, &mut self.registers.status);
+                self.memory.set_byte(addr, operand);
             }
 
             (Instruction::BCC, OpInput::UseRelative(rel)) => {
@@ -208,10 +207,9 @@ impl CPU {
             }
 
             (Instruction::DEC, OpInput::UseAddress(addr)) => {
-                CPU::decrement(
-                    self.memory.get_byte_mut_ref(addr),
-                    &mut self.registers.status,
-                );
+                let mut operand: u8 = self.memory.get_byte(addr);
+                CPU::decrement(&mut operand, &mut self.registers.status);
+                self.memory.set_byte(addr, operand);
             }
 
             (Instruction::DEY, OpInput::UseImplied) => {
@@ -231,10 +229,9 @@ impl CPU {
             }
 
             (Instruction::INC, OpInput::UseAddress(addr)) => {
-                CPU::increment(
-                    self.memory.get_byte_mut_ref(addr),
-                    &mut self.registers.status,
-                );
+                let mut operand: u8 = self.memory.get_byte(addr);
+                CPU::increment(&mut operand, &mut self.registers.status);
+                self.memory.set_byte(addr, operand);
             }
             (Instruction::INX, OpInput::UseImplied) => {
                 CPU::increment(&mut self.registers.index_x, &mut self.registers.status);
@@ -282,10 +279,9 @@ impl CPU {
                 self.registers.accumulator = val as i8;
             }
             (Instruction::LSR, OpInput::UseAddress(addr)) => {
-                CPU::shift_right_with_flags(
-                    self.memory.get_byte_mut_ref(addr),
-                    &mut self.registers.status,
-                );
+                let mut operand: u8 = self.memory.get_byte(addr);
+                CPU::shift_right_with_flags(&mut operand, &mut self.registers.status);
+                self.memory.set_byte(addr, operand);
             }
 
             (Instruction::ORA, OpInput::UseImmediate(val)) => {
@@ -327,10 +323,9 @@ impl CPU {
                 self.registers.accumulator = val as i8;
             }
             (Instruction::ROL, OpInput::UseAddress(addr)) => {
-                CPU::rotate_left_with_flags(
-                    self.memory.get_byte_mut_ref(addr),
-                    &mut self.registers.status,
-                );
+                let mut operand: u8 = self.memory.get_byte(addr);
+                CPU::rotate_left_with_flags(&mut operand, &mut self.registers.status);
+                self.memory.set_byte(addr, operand);
             }
             (Instruction::ROR, OpInput::UseImplied) => {
                 // Accumulator mode
@@ -339,10 +334,9 @@ impl CPU {
                 self.registers.accumulator = val as i8;
             }
             (Instruction::ROR, OpInput::UseAddress(addr)) => {
-                CPU::rotate_right_with_flags(
-                    self.memory.get_byte_mut_ref(addr),
-                    &mut self.registers.status,
-                );
+                let mut operand: u8 = self.memory.get_byte(addr);
+                CPU::rotate_right_with_flags(&mut operand, &mut self.registers.status);
+                self.memory.set_byte(addr, operand);
             }
 
             (Instruction::SBC, OpInput::UseImmediate(val)) => {

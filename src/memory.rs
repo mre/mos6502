@@ -69,10 +69,6 @@ impl Memory {
         self.bytes[address as usize]
     }
 
-    pub fn get_byte_mut_ref(&mut self, address: u16) -> &mut u8 {
-        &mut self.bytes[address as usize]
-    }
-
     pub fn get_slice(&self, start: u16, diff: u16) -> &[u8] {
         let orig: usize = start.into();
         let end = orig + diff as usize;
