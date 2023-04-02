@@ -96,10 +96,6 @@ impl Memory {
 
         self.bytes[start..end].copy_from_slice(values);
     }
-
-    pub fn is_stack_address(address: u16) -> bool {
-        address > 0xff && address < 0x200
-    }
 }
 
 #[cfg(test)]
