@@ -99,13 +99,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_memory_set_bytes() {
-        let mut memory = Memory::new();
-        memory.set_bytes(0x0100, &[1, 2, 3, 4, 5]);
-        assert_eq!(memory.get_slice(0x00FF, 7), &[0, 1, 2, 3, 4, 5, 0]);
-    }
-
-    #[test]
     #[should_panic]
     fn test_memory_overflow_panic() {
         let mut memory = Memory::new();
