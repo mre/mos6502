@@ -83,9 +83,9 @@ impl<M: Bus> CPU<M> {
                 let x = self.registers.index_x;
                 let y = self.registers.index_y;
 
-                let memory = &self.memory;
+                let memory = &mut self.memory;
 
-                fn read_address<M: Bus>(mem: &M, addr: u16) -> [u8; 2] {
+                fn read_address<M: Bus>(mem: &mut M, addr: u16) -> [u8; 2] {
                     let lo = mem.get_byte(addr);
                     let hi = mem.get_byte(addr.wrapping_add(1));
                     [lo, hi]
