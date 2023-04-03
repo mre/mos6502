@@ -26,6 +26,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 use crate::cpu::CPU;
+use crate::memory::Bus;
 use crate::memory::Memory;
 
 // Abbreviations

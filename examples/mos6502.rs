@@ -29,6 +29,7 @@ extern crate mos6502;
 
 #[cfg(not(test))]
 use mos6502::cpu;
+use mos6502::memory::Bus;
 
 #[cfg(not(test))]
 fn main() {

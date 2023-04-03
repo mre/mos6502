@@ -1,6 +1,7 @@
 extern crate mos6502;
 
 use mos6502::cpu;
+use mos6502::memory::Bus;
 
 fn main() {
     println!("Enter two numbers (< 128) to know their GCD:");

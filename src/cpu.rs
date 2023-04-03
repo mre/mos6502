@@ -26,6 +26,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 use crate::instruction::{self, DecodedInstr, Instruction, OpInput};
+use crate::memory::Bus;
 use crate::memory::Memory;
 use crate::registers::{Registers, StackPointer, Status, StatusArgs};
 

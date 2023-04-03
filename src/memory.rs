@@ -58,26 +58,39 @@ impl Default for Memory {
     }
 }
 
+pub trait Bus {
+    fn get_byte(&self, address: u16) -> u8;
+    fn set_byte(&mut self, address: u16, value: u8) -> u8;
+
+    fn set_bytes(&mut self, start: u16, values: &[u8]) {
+        for i in 0..values.len() as u16 {
+            self.set_byte(start + i, values[i as usize]);
+        }
+    }
+}
+
 impl Memory {
     pub fn new() -> Memory {
         Memory {
             bytes: [0; MEMORY_SIZE],
         }
     }
+}
 
-    pub fn get_byte(&self, address: u16) -> u8 {
+impl Bus for Memory {
+    fn get_byte(&self, address: u16) -> u8 {
         self.bytes[address as usize]
     }
 
     // Sets the byte at the given address to the given value and returns the
     // previous value at the address.
-    pub fn set_byte(&mut self, address: u16, value: u8) -> u8 {
+    fn set_byte(&mut self, address: u16, value: u8) -> u8 {
         let old_value = self.get_byte(address);
         self.bytes[address as usize] = value;
         old_value
     }
 
-    pub fn set_bytes(&mut self, start: u16, values: &[u8]) {
+    fn set_bytes(&mut self, start: u16, values: &[u8]) {
         let start = start as usize;
 
         // This panics if the range is invalid

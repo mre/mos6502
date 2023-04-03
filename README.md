@@ -20,6 +20,7 @@ Source: [Wikipedia](https://en.wikipedia.org/wiki/MOS_Technology_6502)
 ## How to use this library
 
 ```rust
+use mos6502::memory::Bus;
 use mos6502::cpu;
 
 fn main() {
