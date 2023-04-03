@@ -132,16 +132,6 @@ pub enum AddressingMode {
                       //                   zero page address) plus Y register
 }
 
-fn xextend(x: u8) -> u16 {
-    u16::from(x)
-}
-
-fn arr_to_addr(arr: &[u8]) -> u16 {
-    debug_assert!(arr.len() == 2);
-
-    u16::from(arr[0]) + (u16::from(arr[1]) << 8usize)
-}
-
 impl AddressingMode {
     pub fn extra_bytes(self) -> u16 {
         match self {
