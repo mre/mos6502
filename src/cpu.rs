@@ -30,10 +30,6 @@ use crate::memory::Bus;
 
 use crate::registers::{Registers, StackPointer, Status, StatusArgs};
 
-fn xextend(x: u8) -> u16 {
-    u16::from(x)
-}
-
 fn arr_to_addr(arr: &[u8]) -> u16 {
     debug_assert!(arr.len() == 2);
 
@@ -141,12 +137,12 @@ impl<M: Bus> CPU<M> {
                     AddressingMode::AbsoluteX => {
                         // Use [u8, ..2] from instruction as address, add X
                         // (Output: a 16-bit address)
-                        OpInput::UseAddress(arr_to_addr(&slice).wrapping_add(xextend(x)))
+                        OpInput::UseAddress(arr_to_addr(&slice).wrapping_add(x.into()))
                     }
                     AddressingMode::AbsoluteY => {
                         // Use [u8, ..2] from instruction as address, add Y
                         // (Output: a 16-bit address)
-                        OpInput::UseAddress(arr_to_addr(&slice).wrapping_add(xextend(y)))
+                        OpInput::UseAddress(arr_to_addr(&slice).wrapping_add(y.into()))
                     }
                     AddressingMode::Indirect => {
                         // Use [u8, ..2] from instruction as an address. Interpret the
@@ -171,7 +167,7 @@ impl<M: Bus> CPU<M> {
                         // (Output: a 16-bit address)
                         let start = slice[0];
                         let slice = read_address(memory, u16::from(start));
-                        OpInput::UseAddress(arr_to_addr(&slice).wrapping_add(xextend(y)))
+                        OpInput::UseAddress(arr_to_addr(&slice).wrapping_add(y.into()))
                     }
                 };
 
