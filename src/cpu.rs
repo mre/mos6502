@@ -592,7 +592,7 @@ impl<M: Bus> CPU<M> {
         let mask = 1 << 7;
         let is_bit_7_set = (*p_val & mask) == mask;
         let shifted = (*p_val & !(1 << 7)) << 1;
-        *p_val = shifted + if is_carry_set { 1 } else { 0 };
+        *p_val = shifted + u8::from(is_carry_set);
         status.set_with_mask(
             Status::PS_CARRY,
             Status::new(StatusArgs {
@@ -655,11 +655,7 @@ impl<M: Bus> CPU<M> {
 
     fn add_with_carry(&mut self, value: i8) {
         let a_before: i8 = self.registers.accumulator;
-        let c_before: i8 = if self.registers.status.contains(Status::PS_CARRY) {
-            1
-        } else {
-            0
-        };
+        let c_before: i8 = i8::from(self.registers.status.contains(Status::PS_CARRY));
         let a_after: i8 = a_before.wrapping_add(c_before).wrapping_add(value);
 
         debug_assert_eq!(
