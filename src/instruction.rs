@@ -26,6 +26,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 use crate::cpu::CPU;
+use crate::memory::Memory;
 
 // Abbreviations
 //
@@ -171,6 +172,12 @@ impl AddressingMode {
 
         let memory = &cpu.memory;
 
+        fn read_address(mem: &Memory, addr: u16) -> [u8; 2] {
+            let lo = mem.get_byte(addr);
+            let hi = mem.get_byte(addr.wrapping_add(1));
+            [lo, hi]
+        }
+
         match self {
             AddressingMode::Accumulator | AddressingMode::Implied => {
                 // Always the same -- no input
@@ -227,8 +234,8 @@ impl AddressingMode {
                 // Use [u8, ..2] from instruction as an address. Interpret the
                 // two bytes starting at that address as an address.
                 // (Output: a 16-bit address)
-                let slice = memory.get_slice(arr_to_addr(arr), 2);
-                OpInput::UseAddress(arr_to_addr(slice))
+                let slice = read_address(memory, arr_to_addr(arr));
+                OpInput::UseAddress(arr_to_addr(&slice))
             }
             AddressingMode::IndexedIndirectX => {
                 // Use [u8, ..1] from instruction
@@ -236,8 +243,8 @@ impl AddressingMode {
                 // This is where the absolute (16-bit) target address is stored.
                 // (Output: a 16-bit address)
                 let start = arr[0].wrapping_add(x);
-                let slice = memory.get_slice(u16::from(start), 2);
-                OpInput::UseAddress(arr_to_addr(slice))
+                let slice = read_address(memory, u16::from(start));
+                OpInput::UseAddress(arr_to_addr(&slice))
             }
             AddressingMode::IndirectIndexedY => {
                 // Use [u8, ..1] from instruction
@@ -245,8 +252,8 @@ impl AddressingMode {
                 // Add Y register to this address to get the final address
                 // (Output: a 16-bit address)
                 let start = arr[0];
-                let slice = memory.get_slice(u16::from(start), 2);
-                OpInput::UseAddress(arr_to_addr(slice).wrapping_add(xextend(y)))
+                let slice = read_address(memory, u16::from(start));
+                OpInput::UseAddress(arr_to_addr(&slice).wrapping_add(xextend(y)))
             }
         }
     }

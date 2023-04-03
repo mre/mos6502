@@ -69,13 +69,6 @@ impl Memory {
         self.bytes[address as usize]
     }
 
-    pub fn get_slice(&self, start: u16, diff: u16) -> &[u8] {
-        let orig: usize = start.into();
-        let end = orig + diff as usize;
-
-        &self.bytes[orig..end]
-    }
-
     // Sets the byte at the given address to the given value and returns the
     // previous value at the address.
     pub fn set_byte(&mut self, address: u16, value: u8) -> u8 {

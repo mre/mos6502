@@ -63,8 +63,20 @@ impl CPU {
 
                 let data_start = self.registers.program_counter.wrapping_add(1);
 
-                let slice = self.memory.get_slice(data_start, extra_bytes);
-                let am_out = am.process(self, slice);
+                let slice = if extra_bytes == 0 {
+                    [0, 0]
+                } else if extra_bytes == 1 {
+                    [self.memory.get_byte(data_start), 0]
+                } else if extra_bytes == 2 {
+                    [
+                        self.memory.get_byte(data_start),
+                        self.memory.get_byte(data_start.wrapping_add(1)),
+                    ]
+                } else {
+                    panic!()
+                };
+
+                let am_out = am.process(self, &slice[..extra_bytes as usize]);
 
                 // Increment program counter
                 self.registers.program_counter =
