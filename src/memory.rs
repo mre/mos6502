@@ -60,7 +60,7 @@ impl Default for Memory {
 
 pub trait Bus {
     fn get_byte(&self, address: u16) -> u8;
-    fn set_byte(&mut self, address: u16, value: u8) -> u8;
+    fn set_byte(&mut self, address: u16, value: u8);
 
     fn set_bytes(&mut self, start: u16, values: &[u8]) {
         for i in 0..values.len() as u16 {
@@ -84,10 +84,8 @@ impl Bus for Memory {
 
     // Sets the byte at the given address to the given value and returns the
     // previous value at the address.
-    fn set_byte(&mut self, address: u16, value: u8) -> u8 {
-        let old_value = self.get_byte(address);
+    fn set_byte(&mut self, address: u16, value: u8) {
         self.bytes[address as usize] = value;
-        old_value
     }
 
     fn set_bytes(&mut self, start: u16, values: &[u8]) {
