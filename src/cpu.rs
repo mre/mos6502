@@ -25,33 +25,40 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use crate::instruction::{self, DecodedInstr, Instruction, OpInput};
+use crate::instruction::{self, AddressingMode, DecodedInstr, Instruction, OpInput};
 use crate::memory::Bus;
-use crate::memory::Memory;
+
 use crate::registers::{Registers, StackPointer, Status, StatusArgs};
 
+fn xextend(x: u8) -> u16 {
+    u16::from(x)
+}
+
+fn arr_to_addr(arr: &[u8]) -> u16 {
+    debug_assert!(arr.len() == 2);
+
+    u16::from(arr[0]) + (u16::from(arr[1]) << 8usize)
+}
+
 #[derive(Clone)]
-pub struct CPU {
+pub struct CPU<M>
+where
+    M: Bus,
+{
     pub registers: Registers,
-    pub memory: Memory,
+    pub memory: M,
 }
 
-impl Default for CPU {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl CPU {
-    pub fn new() -> CPU {
+impl<M: Bus> CPU<M> {
+    pub fn new(memory: M) -> CPU<M> {
         CPU {
             registers: Registers::new(),
-            memory: Memory::new(),
+            memory,
         }
     }
 
     pub fn reset(&mut self) {
-        *self = CPU::new();
+        //TODO: // should read some bytes from the stack and also get the PC from the reset vector
     }
 
     pub fn fetch_next_and_decode(&mut self) -> Option<DecodedInstr> {
@@ -77,7 +84,96 @@ impl CPU {
                     panic!()
                 };
 
-                let am_out = am.process(self, &slice[..extra_bytes as usize]);
+                let x = self.registers.index_x;
+                let y = self.registers.index_y;
+
+                let memory = &self.memory;
+
+                fn read_address<M: Bus>(mem: &M, addr: u16) -> [u8; 2] {
+                    let lo = mem.get_byte(addr);
+                    let hi = mem.get_byte(addr.wrapping_add(1));
+                    [lo, hi]
+                }
+
+                let am_out = match am {
+                    AddressingMode::Accumulator | AddressingMode::Implied => {
+                        // Always the same -- no input
+                        OpInput::UseImplied
+                    }
+                    AddressingMode::Immediate => {
+                        // Use [u8, ..1] specified in instruction as input
+                        OpInput::UseImmediate(slice[0])
+                    }
+                    AddressingMode::ZeroPage => {
+                        // Use [u8, ..1] from instruction
+                        // Interpret as zero page address
+                        // (Output: an 8-bit zero-page address)
+                        OpInput::UseAddress(u16::from(slice[0]))
+                    }
+                    AddressingMode::ZeroPageX => {
+                        // Use [u8, ..1] from instruction
+                        // Add to X register (as u8 -- the final address is in 0-page)
+                        // (Output: an 8-bit zero-page address)
+                        OpInput::UseAddress(u16::from(slice[0].wrapping_add(x)))
+                    }
+                    AddressingMode::ZeroPageY => {
+                        // Use [u8, ..1] from instruction
+                        // Add to Y register (as u8 -- the final address is in 0-page)
+                        // (Output: an 8-bit zero-page address)
+                        OpInput::UseAddress(u16::from(slice[0].wrapping_add(y)))
+                    }
+
+                    AddressingMode::Relative => {
+                        // Use [u8, ..1] from instruction
+                        // (interpret as relative...)
+                        // (This is sign extended to a 16-but data type, but an unsigned one: u16. It's a
+                        // little weird, but it's so we can add the PC and the offset easily)
+                        let offset = slice[0];
+                        let sign_extend = if offset & 0x80 == 0x80 { 0xffu8 } else { 0x0 };
+                        let rel = u16::from_le_bytes([offset, sign_extend]);
+                        OpInput::UseRelative(rel)
+                    }
+                    AddressingMode::Absolute => {
+                        // Use [u8, ..2] from instruction as address
+                        // (Output: a 16-bit address)
+                        OpInput::UseAddress(arr_to_addr(&slice))
+                    }
+                    AddressingMode::AbsoluteX => {
+                        // Use [u8, ..2] from instruction as address, add X
+                        // (Output: a 16-bit address)
+                        OpInput::UseAddress(arr_to_addr(&slice).wrapping_add(xextend(x)))
+                    }
+                    AddressingMode::AbsoluteY => {
+                        // Use [u8, ..2] from instruction as address, add Y
+                        // (Output: a 16-bit address)
+                        OpInput::UseAddress(arr_to_addr(&slice).wrapping_add(xextend(y)))
+                    }
+                    AddressingMode::Indirect => {
+                        // Use [u8, ..2] from instruction as an address. Interpret the
+                        // two bytes starting at that address as an address.
+                        // (Output: a 16-bit address)
+                        let slice = read_address(memory, arr_to_addr(&slice));
+                        OpInput::UseAddress(arr_to_addr(&slice))
+                    }
+                    AddressingMode::IndexedIndirectX => {
+                        // Use [u8, ..1] from instruction
+                        // Add to X register with 0-page wraparound, like ZeroPageX.
+                        // This is where the absolute (16-bit) target address is stored.
+                        // (Output: a 16-bit address)
+                        let start = slice[0].wrapping_add(x);
+                        let slice = read_address(memory, u16::from(start));
+                        OpInput::UseAddress(arr_to_addr(&slice))
+                    }
+                    AddressingMode::IndirectIndexedY => {
+                        // Use [u8, ..1] from instruction
+                        // This is where the absolute (16-bit) target address is stored.
+                        // Add Y register to this address to get the final address
+                        // (Output: a 16-bit address)
+                        let start = slice[0];
+                        let slice = read_address(memory, u16::from(start));
+                        OpInput::UseAddress(arr_to_addr(&slice).wrapping_add(xextend(y)))
+                    }
+                };
 
                 // Increment program counter
                 self.registers.program_counter =
@@ -112,12 +208,12 @@ impl CPU {
             (Instruction::ASL, OpInput::UseImplied) => {
                 // Accumulator mode
                 let mut val = self.registers.accumulator as u8;
-                CPU::shift_left_with_flags(&mut val, &mut self.registers.status);
+                CPU::<M>::shift_left_with_flags(&mut val, &mut self.registers.status);
                 self.registers.accumulator = val as i8;
             }
             (Instruction::ASL, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::shift_left_with_flags(&mut operand, &mut self.registers.status);
+                CPU::<M>::shift_left_with_flags(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
 
@@ -221,16 +317,16 @@ impl CPU {
 
             (Instruction::DEC, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::decrement(&mut operand, &mut self.registers.status);
+                CPU::<M>::decrement(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
 
             (Instruction::DEY, OpInput::UseImplied) => {
-                CPU::decrement(&mut self.registers.index_y, &mut self.registers.status);
+                CPU::<M>::decrement(&mut self.registers.index_y, &mut self.registers.status);
             }
 
             (Instruction::DEX, OpInput::UseImplied) => {
-                CPU::decrement(&mut self.registers.index_x, &mut self.registers.status);
+                CPU::<M>::decrement(&mut self.registers.index_x, &mut self.registers.status);
             }
 
             (Instruction::EOR, OpInput::UseImmediate(val)) => {
@@ -243,14 +339,14 @@ impl CPU {
 
             (Instruction::INC, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::increment(&mut operand, &mut self.registers.status);
+                CPU::<M>::increment(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
             (Instruction::INX, OpInput::UseImplied) => {
-                CPU::increment(&mut self.registers.index_x, &mut self.registers.status);
+                CPU::<M>::increment(&mut self.registers.index_x, &mut self.registers.status);
             }
             (Instruction::INY, OpInput::UseImplied) => {
-                CPU::increment(&mut self.registers.index_x, &mut self.registers.status);
+                CPU::<M>::increment(&mut self.registers.index_x, &mut self.registers.status);
             }
 
             (Instruction::JMP, OpInput::UseAddress(addr)) => self.jump(addr),
@@ -288,12 +384,12 @@ impl CPU {
             (Instruction::LSR, OpInput::UseImplied) => {
                 // Accumulator mode
                 let mut val = self.registers.accumulator as u8;
-                CPU::shift_right_with_flags(&mut val, &mut self.registers.status);
+                CPU::<M>::shift_right_with_flags(&mut val, &mut self.registers.status);
                 self.registers.accumulator = val as i8;
             }
             (Instruction::LSR, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::shift_right_with_flags(&mut operand, &mut self.registers.status);
+                CPU::<M>::shift_right_with_flags(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
 
@@ -332,23 +428,23 @@ impl CPU {
             (Instruction::ROL, OpInput::UseImplied) => {
                 // Accumulator mode
                 let mut val = self.registers.accumulator as u8;
-                CPU::rotate_left_with_flags(&mut val, &mut self.registers.status);
+                CPU::<M>::rotate_left_with_flags(&mut val, &mut self.registers.status);
                 self.registers.accumulator = val as i8;
             }
             (Instruction::ROL, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::rotate_left_with_flags(&mut operand, &mut self.registers.status);
+                CPU::<M>::rotate_left_with_flags(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
             (Instruction::ROR, OpInput::UseImplied) => {
                 // Accumulator mode
                 let mut val = self.registers.accumulator as u8;
-                CPU::rotate_right_with_flags(&mut val, &mut self.registers.status);
+                CPU::<M>::rotate_right_with_flags(&mut val, &mut self.registers.status);
                 self.registers.accumulator = val as i8;
             }
             (Instruction::ROR, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::rotate_right_with_flags(&mut operand, &mut self.registers.status);
+                CPU::<M>::rotate_right_with_flags(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
 
@@ -474,7 +570,7 @@ impl CPU {
                 ..StatusArgs::none()
             }),
         );
-        CPU::set_flags_from_i8(status, *p_val as i8);
+        CPU::<M>::set_flags_from_i8(status, *p_val as i8);
     }
 
     fn shift_right_with_flags(p_val: &mut u8, status: &mut Status) {
@@ -488,7 +584,7 @@ impl CPU {
                 ..StatusArgs::none()
             }),
         );
-        CPU::set_flags_from_i8(status, *p_val as i8);
+        CPU::<M>::set_flags_from_i8(status, *p_val as i8);
     }
 
     fn rotate_left_with_flags(p_val: &mut u8, status: &mut Status) {
@@ -504,7 +600,7 @@ impl CPU {
                 ..StatusArgs::none()
             }),
         );
-        CPU::set_flags_from_i8(status, *p_val as i8);
+        CPU::<M>::set_flags_from_i8(status, *p_val as i8);
     }
 
     fn rotate_right_with_flags(p_val: &mut u8, status: &mut Status) {
@@ -520,21 +616,21 @@ impl CPU {
                 ..StatusArgs::none()
             }),
         );
-        CPU::set_flags_from_i8(status, *p_val as i8);
+        CPU::<M>::set_flags_from_i8(status, *p_val as i8);
     }
 
     fn set_u8_with_flags(mem: &mut u8, status: &mut Status, value: u8) {
         *mem = value;
-        CPU::set_flags_from_u8(status, value);
+        CPU::<M>::set_flags_from_u8(status, value);
     }
 
     fn set_i8_with_flags(mem: &mut i8, status: &mut Status, value: i8) {
         *mem = value;
-        CPU::set_flags_from_i8(status, value);
+        CPU::<M>::set_flags_from_i8(status, value);
     }
 
     fn load_x_register(&mut self, value: u8) {
-        CPU::set_u8_with_flags(
+        CPU::<M>::set_u8_with_flags(
             &mut self.registers.index_x,
             &mut self.registers.status,
             value,
@@ -542,7 +638,7 @@ impl CPU {
     }
 
     fn load_y_register(&mut self, value: u8) {
-        CPU::set_u8_with_flags(
+        CPU::<M>::set_u8_with_flags(
             &mut self.registers.index_y,
             &mut self.registers.status,
             value,
@@ -550,7 +646,7 @@ impl CPU {
     }
 
     fn load_accumulator(&mut self, value: i8) {
-        CPU::set_i8_with_flags(
+        CPU::<M>::set_i8_with_flags(
             &mut self.registers.accumulator,
             &mut self.registers.status,
             value,
@@ -835,7 +931,7 @@ impl CPU {
     }
 }
 
-impl core::fmt::Debug for CPU {
+impl<M: Bus> core::fmt::Debug for CPU<M> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(
             f,
@@ -1341,9 +1437,9 @@ mod tests {
     }
 
     #[cfg(test)]
-    fn compare_test_helper<F>(compare: &mut F, load_instruction: Instruction)
+    fn compare_test_helper<F, M>(compare: &mut F, load_instruction: Instruction)
     where
-        F: FnMut(&mut CPU, u8),
+        F: FnMut(&mut CPU<M>, u8),
     {
         let mut cpu = CPU::new();
 
