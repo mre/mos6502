@@ -27,7 +27,6 @@
 
 use crate::instruction::{self, AddressingMode, DecodedInstr, Instruction, OpInput};
 use crate::memory::Bus;
-
 use crate::registers::{Registers, StackPointer, Status, StatusArgs};
 
 fn arr_to_addr(arr: &[u8]) -> u16 {
@@ -62,6 +61,8 @@ impl<M: Bus> CPU<M> {
 
         match instruction::OPCODES[x as usize] {
             Some((instr, am)) => {
+                debug!("{instr:?}");
+
                 let extra_bytes = am.extra_bytes();
                 let num_bytes = extra_bytes + 1;
 
