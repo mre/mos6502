@@ -113,7 +113,7 @@ pub enum OpInput {
     UseAddress(u16),
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum AddressingMode {
     Accumulator,      // 1    LSR A        work directly on accumulator
     Implied,          // 1    BRK

@@ -34,27 +34,34 @@
 //     end: Address,
 // }
 
-const ADDR_LO_BARE: u16 = 0x0000;
-const ADDR_HI_BARE: u16 = 0xFFFF;
+// const ADDR_LO_BARE: u16 = 0x0000;
+// const ADDR_HI_BARE: u16 = 0xFFFF;
 
-pub const MEMORY_ADDRESS_LO: u16 = ADDR_LO_BARE;
-pub const MEMORY_ADDRESS_HI: u16 = ADDR_HI_BARE;
+// pub const MEMORY_ADDRESS_LO: u16 = ADDR_LO_BARE;
+// pub const MEMORY_ADDRESS_HI: u16 = ADDR_HI_BARE;
 pub const STACK_ADDRESS_LO: u16 = 0x0100;
 pub const STACK_ADDRESS_HI: u16 = 0x01FF;
 pub const IRQ_INTERRUPT_VECTOR_LO: u16 = 0xFFFE;
 pub const IRQ_INTERRUPT_VECTOR_HI: u16 = 0xFFFF;
 
-const MEMORY_SIZE: usize = (ADDR_HI_BARE - ADDR_LO_BARE) as usize + 1usize;
+// const MEMORY_SIZE: usize = (ADDR_HI_BARE - ADDR_LO_BARE) as usize + 1usize;
 
-// FIXME: Should this use indirection for `bytes`?
 #[derive(Copy, Clone)]
-pub struct Memory {
+pub struct Memory<const MEMORY_SIZE: usize> {
     bytes: [u8; MEMORY_SIZE],
 }
 
-impl Default for Memory {
+impl<const MEMORY_SIZE: usize> Default for Memory<MEMORY_SIZE> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<const MEMORY_SIZE: usize> Memory<MEMORY_SIZE> {
+    pub fn new() -> Memory<MEMORY_SIZE> {
+        Memory {
+            bytes: [0; MEMORY_SIZE],
+        }
     }
 }
 
@@ -69,15 +76,7 @@ pub trait Bus {
     }
 }
 
-impl Memory {
-    pub fn new() -> Memory {
-        Memory {
-            bytes: [0; MEMORY_SIZE],
-        }
-    }
-}
-
-impl Bus for Memory {
+impl<const MEMORY_SIZE: usize> Bus for Memory<MEMORY_SIZE> {
     fn get_byte(&mut self, address: u16) -> u8 {
         self.bytes[address as usize]
     }
