@@ -20,6 +20,8 @@ Source: [Wikipedia](https://en.wikipedia.org/wiki/MOS_Technology_6502)
 ## How to use this library
 
 ```rust
+use mos6502::memory::Bus;
+use mos6502::memory::Memory;
 use mos6502::cpu;
 
 fn main() {
@@ -49,7 +51,7 @@ fn main() {
         0x4c, 0x10, 0x00, // Jump to .algo
     ];
 
-    let mut cpu = cpu::CPU::new();
+    let mut cpu = cpu::CPU::new(Memory::new());
 
     cpu.memory.set_bytes(0x00, &zero_page_data);
     cpu.memory.set_bytes(0x10, &program);

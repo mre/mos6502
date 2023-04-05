@@ -58,37 +58,37 @@ impl Default for Memory {
     }
 }
 
+pub trait Bus {
+    fn get_byte(&mut self, address: u16) -> u8;
+    fn set_byte(&mut self, address: u16, value: u8);
+
+    fn set_bytes(&mut self, start: u16, values: &[u8]) {
+        for i in 0..values.len() as u16 {
+            self.set_byte(start + i, values[i as usize]);
+        }
+    }
+}
+
 impl Memory {
     pub fn new() -> Memory {
         Memory {
             bytes: [0; MEMORY_SIZE],
         }
     }
+}
 
-    pub fn get_byte(&self, address: u16) -> u8 {
+impl Bus for Memory {
+    fn get_byte(&mut self, address: u16) -> u8 {
         self.bytes[address as usize]
-    }
-
-    pub fn get_byte_mut_ref(&mut self, address: u16) -> &mut u8 {
-        &mut self.bytes[address as usize]
-    }
-
-    pub fn get_slice(&self, start: u16, diff: u16) -> &[u8] {
-        let orig: usize = start.into();
-        let end = orig + diff as usize;
-
-        &self.bytes[orig..end]
     }
 
     // Sets the byte at the given address to the given value and returns the
     // previous value at the address.
-    pub fn set_byte(&mut self, address: u16, value: u8) -> u8 {
-        let old_value = self.get_byte(address);
+    fn set_byte(&mut self, address: u16, value: u8) {
         self.bytes[address as usize] = value;
-        old_value
     }
 
-    pub fn set_bytes(&mut self, start: u16, values: &[u8]) {
+    fn set_bytes(&mut self, start: u16, values: &[u8]) {
         let start = start as usize;
 
         // This panics if the range is invalid
@@ -96,22 +96,11 @@ impl Memory {
 
         self.bytes[start..end].copy_from_slice(values);
     }
-
-    pub fn is_stack_address(address: u16) -> bool {
-        address > 0xff && address < 0x200
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_memory_set_bytes() {
-        let mut memory = Memory::new();
-        memory.set_bytes(0x0100, &[1, 2, 3, 4, 5]);
-        assert_eq!(memory.get_slice(0x00FF, 7), &[0, 1, 2, 3, 4, 5, 0]);
-    }
 
     #[test]
     #[should_panic]
