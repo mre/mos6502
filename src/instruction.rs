@@ -25,8 +25,6 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use crate::cpu::CPU;
-
 // Abbreviations
 //
 // General
@@ -134,16 +132,6 @@ pub enum AddressingMode {
                       //                   zero page address) plus Y register
 }
 
-fn xextend(x: u8) -> u16 {
-    u16::from(x)
-}
-
-fn arr_to_addr(arr: &[u8]) -> u16 {
-    debug_assert!(arr.len() == 2);
-
-    u16::from(arr[0]) + (u16::from(arr[1]) << 8usize)
-}
-
 impl AddressingMode {
     pub fn extra_bytes(self) -> u16 {
         match self {
@@ -160,94 +148,6 @@ impl AddressingMode {
             AddressingMode::Indirect => 2,
             AddressingMode::IndexedIndirectX => 1,
             AddressingMode::IndirectIndexedY => 1,
-        }
-    }
-
-    pub fn process(self, cpu: &CPU, arr: &[u8]) -> OpInput {
-        debug_assert!(arr.len() == self.extra_bytes() as usize);
-
-        let x = cpu.registers.index_x;
-        let y = cpu.registers.index_y;
-
-        let memory = &cpu.memory;
-
-        match self {
-            AddressingMode::Accumulator | AddressingMode::Implied => {
-                // Always the same -- no input
-                OpInput::UseImplied
-            }
-            AddressingMode::Immediate => {
-                // Use [u8, ..1] specified in instruction as input
-                OpInput::UseImmediate(arr[0])
-            }
-            AddressingMode::ZeroPage => {
-                // Use [u8, ..1] from instruction
-                // Interpret as zero page address
-                // (Output: an 8-bit zero-page address)
-                OpInput::UseAddress(u16::from(arr[0]))
-            }
-            AddressingMode::ZeroPageX => {
-                // Use [u8, ..1] from instruction
-                // Add to X register (as u8 -- the final address is in 0-page)
-                // (Output: an 8-bit zero-page address)
-                OpInput::UseAddress(u16::from(arr[0].wrapping_add(x)))
-            }
-            AddressingMode::ZeroPageY => {
-                // Use [u8, ..1] from instruction
-                // Add to Y register (as u8 -- the final address is in 0-page)
-                // (Output: an 8-bit zero-page address)
-                OpInput::UseAddress(u16::from(arr[0].wrapping_add(y)))
-            }
-            AddressingMode::Relative => {
-                // Use [u8, ..1] from instruction
-                // (interpret as relative...)
-                // (This is sign extended to a 16-but data type, but an unsigned one: u16. It's a
-                // little weird, but it's so we can add the PC and the offset easily)
-                let offset = arr[0];
-                let sign_extend = if offset & 0x80 == 0x80 { 0xffu8 } else { 0x0 };
-                let rel = u16::from_le_bytes([offset, sign_extend]);
-                OpInput::UseRelative(rel)
-            }
-            AddressingMode::Absolute => {
-                // Use [u8, ..2] from instruction as address
-                // (Output: a 16-bit address)
-                OpInput::UseAddress(arr_to_addr(arr))
-            }
-            AddressingMode::AbsoluteX => {
-                // Use [u8, ..2] from instruction as address, add X
-                // (Output: a 16-bit address)
-                OpInput::UseAddress(arr_to_addr(arr).wrapping_add(xextend(x)))
-            }
-            AddressingMode::AbsoluteY => {
-                // Use [u8, ..2] from instruction as address, add Y
-                // (Output: a 16-bit address)
-                OpInput::UseAddress(arr_to_addr(arr).wrapping_add(xextend(y)))
-            }
-            AddressingMode::Indirect => {
-                // Use [u8, ..2] from instruction as an address. Interpret the
-                // two bytes starting at that address as an address.
-                // (Output: a 16-bit address)
-                let slice = memory.get_slice(arr_to_addr(arr), 2);
-                OpInput::UseAddress(arr_to_addr(slice))
-            }
-            AddressingMode::IndexedIndirectX => {
-                // Use [u8, ..1] from instruction
-                // Add to X register with 0-page wraparound, like ZeroPageX.
-                // This is where the absolute (16-bit) target address is stored.
-                // (Output: a 16-bit address)
-                let start = arr[0].wrapping_add(x);
-                let slice = memory.get_slice(u16::from(start), 2);
-                OpInput::UseAddress(arr_to_addr(slice))
-            }
-            AddressingMode::IndirectIndexedY => {
-                // Use [u8, ..1] from instruction
-                // This is where the absolute (16-bit) target address is stored.
-                // Add Y register to this address to get the final address
-                // (Output: a 16-bit address)
-                let start = arr[0];
-                let slice = memory.get_slice(u16::from(start), 2);
-                OpInput::UseAddress(arr_to_addr(slice).wrapping_add(xextend(y)))
-            }
         }
     }
 }
@@ -768,26 +668,3 @@ pub static OPCODES: [Option<(Instruction, AddressingMode)>; 256] = [
     /*0xFF*/
     None,
 ];
-
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn zeropage_wrap_around() {
-        use crate::instruction::AddressingMode;
-        use crate::instruction::OpInput;
-        use crate::instruction::CPU;
-
-        let mut cpu = CPU::new();
-        cpu.registers.index_x = 9;
-
-        assert!(matches!(
-            AddressingMode::ZeroPageX.process(&cpu, &[10]),
-            OpInput::UseAddress(19)
-        ));
-        assert!(matches!(
-            AddressingMode::ZeroPageX.process(&cpu, &[250]),
-            OpInput::UseAddress(3)
-        ));
-    }
-}

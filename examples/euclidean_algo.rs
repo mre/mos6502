@@ -1,6 +1,8 @@
 extern crate mos6502;
 
 use mos6502::cpu;
+use mos6502::memory::Bus;
+use mos6502::memory::Memory;
 
 fn main() {
     println!("Enter two numbers (< 128) to know their GCD:");
@@ -33,7 +35,7 @@ fn main() {
         0x4c, 0x10, 0x00, // Jump to .algo
     ];
 
-    let mut cpu = cpu::CPU::new();
+    let mut cpu = cpu::CPU::new(Memory::new());
 
     cpu.memory.set_bytes(0x00, &zero_page_data);
     cpu.memory.set_bytes(0x10, &program);

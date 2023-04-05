@@ -30,7 +30,7 @@
 name = "mos6502"
 description = "A MOS 6502 Emulator"
 license = "BSD-3-Clause"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["The 6502-rs Developers"]
 build = "build.rs"
 exclude = ["examples/**"]
