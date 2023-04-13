@@ -409,11 +409,13 @@ impl<M: Bus> CPU<M> {
             }
             (Instruction::PLA, OpInput::UseImplied) => {
                 // Pull accumulator
+                self.pull_from_stack();
                 let val: u8 = self.pull_from_stack();
                 self.registers.accumulator = val as i8;
             }
             (Instruction::PLP, OpInput::UseImplied) => {
                 // Pull status
+                self.pull_from_stack();
                 let val: u8 = self.pull_from_stack();
                 // The `truncate` here won't do anything because we have a
                 // constant for the single unused flags bit. This probably
@@ -442,6 +444,12 @@ impl<M: Bus> CPU<M> {
                 let mut operand: u8 = self.memory.get_byte(addr);
                 CPU::<M>::rotate_right_with_flags(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
+            }
+            (Instruction::RTS, OpInput::UseImplied) => {
+                self.pull_from_stack();
+                let pcl: u8 = self.pull_from_stack();
+                let pch: u8 = self.fetch_from_stack();
+                self.registers.program_counter = (((pch as u16) << 8) | pcl as u16).wrapping_add(1);
             }
 
             (Instruction::SBC, OpInput::UseImmediate(val)) => {
@@ -920,6 +928,12 @@ impl<M: Bus> CPU<M> {
         let out = self.memory.get_byte(addr);
         self.registers.stack_pointer.increment();
         out
+    }
+
+    fn fetch_from_stack(&mut self) -> u8 {
+        // gets the next value on the stack but does not update the stack pointer
+        let addr = self.registers.stack_pointer.to_u16();
+        self.memory.get_byte(addr)
     }
 }
 
