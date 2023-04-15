@@ -237,10 +237,10 @@ impl<M: Bus> CPU<M> {
                 let is_zero = 0 == res;
 
                 // The N flag is set to bit 7 of the byte from memory.
-                let bit7 = 0 != (0x80 & res);
+                let bit7 = 0 != (0x80 & m);
 
                 // The V flag is set to bit 6 of the byte from memory.
-                let bit6 = 0 != (0x40 & res);
+                let bit6 = 0 != (0x40 & m);
 
                 self.registers.status.set_with_mask(
                     Status::PS_ZERO | Status::PS_NEGATIVE | Status::PS_OVERFLOW,
