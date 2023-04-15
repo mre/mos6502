@@ -435,6 +435,14 @@ impl<M: Bus> CPU<M> {
                 self.pull_from_stack();
                 let val: u8 = self.fetch_from_stack();
                 self.registers.accumulator = val as i8;
+                self.registers.status.set_with_mask(
+                    Status::PS_ZERO | Status::PS_NEGATIVE,
+                    Status::new(StatusArgs {
+                        zero: val == 0,
+                        negative: self.registers.accumulator < 0,
+                        ..StatusArgs::none()
+                    }),
+                );
             }
             (Instruction::PLP, OpInput::UseImplied) => {
                 // Pull status
