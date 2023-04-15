@@ -358,7 +358,7 @@ impl<M: Bus> CPU<M> {
                 CPU::<M>::increment(&mut self.registers.index_x, &mut self.registers.status);
             }
             (Instruction::INY, OpInput::UseImplied) => {
-                CPU::<M>::increment(&mut self.registers.index_x, &mut self.registers.status);
+                CPU::<M>::increment(&mut self.registers.index_y, &mut self.registers.status);
             }
 
             (Instruction::JMP, OpInput::UseAddress(addr)) => self.jump(addr),
