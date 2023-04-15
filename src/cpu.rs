@@ -228,6 +228,11 @@ impl<M: Bus> CPU<M> {
                 self.branch_if_equal(addr);
             }
 
+            (Instruction::BNE, OpInput::UseRelative(rel)) => {
+                let addr = self.registers.program_counter.wrapping_add(rel);
+                self.branch_if_not_equal(addr);
+            }
+
             (Instruction::BIT, OpInput::UseAddress(addr)) => {
                 let a: u8 = self.registers.accumulator as u8;
                 let m: u8 = self.memory.get_byte(addr);
@@ -846,6 +851,12 @@ impl<M: Bus> CPU<M> {
 
     fn branch_if_equal(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_ZERO) {
+            self.registers.program_counter = addr;
+        }
+    }
+
+    fn branch_if_not_equal(&mut self, addr: u16) {
+        if !self.registers.status.contains(Status::PS_ZERO) {
             self.registers.program_counter = addr;
         }
     }
