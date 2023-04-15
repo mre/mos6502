@@ -433,13 +433,13 @@ impl<M: Bus> CPU<M> {
             (Instruction::PLA, OpInput::UseImplied) => {
                 // Pull accumulator
                 self.pull_from_stack();
-                let val: u8 = self.pull_from_stack();
+                let val: u8 = self.fetch_from_stack();
                 self.registers.accumulator = val as i8;
             }
             (Instruction::PLP, OpInput::UseImplied) => {
                 // Pull status
                 self.pull_from_stack();
-                let val: u8 = self.pull_from_stack();
+                let val: u8 = self.fetch_from_stack();
                 // The `truncate` here won't do anything because we have a
                 // constant for the single unused flags bit. This probably
                 // corresponds to the behavior of the 6502...? FIXME: verify
