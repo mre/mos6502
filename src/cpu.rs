@@ -277,6 +277,7 @@ impl<M: Bus> CPU<M> {
                 let pcl = self.memory.get_byte(0xfffe);
                 let pch = self.memory.get_byte(0xffff);
                 self.jump(((pch as u16) << 8) | pcl as u16);
+                self.registers.status.or(Status::PS_DISABLE_INTERRUPTS);
             }
 
             (Instruction::BVC, OpInput::UseRelative(rel)) => {
