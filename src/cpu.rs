@@ -352,6 +352,13 @@ impl<M: Bus> CPU<M> {
 
             (Instruction::JMP, OpInput::UseAddress(addr)) => self.jump(addr),
 
+            (Instruction::JSR, OpInput::UseAddress(addr)) => {
+                for b in self.registers.program_counter.wrapping_sub(1).to_le_bytes() {
+                    self.push_on_stack(b);
+                }
+                self.jump(addr);
+            }
+
             (Instruction::LDA, OpInput::UseImmediate(val)) => {
                 debug!("load A immediate: {}", val);
                 self.load_accumulator(val as i8);
