@@ -445,6 +445,18 @@ impl<M: Bus> CPU<M> {
                 CPU::<M>::rotate_right_with_flags(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
+            (Instruction::RTI, OpInput::UseImplied) => {
+                // Pull status
+                self.pull_from_stack();
+                let val: u8 = self.pull_from_stack();
+                // The `truncate` here won't do anything because we have a
+                // constant for the single unused flags bit. This probably
+                // corresponds to the behavior of the 6502...? FIXME: verify
+                self.registers.status = Status::from_bits_truncate(val);
+                let pcl: u8 = self.pull_from_stack();
+                let pch: u8 = self.fetch_from_stack();
+                self.registers.program_counter = ((pch as u16) << 8) | pcl as u16;
+            }
             (Instruction::RTS, OpInput::UseImplied) => {
                 self.pull_from_stack();
                 let pcl: u8 = self.pull_from_stack();
