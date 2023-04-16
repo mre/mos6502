@@ -228,6 +228,11 @@ impl<M: Bus> CPU<M> {
                 self.branch_if_equal(addr);
             }
 
+            (Instruction::BNE, OpInput::UseRelative(rel)) => {
+                let addr = self.registers.program_counter.wrapping_add(rel);
+                self.branch_if_not_equal(addr);
+            }
+
             (Instruction::BIT, OpInput::UseAddress(addr)) => {
                 let a: u8 = self.registers.accumulator as u8;
                 let m: u8 = self.memory.get_byte(addr);
@@ -262,6 +267,17 @@ impl<M: Bus> CPU<M> {
             (Instruction::BPL, OpInput::UseRelative(rel)) => {
                 let addr = self.registers.program_counter.wrapping_add(rel);
                 self.branch_if_positive(addr);
+            }
+
+            (Instruction::BRK, OpInput::UseImplied) => {
+                for b in self.registers.program_counter.wrapping_sub(1).to_be_bytes() {
+                    self.push_on_stack(b);
+                }
+                self.push_on_stack(self.registers.status.bits());
+                let pcl = self.memory.get_byte(0xfffe);
+                let pch = self.memory.get_byte(0xffff);
+                self.jump(((pch as u16) << 8) | pcl as u16);
+                self.registers.status.or(Status::PS_DISABLE_INTERRUPTS);
             }
 
             (Instruction::BVC, OpInput::UseRelative(rel)) => {
@@ -342,10 +358,17 @@ impl<M: Bus> CPU<M> {
                 CPU::<M>::increment(&mut self.registers.index_x, &mut self.registers.status);
             }
             (Instruction::INY, OpInput::UseImplied) => {
-                CPU::<M>::increment(&mut self.registers.index_x, &mut self.registers.status);
+                CPU::<M>::increment(&mut self.registers.index_y, &mut self.registers.status);
             }
 
             (Instruction::JMP, OpInput::UseAddress(addr)) => self.jump(addr),
+
+            (Instruction::JSR, OpInput::UseAddress(addr)) => {
+                for b in self.registers.program_counter.wrapping_sub(1).to_be_bytes() {
+                    self.push_on_stack(b);
+                }
+                self.jump(addr);
+            }
 
             (Instruction::LDA, OpInput::UseImmediate(val)) => {
                 debug!("load A immediate: {}", val);
@@ -409,12 +432,22 @@ impl<M: Bus> CPU<M> {
             }
             (Instruction::PLA, OpInput::UseImplied) => {
                 // Pull accumulator
-                let val: u8 = self.pull_from_stack();
+                self.pull_from_stack();
+                let val: u8 = self.fetch_from_stack();
                 self.registers.accumulator = val as i8;
+                self.registers.status.set_with_mask(
+                    Status::PS_ZERO | Status::PS_NEGATIVE,
+                    Status::new(StatusArgs {
+                        zero: val == 0,
+                        negative: self.registers.accumulator < 0,
+                        ..StatusArgs::none()
+                    }),
+                );
             }
             (Instruction::PLP, OpInput::UseImplied) => {
                 // Pull status
-                let val: u8 = self.pull_from_stack();
+                self.pull_from_stack();
+                let val: u8 = self.fetch_from_stack();
                 // The `truncate` here won't do anything because we have a
                 // constant for the single unused flags bit. This probably
                 // corresponds to the behavior of the 6502...? FIXME: verify
@@ -442,6 +475,24 @@ impl<M: Bus> CPU<M> {
                 let mut operand: u8 = self.memory.get_byte(addr);
                 CPU::<M>::rotate_right_with_flags(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
+            }
+            (Instruction::RTI, OpInput::UseImplied) => {
+                // Pull status
+                self.pull_from_stack();
+                let val: u8 = self.pull_from_stack();
+                // The `truncate` here won't do anything because we have a
+                // constant for the single unused flags bit. This probably
+                // corresponds to the behavior of the 6502...? FIXME: verify
+                self.registers.status = Status::from_bits_truncate(val);
+                let pcl: u8 = self.pull_from_stack();
+                let pch: u8 = self.fetch_from_stack();
+                self.registers.program_counter = ((pch as u16) << 8) | pcl as u16;
+            }
+            (Instruction::RTS, OpInput::UseImplied) => {
+                self.pull_from_stack();
+                let pcl: u8 = self.pull_from_stack();
+                let pch: u8 = self.fetch_from_stack();
+                self.registers.program_counter = (((pch as u16) << 8) | pcl as u16).wrapping_add(1);
             }
 
             (Instruction::SBC, OpInput::UseImmediate(val)) => {
@@ -830,6 +881,12 @@ impl<M: Bus> CPU<M> {
         }
     }
 
+    fn branch_if_not_equal(&mut self, addr: u16) {
+        if !self.registers.status.contains(Status::PS_ZERO) {
+            self.registers.program_counter = addr;
+        }
+    }
+
     fn branch_if_minus(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_NEGATIVE) {
             self.registers.program_counter = addr;
@@ -920,6 +977,12 @@ impl<M: Bus> CPU<M> {
         let out = self.memory.get_byte(addr);
         self.registers.stack_pointer.increment();
         out
+    }
+
+    fn fetch_from_stack(&mut self) -> u8 {
+        // gets the next value on the stack but does not update the stack pointer
+        let addr = self.registers.stack_pointer.to_u16();
+        self.memory.get_byte(addr)
     }
 }
 
