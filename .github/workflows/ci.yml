@@ -48,6 +48,22 @@ jobs:
           command: clippy
           # --all-targets makes it lint tests too
           args: --all-targets --all-features -- -D warnings
+  
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable      
+      - name: Install cargo-audit
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-audit
+          version: latest
+          use-tool-cache: true
+      - name: Run cargo-audit
+        run: cargo audit --deny yanked
 
   publish-check:
     runs-on: ubuntu-latest
@@ -70,6 +86,7 @@ jobs:
     needs:
       - test
       - lint
+      - audit
       - publish-check
     runs-on: ubuntu-latest
     steps:
