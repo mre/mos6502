@@ -1008,14 +1008,14 @@ mod tests {
     #[test]
     fn dont_panic_for_overflow() {
         let mut cpu = CPU::new(Ram::new());
-        cpu.add_with_carry(-128);
-        assert_eq!(cpu.registers.accumulator, -128);
-        cpu.add_with_carry(-128);
+        cpu.add_with_carry(0x80);
+        assert_eq!(cpu.registers.accumulator, 0x80);
+        cpu.add_with_carry(0x80);
         assert_eq!(cpu.registers.accumulator, 0);
 
-        cpu.subtract_with_carry(-128);
-        assert_eq!(cpu.registers.accumulator, -128);
-        cpu.subtract_with_carry(-128);
+        cpu.subtract_with_carry(0x80);
+        assert_eq!(cpu.registers.accumulator, 0x80);
+        cpu.subtract_with_carry(0x80);
         assert_eq!(cpu.registers.accumulator, 0);
     }
 
@@ -1079,7 +1079,7 @@ mod tests {
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        cpu.add_with_carry(-1);
+        cpu.add_with_carry(0xff);
         assert_eq!(cpu.registers.accumulator, 0);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
         assert!(cpu.registers.status.contains(Status::PS_ZERO));
@@ -1102,7 +1102,7 @@ mod tests {
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        cpu.add_with_carry(-127);
+        cpu.add_with_carry(-127i8 as u8);
         assert_eq!(cpu.registers.accumulator, 0);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
         assert!(cpu.registers.status.contains(Status::PS_ZERO));
@@ -1110,15 +1110,15 @@ mod tests {
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
         cpu.registers.status.remove(Status::PS_CARRY);
-        cpu.add_with_carry(-128);
-        assert_eq!(cpu.registers.accumulator, -128);
+        cpu.add_with_carry(0x80);
+        assert_eq!(cpu.registers.accumulator, 0x80);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
         cpu.add_with_carry(127);
-        assert_eq!(cpu.registers.accumulator, -1);
+        assert_eq!(cpu.registers.accumulator, 0xff);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
@@ -1134,7 +1134,7 @@ mod tests {
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
         cpu.add_with_carry(1);
-        assert_eq!(cpu.registers.accumulator, -128);
+        assert_eq!(cpu.registers.accumulator, 0x80);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
@@ -1142,7 +1142,7 @@ mod tests {
 
         let mut cpu = CPU::new(Ram::new());
         cpu.registers.status.or(Status::PS_CARRY);
-        cpu.add_with_carry(-1);
+        cpu.add_with_carry(0xff);
         assert_eq!(cpu.registers.accumulator, 0);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
     }
@@ -1152,26 +1152,26 @@ mod tests {
         let mut cpu = CPU::new(Ram::new());
 
         cpu.registers.accumulator = 0;
-        cpu.and(-1);
+        cpu.and(0xff);
         assert_eq!(cpu.registers.accumulator, 0);
         assert!(cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
 
-        cpu.registers.accumulator = -1;
+        cpu.registers.accumulator = 0xff;
         cpu.and(0);
         assert_eq!(cpu.registers.accumulator, 0);
         assert!(cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
 
-        cpu.registers.accumulator = -1;
+        cpu.registers.accumulator = 0xff;
         cpu.and(0x0f);
         assert_eq!(cpu.registers.accumulator, 0x0f);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
 
-        cpu.registers.accumulator = -1;
-        cpu.and(-128);
-        assert_eq!(cpu.registers.accumulator, -128);
+        cpu.registers.accumulator = 0xff;
+        cpu.and(0x80);
+        assert_eq!(cpu.registers.accumulator, 0x80);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
     }
@@ -1184,14 +1184,14 @@ mod tests {
         cpu.registers.accumulator = 0;
 
         cpu.subtract_with_carry(1);
-        assert_eq!(cpu.registers.accumulator, -1);
+        assert_eq!(cpu.registers.accumulator, 0xff);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
         cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
-        cpu.registers.accumulator = -128;
+        cpu.registers.accumulator = 0x80;
         cpu.subtract_with_carry(1);
         assert_eq!(cpu.registers.accumulator, 127);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
@@ -1201,15 +1201,15 @@ mod tests {
 
         cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
         cpu.registers.accumulator = 127;
-        cpu.subtract_with_carry(-1);
-        assert_eq!(cpu.registers.accumulator, -128);
+        cpu.subtract_with_carry(0xff);
+        assert_eq!(cpu.registers.accumulator, 0x80);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(cpu.registers.status.contains(Status::PS_OVERFLOW));
 
         cpu.execute_instruction((Instruction::CLC, OpInput::UseImplied));
-        cpu.registers.accumulator = -64;
+        cpu.registers.accumulator = -64i8 as u8;
         cpu.subtract_with_carry(64);
         assert_eq!(cpu.registers.accumulator, 127);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
@@ -1219,8 +1219,8 @@ mod tests {
 
         cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
         cpu.registers.accumulator = 0;
-        cpu.subtract_with_carry(-128);
-        assert_eq!(cpu.registers.accumulator, -128);
+        cpu.subtract_with_carry(0x80);
+        assert_eq!(cpu.registers.accumulator, 0x80);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
@@ -1229,7 +1229,7 @@ mod tests {
         cpu.execute_instruction((Instruction::CLC, OpInput::UseImplied));
         cpu.registers.accumulator = 0;
         cpu.subtract_with_carry(127);
-        assert_eq!(cpu.registers.accumulator, -128);
+        assert_eq!(cpu.registers.accumulator, 0x80);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
@@ -1585,7 +1585,7 @@ mod tests {
                 cpu.exclusive_or(val);
 
                 let a_after = a_before ^ val;
-                assert_eq!(cpu.registers.accumulator, a_after as i8);
+                assert_eq!(cpu.registers.accumulator, a_after);
 
                 if a_after == 0 {
                     assert!(cpu.registers.status.contains(Status::PS_ZERO));
@@ -1613,7 +1613,7 @@ mod tests {
                 cpu.inclusive_or(val);
 
                 let a_after = a_before | val;
-                assert_eq!(cpu.registers.accumulator, a_after as i8);
+                assert_eq!(cpu.registers.accumulator, a_after);
 
                 if a_after == 0 {
                     assert!(cpu.registers.status.contains(Status::PS_ZERO));
