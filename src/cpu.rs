@@ -697,7 +697,7 @@ impl<M: Bus> CPU<M> {
 
     fn add_with_carry(&mut self, value: u8) {
         #[cfg(feature = "decimal_mode")]
-        fn decimal_adjust( result: u8) -> u8 {
+        fn decimal_adjust(result: u8) -> u8 {
             let bcd1: u8 = if (result & 0x0f) as u8 > 0x09 {
                 0x06
             } else {
@@ -723,8 +723,8 @@ impl<M: Bus> CPU<M> {
         );
 
         #[cfg(feature = "decimal_mode")]
-        let result: u8 = if   self.registers.status.contains(Status::PS_DECIMAL_MODE) {
-            decimal_adjust( a_after)
+        let result: u8 = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
+            decimal_adjust(a_after)
         } else {
             a_after
         };
