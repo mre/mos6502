@@ -800,7 +800,7 @@ impl<M: Bus> CPU<M> {
         };
 
         #[cfg(not(feature = "decimal_mode"))]
-        let result: i8 = a_after;
+        let result = a_after;
 
         // The carry flag is set on unsigned overflow.
         let did_carry = (result) > (a_before);
@@ -1085,6 +1085,7 @@ mod tests {
 
         let mut cpu = CPU::new(Ram::new());
 
+        assert_eq!(cpu.registers.accumulator, 0);
         cpu.add_with_carry(127);
         assert_eq!(cpu.registers.accumulator, 127);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
