@@ -439,7 +439,7 @@ impl<M: Bus> CPU<M> {
                     Status::PS_ZERO | Status::PS_NEGATIVE,
                     Status::new(StatusArgs {
                         zero: val == 0,
-                        negative: self.registers.accumulator > 127, 
+                        negative: self.registers.accumulator > 127,
                         ..StatusArgs::none()
                     }),
                 );
@@ -781,10 +781,10 @@ impl<M: Bus> CPU<M> {
         // range of - M - (1 - C)  is  -128 to 128
         //                             -(127 + 1) to -(-128 + 0)
         //
-        let over = (nc == 0 && value >127) && a_before <128 && a_after >127;
+        let over = (nc == 0 && value > 127) && a_before < 128 && a_after > 127;
 
         let under =
-            (a_before >127) && (0u8.wrapping_sub(value).wrapping_sub(nc) >127) && a_after <128;
+            (a_before > 127) && (0u8.wrapping_sub(value).wrapping_sub(nc) > 127) && a_after < 128;
 
         let did_overflow = over || under;
 
