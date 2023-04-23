@@ -732,7 +732,10 @@ impl<M: Bus> CPU<M> {
         );
 
         #[cfg(feature = "decimal_mode")]
-        let result: u8 = decimal_adjust(self.registers.status.contains(Status::PS_DECIMAL_MODE), a_after);
+        let result: u8 = decimal_adjust(
+            self.registers.status.contains(Status::PS_DECIMAL_MODE),
+            a_after,
+        );
 
         #[cfg(not(feature = "decimal_mode"))]
         let result: u8 = a_after;
@@ -773,7 +776,7 @@ impl<M: Bus> CPU<M> {
             1
         };
 
-        let a_before= self.registers.accumulator;
+        let a_before = self.registers.accumulator;
 
         let a_after = a_before.wrapping_sub(value).wrapping_sub(nc);
 
@@ -783,8 +786,7 @@ impl<M: Bus> CPU<M> {
         // range of - M - (1 - C)  is  -128 to 128
         //                             -(127 + 1) to -(-128 + 0)
         //
-        let over =
-            ((nc == 0 && value < 0)) && a_before >= 0 && a_after < 0;
+        let over = (nc == 0 && value < 0) && a_before >= 0 && a_after < 0;
 
         let under =
             (a_before < 0) && (0u8.wrapping_sub(value).wrapping_sub(nc) < 0) && a_after >= 0;
