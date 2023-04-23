@@ -185,19 +185,19 @@ impl<M: Bus> CPU<M> {
         match decoded_instr {
             (Instruction::ADC, OpInput::UseImmediate(val)) => {
                 debug!("add with carry immediate: {}", val);
-                self.add_with_carry(val as i8);
+                self.add_with_carry(val);
             }
             (Instruction::ADC, OpInput::UseAddress(addr)) => {
-                let val = self.memory.get_byte(addr) as i8;
+                let val = self.memory.get_byte(addr);
                 debug!("add with carry. address: {:?}. value: {}", addr, val);
                 self.add_with_carry(val);
             }
 
             (Instruction::AND, OpInput::UseImmediate(val)) => {
-                self.and(val as i8);
+                self.and(val);
             }
             (Instruction::AND, OpInput::UseAddress(addr)) => {
-                let val = self.memory.get_byte(addr) as i8;
+                let val = self.memory.get_byte(addr);
                 self.and(val);
             }
 
@@ -205,7 +205,7 @@ impl<M: Bus> CPU<M> {
                 // Accumulator mode
                 let mut val = self.registers.accumulator as u8;
                 CPU::<M>::shift_left_with_flags(&mut val, &mut self.registers.status);
-                self.registers.accumulator = val as i8;
+                self.registers.accumulator = val;
             }
             (Instruction::ASL, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
@@ -372,12 +372,12 @@ impl<M: Bus> CPU<M> {
 
             (Instruction::LDA, OpInput::UseImmediate(val)) => {
                 debug!("load A immediate: {}", val);
-                self.load_accumulator(val as i8);
+                self.load_accumulator(val);
             }
             (Instruction::LDA, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
                 debug!("load A. address: {:?}. value: {}", addr, val);
-                self.load_accumulator(val as i8);
+                self.load_accumulator(val);
             }
 
             (Instruction::LDX, OpInput::UseImmediate(val)) => {
@@ -404,7 +404,7 @@ impl<M: Bus> CPU<M> {
                 // Accumulator mode
                 let mut val = self.registers.accumulator as u8;
                 CPU::<M>::shift_right_with_flags(&mut val, &mut self.registers.status);
-                self.registers.accumulator = val as i8;
+                self.registers.accumulator = val;
             }
             (Instruction::LSR, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
@@ -434,7 +434,7 @@ impl<M: Bus> CPU<M> {
                 // Pull accumulator
                 self.pull_from_stack();
                 let val: u8 = self.fetch_from_stack();
-                self.registers.accumulator = val as i8;
+                self.registers.accumulator = val;
                 self.registers.status.set_with_mask(
                     Status::PS_ZERO | Status::PS_NEGATIVE,
                     Status::new(StatusArgs {
@@ -458,7 +458,7 @@ impl<M: Bus> CPU<M> {
                 // Accumulator mode
                 let mut val = self.registers.accumulator as u8;
                 CPU::<M>::rotate_left_with_flags(&mut val, &mut self.registers.status);
-                self.registers.accumulator = val as i8;
+                self.registers.accumulator = val;
             }
             (Instruction::ROL, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
@@ -469,7 +469,7 @@ impl<M: Bus> CPU<M> {
                 // Accumulator mode
                 let mut val = self.registers.accumulator as u8;
                 CPU::<M>::rotate_right_with_flags(&mut val, &mut self.registers.status);
-                self.registers.accumulator = val as i8;
+                self.registers.accumulator = val;
             }
             (Instruction::ROR, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
@@ -497,10 +497,10 @@ impl<M: Bus> CPU<M> {
 
             (Instruction::SBC, OpInput::UseImmediate(val)) => {
                 debug!("subtract with carry immediate: {}", val);
-                self.subtract_with_carry(val as i8);
+                self.subtract_with_carry(val);
             }
             (Instruction::SBC, OpInput::UseAddress(addr)) => {
-                let val = self.memory.get_byte(addr) as i8;
+                let val = self.memory.get_byte(addr);
                 debug!("subtract with carry. address: {:?}. value: {}", addr, val);
                 self.subtract_with_carry(val);
             }
@@ -539,7 +539,7 @@ impl<M: Bus> CPU<M> {
             }
             (Instruction::TXA, OpInput::UseImplied) => {
                 let val = self.registers.index_x;
-                self.load_accumulator(val as i8);
+                self.load_accumulator(val);
             }
             (Instruction::TXS, OpInput::UseImplied) => {
                 // Note that this is the only 'transfer' instruction that does
@@ -550,7 +550,7 @@ impl<M: Bus> CPU<M> {
             }
             (Instruction::TYA, OpInput::UseImplied) => {
                 let val = self.registers.index_y;
-                self.load_accumulator(val as i8);
+                self.load_accumulator(val);
             }
 
             (Instruction::NOP, OpInput::UseImplied) => {
@@ -692,28 +692,28 @@ impl<M: Bus> CPU<M> {
         );
     }
 
-    fn load_accumulator(&mut self, value: i8) {
-        CPU::<M>::set_i8_with_flags(
+    fn load_accumulator(&mut self, value: u8) {
+        CPU::<M>::set_u8_with_flags(
             &mut self.registers.accumulator,
             &mut self.registers.status,
             value,
         );
     }
 
-    fn add_with_carry(&mut self, value: i8) {
+    fn add_with_carry(&mut self, value: u8) {
         #[cfg(feature = "decimal_mode")]
-        fn decimal_adjust(result: i8) -> i8 {
-            if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
+        fn decimal_adjust(decimal_mode: bool, result: u8) -> u8 {
+            if decimal_mode {
                 return result;
             }
 
-            let bcd1: i8 = if (a_after & 0x0f) as u8 > 0x09 {
+            let bcd1: u8 = if (result & 0x0f) as u8 > 0x09 {
                 0x06
             } else {
                 0x00
             };
 
-            let bcd2: i8 = if (a_after.wrapping_add(bcd1) as u8 & 0xf0) > 0x90 {
+            let bcd2: u8 = if (result.wrapping_add(bcd1) as u8 & 0xf0) > 0x90 {
                 0x60
             } else {
                 0x00
@@ -722,9 +722,9 @@ impl<M: Bus> CPU<M> {
             result.wrapping_add(bcd1).wrapping_add(bcd2)
         }
 
-        let a_before: i8 = self.registers.accumulator;
-        let c_before: i8 = i8::from(self.registers.status.contains(Status::PS_CARRY));
-        let a_after: i8 = a_before.wrapping_add(c_before).wrapping_add(value);
+        let a_before: u8 = self.registers.accumulator;
+        let c_before: u8 = u8::from(self.registers.status.contains(Status::PS_CARRY));
+        let a_after: u8 = a_before.wrapping_add(c_before).wrapping_add(value);
 
         debug_assert_eq!(
             a_after as u8,
@@ -732,12 +732,12 @@ impl<M: Bus> CPU<M> {
         );
 
         #[cfg(feature = "decimal_mode")]
-        let result: i8 = decimal_adjust(a_after);
+        let result: u8 = decimal_adjust(self.registers.status.contains(Status::PS_DECIMAL_MODE), a_after);
 
         #[cfg(not(feature = "decimal_mode"))]
-        let result: i8 = a_after;
+        let result: u8 = a_after;
 
-        let did_carry = (result as u8) < (a_before as u8) || (c_before == 1 && value == -1);
+        let did_carry = (result as u8) < (a_before as u8);
 
         let did_overflow = (a_before < 0 && value < 0 && a_after >= 0)
             || (a_before > 0 && value > 0 && a_after <= 0);
@@ -758,22 +758,22 @@ impl<M: Bus> CPU<M> {
         debug!("accumulator: {}", self.registers.accumulator);
     }
 
-    fn and(&mut self, value: i8) {
+    fn and(&mut self, value: u8) {
         let a_after = self.registers.accumulator & value;
         self.load_accumulator(a_after);
     }
 
-    fn subtract_with_carry(&mut self, value: i8) {
+    fn subtract_with_carry(&mut self, value: u8) {
         // A - M - (1 - C)
 
         // nc -- 'not carry'
-        let nc: i8 = if self.registers.status.contains(Status::PS_CARRY) {
+        let nc: u8 = if self.registers.status.contains(Status::PS_CARRY) {
             0
         } else {
             1
         };
 
-        let a_before: i8 = self.registers.accumulator;
+        let a_before= self.registers.accumulator;
 
         let a_after = a_before.wrapping_sub(value).wrapping_sub(nc);
 
@@ -784,29 +784,29 @@ impl<M: Bus> CPU<M> {
         //                             -(127 + 1) to -(-128 + 0)
         //
         let over =
-            ((nc == 0 && value < 0) || (nc == 1 && value < -1)) && a_before >= 0 && a_after < 0;
+            ((nc == 0 && value < 0)) && a_before >= 0 && a_after < 0;
 
         let under =
-            (a_before < 0) && (0i8.wrapping_sub(value).wrapping_sub(nc) < 0) && a_after >= 0;
+            (a_before < 0) && (0u8.wrapping_sub(value).wrapping_sub(nc) < 0) && a_after >= 0;
 
         let did_overflow = over || under;
 
         let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
 
-        let bcd1: i8 = if (a_before & 0x0f).wrapping_sub(nc) < (value & 0x0f) {
+        let bcd1: u8 = if (a_before & 0x0f).wrapping_sub(nc) < (value & 0x0f) {
             0x06
         } else {
             0x00
         };
 
-        let bcd2: i8 = if (a_after.wrapping_sub(bcd1) as u8 & 0xf0) > 0x90 {
+        let bcd2: u8 = if (a_after.wrapping_sub(bcd1) as u8 & 0xf0) > 0x90 {
             0x60
         } else {
             0x00
         };
 
         #[cfg(feature = "decimal_mode")]
-        let result: i8 = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
+        let result: u8 = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
             a_after.wrapping_sub(bcd1).wrapping_sub(bcd2)
         } else {
             a_after
@@ -923,20 +923,20 @@ impl<M: Bus> CPU<M> {
     //   If the C flag is 1, then A (unsigned) >= NUM (unsigned) and BCS will branch
     //   ...
     //   The N flag contains most significant bit of the subtraction result.
-    fn compare(&mut self, r: i8, val: u8) {
-        if r as u8 >= val {
+    fn compare(&mut self, r: u8, val: u8) {
+        if r >= val {
             self.registers.status.insert(Status::PS_CARRY);
         } else {
             self.registers.status.remove(Status::PS_CARRY);
         }
 
-        if r == val as i8 {
+        if r == val as u8 {
             self.registers.status.insert(Status::PS_ZERO);
         } else {
             self.registers.status.remove(Status::PS_ZERO);
         }
 
-        let diff: i8 = r.wrapping_sub(val as i8);
+        let diff: i8 = (r as i8).wrapping_sub(val as i8);
         if diff < 0 {
             self.registers.status.insert(Status::PS_NEGATIVE);
         } else {
@@ -953,21 +953,21 @@ impl<M: Bus> CPU<M> {
         debug!("compare_with_x_register");
 
         let x = self.registers.index_x;
-        self.compare(x as i8, val);
+        self.compare(x, val);
     }
 
     fn compare_with_y_register(&mut self, val: u8) {
         let y = self.registers.index_y;
-        self.compare(y as i8, val);
+        self.compare(y, val);
     }
 
     fn exclusive_or(&mut self, val: u8) {
-        let a_after = self.registers.accumulator ^ (val as i8);
+        let a_after = self.registers.accumulator ^ val;
         self.load_accumulator(a_after);
     }
 
     fn inclusive_or(&mut self, val: u8) {
-        let a_after = self.registers.accumulator | (val as i8);
+        let a_after = self.registers.accumulator | val;
         self.load_accumulator(a_after);
     }
 
