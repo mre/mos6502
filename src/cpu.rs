@@ -203,7 +203,7 @@ impl<M: Bus> CPU<M> {
 
             (Instruction::ASL, OpInput::UseImplied) => {
                 // Accumulator mode
-                let mut val = self.registers.accumulator as u8;
+                let mut val = self.registers.accumulator;
                 CPU::<M>::shift_left_with_flags(&mut val, &mut self.registers.status);
                 self.registers.accumulator = val;
             }
@@ -234,7 +234,7 @@ impl<M: Bus> CPU<M> {
             }
 
             (Instruction::BIT, OpInput::UseAddress(addr)) => {
-                let a: u8 = self.registers.accumulator as u8;
+                let a: u8 = self.registers.accumulator;
                 let m: u8 = self.memory.get_byte(addr);
                 let res = a & m;
 
@@ -402,7 +402,7 @@ impl<M: Bus> CPU<M> {
 
             (Instruction::LSR, OpInput::UseImplied) => {
                 // Accumulator mode
-                let mut val = self.registers.accumulator as u8;
+                let mut val = self.registers.accumulator;
                 CPU::<M>::shift_right_with_flags(&mut val, &mut self.registers.status);
                 self.registers.accumulator = val;
             }
@@ -422,7 +422,7 @@ impl<M: Bus> CPU<M> {
 
             (Instruction::PHA, OpInput::UseImplied) => {
                 // Push accumulator
-                let val = self.registers.accumulator as u8;
+                let val = self.registers.accumulator;
                 self.push_on_stack(val);
             }
             (Instruction::PHP, OpInput::UseImplied) => {
@@ -456,7 +456,7 @@ impl<M: Bus> CPU<M> {
 
             (Instruction::ROL, OpInput::UseImplied) => {
                 // Accumulator mode
-                let mut val = self.registers.accumulator as u8;
+                let mut val = self.registers.accumulator;
                 CPU::<M>::rotate_left_with_flags(&mut val, &mut self.registers.status);
                 self.registers.accumulator = val;
             }
@@ -467,7 +467,7 @@ impl<M: Bus> CPU<M> {
             }
             (Instruction::ROR, OpInput::UseImplied) => {
                 // Accumulator mode
-                let mut val = self.registers.accumulator as u8;
+                let mut val = self.registers.accumulator;
                 CPU::<M>::rotate_right_with_flags(&mut val, &mut self.registers.status);
                 self.registers.accumulator = val;
             }
@@ -516,7 +516,7 @@ impl<M: Bus> CPU<M> {
             }
 
             (Instruction::STA, OpInput::UseAddress(addr)) => {
-                self.memory.set_byte(addr, self.registers.accumulator as u8);
+                self.memory.set_byte(addr, self.registers.accumulator);
             }
             (Instruction::STX, OpInput::UseAddress(addr)) => {
                 self.memory.set_byte(addr, self.registers.index_x);
@@ -527,11 +527,11 @@ impl<M: Bus> CPU<M> {
 
             (Instruction::TAX, OpInput::UseImplied) => {
                 let val = self.registers.accumulator;
-                self.load_x_register(val as u8);
+                self.load_x_register(val);
             }
             (Instruction::TAY, OpInput::UseImplied) => {
                 let val = self.registers.accumulator;
-                self.load_y_register(val as u8);
+                self.load_y_register(val);
             }
             (Instruction::TSX, OpInput::UseImplied) => {
                 let StackPointer(val) = self.registers.stack_pointer;
@@ -698,13 +698,13 @@ impl<M: Bus> CPU<M> {
     fn add_with_carry(&mut self, value: u8) {
         #[cfg(feature = "decimal_mode")]
         fn decimal_adjust(result: u8) -> u8 {
-            let bcd1: u8 = if (result & 0x0f) as u8 > 0x09 {
+            let bcd1: u8 = if (result & 0x0f)  > 0x09 {
                 0x06
             } else {
                 0x00
             };
 
-            let bcd2: u8 = if (result.wrapping_add(bcd1) as u8 & 0xf0) > 0x90 {
+            let bcd2: u8 = if (result.wrapping_add(bcd1) & 0xf0) > 0x90 {
                 0x60
             } else {
                 0x00
@@ -718,8 +718,8 @@ impl<M: Bus> CPU<M> {
         let a_after: u8 = a_before.wrapping_add(c_before).wrapping_add(value);
 
         debug_assert_eq!(
-            a_after as u8,
-            a_before.wrapping_add(c_before).wrapping_add(value) as u8
+            a_after,
+            a_before.wrapping_add(c_before).wrapping_add(value)
         );
 
         #[cfg(feature = "decimal_mode")]
@@ -732,7 +732,7 @@ impl<M: Bus> CPU<M> {
         #[cfg(not(feature = "decimal_mode"))]
         let result: u8 = a_after;
 
-        let did_carry = (result as u8) < (a_before as u8) || (a_after == 0 && c_before == 0x01);
+        let did_carry = (result) < (a_before) || (a_after == 0 && c_before == 0x01);
 
         let did_overflow = (a_before > 127 && value > 127 && a_after < 128)
             || (a_before < 128 && value < 128 && a_after > 127);
@@ -793,7 +793,7 @@ impl<M: Bus> CPU<M> {
             0x00
         };
 
-        let bcd2: u8 = if (a_after.wrapping_sub(bcd1) as u8 & 0xf0) > 0x90 {
+        let bcd2: u8 = if (a_after.wrapping_sub(bcd1) & 0xf0) > 0x90 {
             0x60
         } else {
             0x00
@@ -810,7 +810,7 @@ impl<M: Bus> CPU<M> {
         let result: i8 = a_after;
 
         // The carry flag is set on unsigned overflow.
-        let did_carry = (result as u8) > (a_before as u8);
+        let did_carry = (result) > (a_before);
 
         self.registers.status.set_with_mask(
             mask,
@@ -924,7 +924,7 @@ impl<M: Bus> CPU<M> {
             self.registers.status.remove(Status::PS_CARRY);
         }
 
-        if r == val as u8 {
+        if r == val {
             self.registers.status.insert(Status::PS_ZERO);
         } else {
             self.registers.status.remove(Status::PS_ZERO);
@@ -1052,7 +1052,7 @@ mod tests {
         cpu.registers.accumulator = 0;
 
         cpu.subtract_with_carry(0x48);
-        assert_eq!(cpu.registers.accumulator as u8, 0x52);
+        assert_eq!(cpu.registers.accumulator, 0x52);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
