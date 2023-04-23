@@ -701,7 +701,6 @@ impl<M: Bus> CPU<M> {
     }
 
     fn add_with_carry(&mut self, value: i8) {
-
         #[cfg(feature = "decimal_mode")]
         fn decimal_adjust(result: i8) -> i8 {
             if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
