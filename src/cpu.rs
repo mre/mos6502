@@ -701,6 +701,28 @@ impl<M: Bus> CPU<M> {
     }
 
     fn add_with_carry(&mut self, value: i8) {
+
+        #[cfg(feature = "decimal_mode")]
+        fn decimal_adjust(result: i8) -> i8 {
+            if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
+                return result;
+            }
+
+            let bcd1: i8 = if (a_after & 0x0f) as u8 > 0x09 {
+                0x06
+            } else {
+                0x00
+            };
+
+            let bcd2: i8 = if (a_after.wrapping_add(bcd1) as u8 & 0xf0) > 0x90 {
+                0x60
+            } else {
+                0x00
+            };
+
+            result.wrapping_add(bcd1).wrapping_add(bcd2)
+        }
+
         let a_before: i8 = self.registers.accumulator;
         let c_before: i8 = i8::from(self.registers.status.contains(Status::PS_CARRY));
         let a_after: i8 = a_before.wrapping_add(c_before).wrapping_add(value);
@@ -710,24 +732,8 @@ impl<M: Bus> CPU<M> {
             a_before.wrapping_add(c_before).wrapping_add(value) as u8
         );
 
-        let bcd1: i8 = if (a_after & 0x0f) as u8 > 0x09 {
-            0x06
-        } else {
-            0x00
-        };
-
-        let bcd2: i8 = if (a_after.wrapping_add(bcd1) as u8 & 0xf0) > 0x90 {
-            0x60
-        } else {
-            0x00
-        };
-
         #[cfg(feature = "decimal_mode")]
-        let result: i8 = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
-            a_after.wrapping_add(bcd1).wrapping_add(bcd2)
-        } else {
-            a_after
-        };
+        let result: i8 = decimal_adjust(a_after);
 
         #[cfg(not(feature = "decimal_mode"))]
         let result: i8 = a_after;
