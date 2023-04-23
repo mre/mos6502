@@ -671,11 +671,6 @@ impl<M: Bus> CPU<M> {
         CPU::<M>::set_flags_from_u8(status, value);
     }
 
-    fn set_i8_with_flags(mem: &mut i8, status: &mut Status, value: i8) {
-        *mem = value;
-        CPU::<M>::set_flags_from_i8(status, value);
-    }
-
     fn load_x_register(&mut self, value: u8) {
         CPU::<M>::set_u8_with_flags(
             &mut self.registers.index_x,
