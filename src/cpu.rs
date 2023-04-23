@@ -697,11 +697,7 @@ impl<M: Bus> CPU<M> {
 
     fn add_with_carry(&mut self, value: u8) {
         #[cfg(feature = "decimal_mode")]
-        fn decimal_adjust(decimal_mode: bool, result: u8) -> u8 {
-            if decimal_mode {
-                return result;
-            }
-
+        fn decimal_adjust( result: u8) -> u8 {
             let bcd1: u8 = if (result & 0x0f) as u8 > 0x09 {
                 0x06
             } else {
@@ -727,18 +723,19 @@ impl<M: Bus> CPU<M> {
         );
 
         #[cfg(feature = "decimal_mode")]
-        let result: u8 = decimal_adjust(
-            self.registers.status.contains(Status::PS_DECIMAL_MODE),
-            a_after,
-        );
+        let result: u8 = if   self.registers.status.contains(Status::PS_DECIMAL_MODE) {
+            decimal_adjust( a_after)
+        } else {
+            a_after
+        };
 
         #[cfg(not(feature = "decimal_mode"))]
         let result: u8 = a_after;
 
-        let did_carry = (result as u8) < (a_before as u8);
+        let did_carry = (result as u8) < (a_before as u8) || (a_after == 0 && c_before == 0x01);
 
         let did_overflow = (a_before > 127 && value > 127 && a_after < 128)
-            || (a_before > 127 && value > 127 && a_after < 128);
+            || (a_before < 128 && value < 128 && a_after > 127);
 
         let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
 
