@@ -725,7 +725,9 @@ impl<M: Bus> CPU<M> {
         #[cfg(not(feature = "decimal_mode"))]
         let result: u8 = a_after;
 
-        let did_carry = (result) < (a_before) || (a_after == 0 && c_before == 0x01);
+        let did_carry = (result) < (a_before)
+            || (a_after == 0 && c_before == 0x01)
+            || (value == 0xff && c_before == 0x01);
 
         let did_overflow = (a_before > 127 && value > 127 && a_after < 128)
             || (a_before < 128 && value < 128 && a_after > 127);
