@@ -1139,6 +1139,20 @@ mod tests {
     }
 
     #[test]
+    fn solid65_adc_immediate() {
+        let mut cpu = CPU::new(Ram::new());
+
+        // Adding $FF plus carry should be the same as adding $00 and no carry, so these three
+        // instructions should leave the carry flags unaffected, i.e. set.
+        cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(0x9c)));
+        cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
+        cpu.execute_instruction((Instruction::ADC, OpInput::UseImmediate(0xff)));
+
+        assert_eq!(cpu.registers.accumulator, 0x9c);
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+    }
+
+    #[test]
     fn and_test() {
         let mut cpu = CPU::new(Ram::new());
 
