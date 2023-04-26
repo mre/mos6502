@@ -6,6 +6,7 @@
 [![docs.rs](https://docs.rs/mos6502/badge.svg)](https://docs.rs/mos6502)
 
 An emulator for the [MOS 6502 CPU](https://en.wikipedia.org/wiki/MOS_Technology_6502) written in Rust.  
+Tested and validated by [solid65](https://github.com/omarandlorraine/solid65).  
 It builds on stable Rust and supports `#[no_std]` targets.
 
 ## What is the MOS 6502?
