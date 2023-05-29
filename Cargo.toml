@@ -42,7 +42,7 @@ name = "mos6502"
 
 [dependencies]
 bitflags = "2.2.1"
-log = "0.4.17"
+log = "0.4.18"
 
 [dependencies.num]
 version = "0.4.0"
