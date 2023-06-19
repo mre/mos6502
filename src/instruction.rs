@@ -105,7 +105,7 @@ pub enum Instruction {
     TYA, // Transfer Y to Accumulator..... | N. ...Z. A            = Y
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum OpInput {
     UseImplied,
     UseImmediate(u8),

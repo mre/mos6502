@@ -21,6 +21,12 @@ fn main() {
     // run step-by-step
     let mut old_pc = cpu.registers.program_counter;
     while cpu.registers.program_counter != 0x3468 {
+        // Use `fetch_next_and_decode` instead of
+        // `single_step` to see the decoded instruction
+        if let Some(decoded_instr) = cpu.fetch_next_and_decode() {
+            println!("{decoded_instr:?}");
+            cpu.execute_instruction(decoded_instr);
+        }
         cpu.single_step();
         println!("{cpu:?}");
 
