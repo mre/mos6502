@@ -18,8 +18,6 @@ fn main() {
         Ok(data) => data,
         Err(err) => {
             println!("Error reading euclid.bin: {}", err);
-            // print all files in the current directory
-            println!("Files in current directory:");
             return;
         }
     };
