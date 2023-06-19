@@ -988,11 +988,7 @@ impl<M: Bus> CPU<M> {
 
 impl<M: Bus> core::fmt::Debug for CPU<M> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(
-            f,
-            "CPU Dump:\n\nAccumulator: {}",
-            self.registers.accumulator
-        )
+        write!(f, "CPU {{ registers: {:?}", self.registers)
     }
 }
 
