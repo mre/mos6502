@@ -65,6 +65,57 @@ fn main() {
 }
 ```
 
+The same can be achieved, by compiling the euclid example yourself.
+
+First install a 6502 assembler and linker, e.g. [cc65](https://cc65.github.io/cc65/).
+
+```sh
+brew install cc65
+```
+
+Then compile and link the assembly file:
+
+```sh
+cd examples/asm/euclid
+ca65 euclid.asm
+ld65 -C ../linker.cfg -o euclid.bin euclid.o
+```
+
+This will create a binary file `euclid.bin` that you can load into the emulator:
+
+```rust
+use mos6502::memory::Bus;
+use mos6502::memory::Memory;
+use mos6502::cpu;
+use std::fs::read;
+
+fn main() {
+    // Calculate the greatest common divisor of 56 and 49
+    // using Euclid's algorithm.
+    let zero_page_data = [56, 49];
+
+    // Load the binary file from disk
+    let program = match read("examples/asm/euclid/euclid.bin") {
+        Ok(data) => data,
+        Err(err) => {
+            println!("Error reading euclid.bin: {}", err);
+            return;
+        }
+    };
+
+    let mut cpu = cpu::CPU::new(Memory::new());
+
+    cpu.memory.set_bytes(0x00, &zero_page_data);
+    cpu.memory.set_bytes(0x10, &program);
+    cpu.registers.program_counter = 0x10;
+
+    cpu.run();
+
+    // The expected GCD is 7
+    assert_eq!(7, cpu.registers.accumulator);
+}
+```
+
 ## Credits
 
 This started off as a fork of [amw-zero/6502-rs](https://github.com/amw-zero/6502-rs),
