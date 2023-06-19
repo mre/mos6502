@@ -77,7 +77,7 @@ Then compile and link the assembly file:
 
 ```sh
 cd examples/asm/euclid
-ca65 euclid.asm
+ca65 euclid.a65
 ld65 -C ../linker.cfg -o euclid.bin euclid.o
 ```
 
