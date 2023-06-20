@@ -5,7 +5,7 @@ use mos6502::memory::Bus;
 use mos6502::memory::Memory;
 
 fn main() {
-    println!("Enter two numbers (< 128) to know their GCD:");
+    println!("Enter two numbers (< 128) separated by a space to know their GCD.");
     let mut input = String::new();
     std::io::stdin().read_line(&mut input).unwrap();
 

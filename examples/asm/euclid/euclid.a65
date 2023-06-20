@@ -1,0 +1,33 @@
+; euclid.a65
+; A program to find the greatest common divisor of two numbers
+
+.ORG $1000
+
+; .algo
+LDA $00    ; Load from F to A
+; .algo_
+sec        ; Set carry flag
+SBC $01    ; Subtract S from the number in A (from F)
+BEQ end    ; Jump to .end if the difference is zero
+BMI swap   ; Jump to .swap if the difference is negative
+STA $00    ; Load A to F
+JMP algo_  ; Jump to .algo_
+
+; .end
+end:
+LDA $00    ; Load from F to A
+BRK        ; Break (end program)
+
+; .swap
+swap:
+LDX $00    ; Load F to X
+LDY $01    ; Load S to Y
+STX $01    ; Store X to S
+STY $00    ; Store Y to F
+JMP algo   ; Jump to .algo
+
+algo:
+JMP algo   ; Infinite loop to prevent program from ending
+
+algo_:
+JMP algo_  ; Infinite loop to prevent program from ending
