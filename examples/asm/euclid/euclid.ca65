@@ -1,4 +1,4 @@
-; euclid.a65
+; euclid.ca65
 ; A program to find the greatest common divisor of two numbers
 
 .ORG $1000
@@ -6,7 +6,7 @@
 ; .algo
 LDA $00    ; Load from F to A
 ; .algo_
-sec        ; Set carry flag
+SEC        ; Set carry flag
 SBC $01    ; Subtract S from the number in A (from F)
 BEQ end    ; Jump to .end if the difference is zero
 BMI swap   ; Jump to .swap if the difference is negative
