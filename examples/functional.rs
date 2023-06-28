@@ -24,7 +24,7 @@ fn main() {
         // Use `fetch_next_and_decode` instead of
         // `single_step` to see the decoded instruction
         if let Some(decoded_instr) = cpu.fetch_next_and_decode() {
-            println!("{decoded_instr:?}");
+            println!("{decoded_instr}");
             cpu.execute_instruction(decoded_instr);
         }
         cpu.single_step();
