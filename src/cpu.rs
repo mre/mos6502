@@ -278,15 +278,16 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.registers.program_counter =
                     self.registers.program_counter.wrapping_add(num_bytes);
 
-                Some((instr, am_out))
+                Some(DecodedInstr(instr, am_out))
             }
             _ => None,
         }
     }
 
     #[allow(clippy::too_many_lines)]
-    pub fn execute_instruction(&mut self, decoded_instr: DecodedInstr) {
-        match decoded_instr {
+    pub fn execute_instruction<T: Into<DecodedInstr>>(&mut self, decoded_instr: T) {
+        let decoded_instr = decoded_instr.into();
+        match (decoded_instr.0, decoded_instr.1) {
             (Instruction::ADC, OpInput::UseImmediate(val)) => {
                 log::debug!("add with carry immediate: {val}");
                 self.add_with_carry(val);

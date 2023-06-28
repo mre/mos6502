@@ -27,6 +27,8 @@
 
 use crate::ArithmeticOutput;
 
+use core::fmt::{Display, Error, Formatter};
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Instruction {
     // ADd with Carry
@@ -310,7 +312,24 @@ impl AddressingMode {
     }
 }
 
-pub type DecodedInstr = (Instruction, OpInput);
+pub struct DecodedInstr(pub Instruction, pub OpInput);
+
+impl Display for DecodedInstr {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        match self.1 {
+            OpInput::UseImplied => write!(f, "{:?}", self.0),
+            OpInput::UseImmediate(v) => write!(f, "{:?} #${:02X}", self.0, v),
+            OpInput::UseRelative(v) => write!(f, "{:?} ${:04X}", self.0, v),
+            OpInput::UseAddress(v) => write!(f, "{:?} ${:04X}", self.0, v),
+        }
+    }
+}
+
+impl From<(Instruction, OpInput)> for DecodedInstr {
+    fn from((instr, op): (Instruction, OpInput)) -> DecodedInstr {
+        DecodedInstr(instr, op)
+    }
+}
 
 /// The NMOS 6502 variant. This one is present in the Commodore 64, early Apple IIs, etc.
 #[derive(Copy, Clone, Debug, Default)]
