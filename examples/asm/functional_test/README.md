@@ -17,6 +17,14 @@ make build
 This will create a `6502_functional_test.bin` file in the `build` directory,
 which the emulator will load.
 
+## Running
+
+Then, from the root of the repository, run:
+
+```bash
+cargo run --release --example functional
+```
+
 ## Credits
 
 Taken from 
