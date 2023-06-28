@@ -41,7 +41,7 @@ edition = "2021"
 name = "mos6502"
 
 [dependencies]
-bitflags = "2.3.2"
+bitflags = "2.3.3"
 log = "0.4.19"
 
 [dependencies.num]
