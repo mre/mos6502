@@ -175,14 +175,15 @@ impl<M: Bus> CPU<M> {
                 self.registers.program_counter =
                     self.registers.program_counter.wrapping_add(num_bytes);
 
-                Some((instr, am_out))
+                Some(DecodedInstr(instr, am_out))
             }
             _ => None,
         }
     }
 
-    pub fn execute_instruction(&mut self, decoded_instr: DecodedInstr) {
-        match decoded_instr {
+    pub fn execute_instruction<T: Into<DecodedInstr>>(&mut self, decoded_instr: T) {
+        let decoded_instr = decoded_instr.into();
+        match (decoded_instr.0, decoded_instr.1) {
             (Instruction::ADC, OpInput::UseImmediate(val)) => {
                 debug!("add with carry immediate: {}", val);
                 self.add_with_carry(val as i8);
@@ -988,11 +989,7 @@ impl<M: Bus> CPU<M> {
 
 impl<M: Bus> core::fmt::Debug for CPU<M> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(
-            f,
-            "CPU Dump:\n\nAccumulator: {}",
-            self.registers.accumulator
-        )
+        write!(f, "CPU {{ registers: {:?}", self.registers)
     }
 }
 
