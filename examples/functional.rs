@@ -1,4 +1,5 @@
 use mos6502::cpu;
+use mos6502::instruction::OpInput;
 use mos6502::memory::Bus;
 use mos6502::memory::Memory;
 use std::collections::HashMap;
@@ -29,18 +30,36 @@ fn main() {
         // Use `fetch_next_and_decode` instead of
         // `single_step` to see the decoded instruction
         if let Some(decoded_instr) = cpu.fetch_next_and_decode() {
-            let label = labels.get(&cpu.registers.program_counter);
-            match label {
-                Some(name) => println!("{}: {}", name, decoded_instr),
-                None => println!("{}", decoded_instr),
+            let address = match decoded_instr.1 {
+                OpInput::UseImmediate(v) => Some(v as u16),
+                OpInput::UseRelative(v) => Some(v),
+                OpInput::UseAddress(v) => Some(v),
+                OpInput::UseImplied => None,
+            };
+
+            if let Some(address) = address {
+                let label = labels.get(&address);
+                match label {
+                    Some(label) => println!("{} ({})", decoded_instr, label),
+                    None => println!("{}", decoded_instr),
+                }
+            } else {
+                println!("{}", decoded_instr);
             }
+
+            // println!("Getting label for address: {:04X}", address);
+            // let label = labels.get(&cpu.registers.program_counter);
+            // match label {
+            //     Some(name) => println!("{}: {}", name, decoded_instr),
+            //     None => println!("{}", decoded_instr),
+            // }
             cpu.execute_instruction(decoded_instr);
         }
         cpu.single_step();
-        println!("{cpu:?}");
 
         if cpu.registers.program_counter == old_pc {
             println!("Infinite loop detected!");
+            println!("{cpu:?}");
             break;
         }
 
