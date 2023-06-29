@@ -1,11 +1,3 @@
-al 000000 .__RAM_FILEOFFS__
-al 00017B .__RAM_LAST__
-al 000200 .__RAM_SIZE__
-al 000100 .__RAM_START__
-al 000000 .__ZP_FILEOFFS__
-al 00005C .__ZP_LAST__
-al 000100 .__ZP_SIZE__
-al 000000 .__ZP_START__
 al 0036A7 .break2
 al 003655 .res_trap
 al 00364F .nmi_trap
