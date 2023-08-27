@@ -418,3 +418,17 @@ impl crate::Variant for Nmos6502 {
         }
     }
 }
+pub struct RevisionA;
+
+impl crate::Variant for RevisionA {
+    fn decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
+        match opcode {
+            0x66 => None,
+            0x6a => None,
+            0x6e => None,
+            0x76 => None,
+            0x7e => None,
+            _ => Nmos6502::decode(opcode),
+        }
+    }
+}
