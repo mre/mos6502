@@ -154,517 +154,519 @@ impl AddressingMode {
 
 pub type DecodedInstr = (Instruction, OpInput);
 
+/*
 pub static OPCODES: [Option<(Instruction, AddressingMode)>; 256] = [
-    /*0x00*/
+    //0x00
     Some((Instruction::BRK, AddressingMode::Implied)),
-    /*0x01*/
+    //0x01
     Some((Instruction::ORA, AddressingMode::IndexedIndirectX)),
-    /*0x02*/
+    //0x02
     None,
-    /*0x03*/
+    //0x03
     None,
-    /*0x04*/
+    //0x04
     None,
-    /*0x05*/
+    //0x05
     Some((Instruction::ORA, AddressingMode::ZeroPage)),
-    /*0x06*/
+    //0x06
     Some((Instruction::ASL, AddressingMode::ZeroPage)),
-    /*0x07*/
+    //0x07
     None,
-    /*0x08*/
+    //0x08
     Some((Instruction::PHP, AddressingMode::Implied)),
-    /*0x09*/
+    //0x09
     Some((Instruction::ORA, AddressingMode::Immediate)),
-    /*0x0A*/
+    //0x0A
     Some((Instruction::ASL, AddressingMode::Accumulator)),
-    /*0x0B*/
+    //0x0B
     None,
-    /*0x0C*/
+    //0x0C
     None,
-    /*0x0D*/
+    //0x0D
     Some((Instruction::ORA, AddressingMode::Absolute)),
-    /*0x0E*/
+    //0x0E
     Some((Instruction::ASL, AddressingMode::Absolute)),
-    /*0x0F*/
+    //0x0F
     None,
-    /*0x10*/
+    //0x10
     Some((Instruction::BPL, AddressingMode::Relative)),
-    /*0x11*/
+    //0x11
     Some((Instruction::ORA, AddressingMode::IndirectIndexedY)),
-    /*0x12*/
+    //0x12
     None,
-    /*0x13*/
+    //0x13
     None,
-    /*0x14*/
+    //0x14
     None,
-    /*0x15*/
+    //0x15
     Some((Instruction::ORA, AddressingMode::ZeroPageX)),
-    /*0x16*/
+    //0x16
     Some((Instruction::ASL, AddressingMode::ZeroPageX)),
-    /*0x17*/
+    //0x17
     None,
-    /*0x18*/
+    //0x18
     Some((Instruction::CLC, AddressingMode::Implied)),
-    /*0x19*/
+    //0x19
     Some((Instruction::ORA, AddressingMode::AbsoluteY)),
-    /*0x1A*/
+    //0x1A
     None,
-    /*0x1B*/
+    //0x1B
     None,
-    /*0x1C*/
+    //0x1C
     None,
-    /*0x1D*/
+    //0x1D
     Some((Instruction::ORA, AddressingMode::AbsoluteX)),
-    /*0x1E*/
+    //0x1E
     Some((Instruction::ASL, AddressingMode::AbsoluteX)),
-    /*0x1F*/
+    //0x1F
     None,
-    /*0x20*/
+    //0x20
     Some((Instruction::JSR, AddressingMode::Absolute)),
-    /*0x21*/
+    //0x21
     Some((Instruction::AND, AddressingMode::IndexedIndirectX)),
-    /*0x22*/
+    //0x22
     None,
-    /*0x23*/
+    //0x23
     None,
-    /*0x24*/
+    //0x24
     Some((Instruction::BIT, AddressingMode::ZeroPage)),
-    /*0x25*/
+    //0x25
     Some((Instruction::AND, AddressingMode::ZeroPage)),
-    /*0x26*/
+    //0x26
     Some((Instruction::ROL, AddressingMode::ZeroPage)),
-    /*0x27*/
+    //0x27
     None,
-    /*0x28*/
+    //0x28
     Some((Instruction::PLP, AddressingMode::Implied)),
-    /*0x29*/
+    //0x29
     Some((Instruction::AND, AddressingMode::Immediate)),
-    /*0x2A*/
+    //0x2A
     Some((Instruction::ROL, AddressingMode::Accumulator)),
-    /*0x2B*/
+    //0x2B
     None,
-    /*0x2C*/
+    //0x2C
     Some((Instruction::BIT, AddressingMode::Absolute)),
-    /*0x2D*/
+    //0x2D
     Some((Instruction::AND, AddressingMode::Absolute)),
-    /*0x2E*/
+    //0x2E
     Some((Instruction::ROL, AddressingMode::Absolute)),
-    /*0x2F*/
+    //0x2F
     None,
-    /*0x30*/
+    //0x30
     Some((Instruction::BMI, AddressingMode::Relative)),
-    /*0x31*/
+    //0x31
     Some((Instruction::AND, AddressingMode::IndirectIndexedY)),
-    /*0x32*/
+    //0x32
     None,
-    /*0x33*/
+    //0x33
     None,
-    /*0x34*/
+    //0x34
     None,
-    /*0x35*/
+    //0x35
     Some((Instruction::AND, AddressingMode::ZeroPageX)),
-    /*0x36*/
+    //0x36
     Some((Instruction::ROL, AddressingMode::ZeroPageX)),
-    /*0x37*/
+    //0x37
     None,
-    /*0x38*/
+    //0x38
     Some((Instruction::SEC, AddressingMode::Implied)),
-    /*0x39*/
+    //0x39
     Some((Instruction::AND, AddressingMode::AbsoluteY)),
-    /*0x3A*/
+    //0x3A
     None,
-    /*0x3B*/
+    //0x3B
     None,
-    /*0x3C*/
+    //0x3C
     None,
-    /*0x3D*/
+    //0x3D
     Some((Instruction::AND, AddressingMode::AbsoluteX)),
-    /*0x3E*/
+    //0x3E
     Some((Instruction::ROL, AddressingMode::AbsoluteX)),
-    /*0x3F*/
+    //0x3F
     None,
-    /*0x40*/
+    //0x40
     Some((Instruction::RTI, AddressingMode::Implied)),
-    /*0x41*/
+    //0x41
     Some((Instruction::EOR, AddressingMode::IndexedIndirectX)),
-    /*0x42*/
+    //0x42
     None,
-    /*0x43*/
+    //0x43
     None,
-    /*0x44*/
+    //0x44
     None,
-    /*0x45*/
+    //0x45
     Some((Instruction::EOR, AddressingMode::ZeroPage)),
-    /*0x46*/
+    //0x46
     Some((Instruction::LSR, AddressingMode::ZeroPage)),
-    /*0x47*/
+    //0x47
     None,
-    /*0x48*/
+    //0x48
     Some((Instruction::PHA, AddressingMode::Implied)),
-    /*0x49*/
+    //0x49
     Some((Instruction::EOR, AddressingMode::Immediate)),
-    /*0x4A*/
+    //0x4A
     Some((Instruction::LSR, AddressingMode::Accumulator)),
-    /*0x4B*/
+    //0x4B
     None,
-    /*0x4C*/
+    //0x4C
     Some((Instruction::JMP, AddressingMode::Absolute)),
-    /*0x4D*/
+    //0x4D
     Some((Instruction::EOR, AddressingMode::Absolute)),
-    /*0x4E*/
+    //0x4E
     Some((Instruction::LSR, AddressingMode::Absolute)),
-    /*0x4F*/
+    //0x4F
     None,
-    /*0x50*/
+    //0x50
     Some((Instruction::BVC, AddressingMode::Relative)),
-    /*0x51*/
+    //0x51
     Some((Instruction::EOR, AddressingMode::IndirectIndexedY)),
-    /*0x52*/
+    //0x52
     None,
-    /*0x53*/
+    //0x53
     None,
-    /*0x54*/
+    //0x54
     None,
-    /*0x55*/
+    //0x55
     Some((Instruction::EOR, AddressingMode::ZeroPageX)),
-    /*0x56*/
+    //0x56
     Some((Instruction::LSR, AddressingMode::ZeroPageX)),
-    /*0x57*/
+    //0x57
     None,
-    /*0x58*/
+    //0x58
     Some((Instruction::CLI, AddressingMode::Implied)),
-    /*0x59*/
+    //0x59
     Some((Instruction::EOR, AddressingMode::AbsoluteY)),
-    /*0x5A*/
+    //0x5A
     None,
-    /*0x5B*/
+    //0x5B
     None,
-    /*0x5C*/
+    //0x5C
     None,
-    /*0x5D*/
+    //0x5D
     Some((Instruction::EOR, AddressingMode::AbsoluteX)),
-    /*0x5E*/
+    //0x5E
     Some((Instruction::LSR, AddressingMode::AbsoluteX)),
-    /*0x5F*/
+    //0x5F
     None,
-    /*0x60*/
+    //0x60
     Some((Instruction::RTS, AddressingMode::Implied)),
-    /*0x61*/
+    //0x61
     Some((Instruction::ADC, AddressingMode::IndexedIndirectX)),
-    /*0x62*/
+    //0x62
     None,
-    /*0x63*/
+    //0x63
     None,
-    /*0x64*/
+    //0x64
     None,
-    /*0x65*/
+    //0x65
     Some((Instruction::ADC, AddressingMode::ZeroPage)),
-    /*0x66*/
+    //0x66
     Some((Instruction::ROR, AddressingMode::ZeroPage)),
-    /*0x67*/
+    //0x67
     None,
-    /*0x68*/
+    //0x68
     Some((Instruction::PLA, AddressingMode::Implied)),
-    /*0x69*/
+    //0x69
     Some((Instruction::ADC, AddressingMode::Immediate)),
-    /*0x6A*/
+    //0x6A
     Some((Instruction::ROR, AddressingMode::Accumulator)),
-    /*0x6B*/
+    //0x6B
     None,
-    /*0x6C*/
+    //0x6C
     Some((Instruction::JMP, AddressingMode::Indirect)),
-    /*0x6D*/
+    //0x6D
     Some((Instruction::ADC, AddressingMode::Absolute)),
-    /*0x6E*/
+    //0x6E
     Some((Instruction::ROR, AddressingMode::Absolute)),
-    /*0x6F*/
+    //0x6F
     None,
-    /*0x70*/
+    //0x70
     Some((Instruction::BVS, AddressingMode::Relative)),
-    /*0x71*/
+    //0x71
     Some((Instruction::ADC, AddressingMode::IndirectIndexedY)),
-    /*0x72*/
+    //0x72
     None,
-    /*0x73*/
+    //0x73
     None,
-    /*0x74*/
+    //0x74
     None,
-    /*0x75*/
+    //0x75
     Some((Instruction::ADC, AddressingMode::ZeroPageX)),
-    /*0x76*/
+    //0x76
     Some((Instruction::ROR, AddressingMode::ZeroPageX)),
-    /*0x77*/
+    //0x77
     None,
-    /*0x78*/
+    //0x78
     Some((Instruction::SEI, AddressingMode::Implied)),
-    /*0x79*/
+    //0x79
     Some((Instruction::ADC, AddressingMode::AbsoluteY)),
-    /*0x7A*/
+    //0x7A
     None,
-    /*0x7B*/
+    //0x7B
     None,
-    /*0x7C*/
+    //0x7C
     None,
-    /*0x7D*/
+    //0x7D
     Some((Instruction::ADC, AddressingMode::AbsoluteX)),
-    /*0x7E*/
+    //0x7E
     Some((Instruction::ROR, AddressingMode::AbsoluteX)),
-    /*0x7F*/
+    //0x7F
     None,
-    /*0x80*/
+    //0x80
     None,
-    /*0x81*/
+    //0x81
     Some((Instruction::STA, AddressingMode::IndexedIndirectX)),
-    /*0x82*/
+    //0x82
     None,
-    /*0x83*/
+    //0x83
     None,
-    /*0x84*/
+    //0x84
     Some((Instruction::STY, AddressingMode::ZeroPage)),
-    /*0x85*/
+    //0x85
     Some((Instruction::STA, AddressingMode::ZeroPage)),
-    /*0x86*/
+    //0x86
     Some((Instruction::STX, AddressingMode::ZeroPage)),
-    /*0x87*/
+    //0x87
     None,
-    /*0x88*/
+    //0x88
     Some((Instruction::DEY, AddressingMode::Implied)),
-    /*0x89*/
+    //0x89
     None,
-    /*0x8A*/
+    //0x8A
     Some((Instruction::TXA, AddressingMode::Implied)),
-    /*0x8B*/
+    //0x8B
     None,
-    /*0x8C*/
+    //0x8C
     Some((Instruction::STY, AddressingMode::Absolute)),
-    /*0x8D*/
+    //0x8D
     Some((Instruction::STA, AddressingMode::Absolute)),
-    /*0x8E*/
+    //0x8E
     Some((Instruction::STX, AddressingMode::Absolute)),
-    /*0x8F*/
+    //0x8F
     None,
-    /*0x90*/
+    //0x90
     Some((Instruction::BCC, AddressingMode::Relative)),
-    /*0x91*/
+    //0x91
     Some((Instruction::STA, AddressingMode::IndirectIndexedY)),
-    /*0x92*/
+    //0x92
     None,
-    /*0x93*/
+    //0x93
     None,
-    /*0x94*/
+    //0x94
     Some((Instruction::STY, AddressingMode::ZeroPageX)),
-    /*0x95*/
+    //0x95
     Some((Instruction::STA, AddressingMode::ZeroPageX)),
-    /*0x96*/
+    //0x96
     Some((Instruction::STX, AddressingMode::ZeroPageY)),
-    /*0x97*/
+    //0x97
     None,
-    /*0x98*/
+    //0x98
     Some((Instruction::TYA, AddressingMode::Implied)),
-    /*0x99*/
+    //0x99
     Some((Instruction::STA, AddressingMode::AbsoluteY)),
-    /*0x9A*/
+    //0x9A
     Some((Instruction::TXS, AddressingMode::Implied)),
-    /*0x9B*/
+    //0x9B
     None,
-    /*0x9C*/
+    //0x9C
     None,
-    /*0x9D*/
+    //0x9D
     Some((Instruction::STA, AddressingMode::AbsoluteX)),
-    /*0x9E*/
+    //0x9E
     None,
-    /*0x9F*/
+    //0x9F
     None,
-    /*0xA0*/
+    //0xA0
     Some((Instruction::LDY, AddressingMode::Immediate)),
-    /*0xA1*/
+    //0xA1
     Some((Instruction::LDA, AddressingMode::IndexedIndirectX)),
-    /*0xA2*/
+    //0xA2
     Some((Instruction::LDX, AddressingMode::Immediate)),
-    /*0xA3*/
+    //0xA3
     None,
-    /*0xA4*/
+    //0xA4
     Some((Instruction::LDY, AddressingMode::ZeroPage)),
-    /*0xA5*/
+    //0xA5
     Some((Instruction::LDA, AddressingMode::ZeroPage)),
-    /*0xA6*/
+    //0xA6
     Some((Instruction::LDX, AddressingMode::ZeroPage)),
-    /*0xA7*/
+    //0xA7
     None,
-    /*0xA8*/
+    //0xA8
     Some((Instruction::TAY, AddressingMode::Implied)),
-    /*0xA9*/
+    //0xA9
     Some((Instruction::LDA, AddressingMode::Immediate)),
-    /*0xAA*/
+    //0xAA
     Some((Instruction::TAX, AddressingMode::Implied)),
-    /*0xAB*/
+    //0xAB
     None,
-    /*0xAC*/
+    //0xAC
     Some((Instruction::LDY, AddressingMode::Absolute)),
-    /*0xAD*/
+    //0xAD
     Some((Instruction::LDA, AddressingMode::Absolute)),
-    /*0xAE*/
+    //0xAE
     Some((Instruction::LDX, AddressingMode::Absolute)),
-    /*0xAF*/
+    //0xAF
     None,
-    /*0xB0*/
+    //0xB0
     Some((Instruction::BCS, AddressingMode::Relative)),
-    /*0xB1*/
+    //0xB1
     Some((Instruction::LDA, AddressingMode::IndirectIndexedY)),
-    /*0xB2*/
+    //0xB2
     None,
-    /*0xB3*/
+    //0xB3
     None,
-    /*0xB4*/
+    //0xB4
     Some((Instruction::LDY, AddressingMode::ZeroPageX)),
-    /*0xB5*/
+    //0xB5
     Some((Instruction::LDA, AddressingMode::ZeroPageX)),
-    /*0xB6*/
+    //0xB6
     Some((Instruction::LDX, AddressingMode::ZeroPageY)),
-    /*0xB7*/
+    //0xB7
     None,
-    /*0xB8*/
+    //0xB8
     Some((Instruction::CLV, AddressingMode::Implied)),
-    /*0xB9*/
+    //0xB9
     Some((Instruction::LDA, AddressingMode::AbsoluteY)),
-    /*0xBA*/
+    //0xBA
     Some((Instruction::TSX, AddressingMode::Implied)),
-    /*0xBB*/
+    //0xBB
     None,
-    /*0xBC*/
+    //0xBC
     Some((Instruction::LDY, AddressingMode::AbsoluteX)),
-    /*0xBD*/
+    //0xBD
     Some((Instruction::LDA, AddressingMode::AbsoluteX)),
-    /*0xBE*/
+    //0xBE
     Some((Instruction::LDX, AddressingMode::AbsoluteY)),
-    /*0xBF*/
+    //0xBF
     None,
-    /*0xC0*/
+    //0xC0
     Some((Instruction::CPY, AddressingMode::Immediate)),
-    /*0xC1*/
+    //0xC1
     Some((Instruction::CMP, AddressingMode::IndexedIndirectX)),
-    /*0xC2*/
+    //0xC2
     None,
-    /*0xC3*/
+    //0xC3
     None,
-    /*0xC4*/
+    //0xC4
     Some((Instruction::CPY, AddressingMode::ZeroPage)),
-    /*0xC5*/
+    //0xC5
     Some((Instruction::CMP, AddressingMode::ZeroPage)),
-    /*0xC6*/
+    //0xC6
     Some((Instruction::DEC, AddressingMode::ZeroPage)),
-    /*0xC7*/
+    //0xC7
     None,
-    /*0xC8*/
+    //0xC8
     Some((Instruction::INY, AddressingMode::Implied)),
-    /*0xC9*/
+    //0xC9
     Some((Instruction::CMP, AddressingMode::Immediate)),
-    /*0xCA*/
+    //0xCA
     Some((Instruction::DEX, AddressingMode::Implied)),
-    /*0xCB*/
+    //0xCB
     None,
-    /*0xCC*/
+    //0xCC
     Some((Instruction::CPY, AddressingMode::Absolute)),
-    /*0xCD*/
+    //0xCD
     Some((Instruction::CMP, AddressingMode::Absolute)),
-    /*0xCE*/
+    //0xCE
     Some((Instruction::DEC, AddressingMode::Absolute)),
-    /*0xCF*/
+    //0xCF
     None,
-    /*0xD0*/
+    //0xD0
     Some((Instruction::BNE, AddressingMode::Relative)),
-    /*0xD1*/
+    //0xD1
     Some((Instruction::CMP, AddressingMode::IndirectIndexedY)),
-    /*0xD2*/
+    //0xD2
     None,
-    /*0xD3*/
+    //0xD3
     None,
-    /*0xD4*/
+    //0xD4
     None,
-    /*0xD5*/
+    //0xD5
     Some((Instruction::CMP, AddressingMode::ZeroPageX)),
-    /*0xD6*/
+    //0xD6
     Some((Instruction::DEC, AddressingMode::ZeroPageX)),
-    /*0xD7*/
+    //0xD7
     None,
-    /*0xD8*/
+    //0xD8
     Some((Instruction::CLD, AddressingMode::Implied)),
-    /*0xD9*/
+    //0xD9
     Some((Instruction::CMP, AddressingMode::AbsoluteY)),
-    /*0xDA*/
+    //0xDA
     None,
-    /*0xDB*/
+    //0xDB
     None,
-    /*0xDC*/
+    //0xDC
     None,
-    /*0xDD*/
+    //0xDD
     Some((Instruction::CMP, AddressingMode::AbsoluteX)),
-    /*0xDE*/
+    //0xDE
     Some((Instruction::DEC, AddressingMode::AbsoluteX)),
-    /*0xDF*/
+    //0xDF
     None,
-    /*0xE0*/
+    //0xE0
     Some((Instruction::CPX, AddressingMode::Immediate)),
-    /*0xE1*/
+    //0xE1
     Some((Instruction::SBC, AddressingMode::IndexedIndirectX)),
-    /*0xE2*/
+    //0xE2
     None,
-    /*0xE3*/
+    //0xE3
     None,
-    /*0xE4*/
+    //0xE4
     Some((Instruction::CPX, AddressingMode::ZeroPage)),
-    /*0xE5*/
+    //0xE5
     Some((Instruction::SBC, AddressingMode::ZeroPage)),
-    /*0xE6*/
+    //0xE6
     Some((Instruction::INC, AddressingMode::ZeroPage)),
-    /*0xE7*/
+    //0xE7
     None,
-    /*0xE8*/
+    //0xE8
     Some((Instruction::INX, AddressingMode::Implied)),
-    /*0xE9*/
+    //0xE9
     Some((Instruction::SBC, AddressingMode::Immediate)),
-    /*0xEA*/
+    //0xEA
     Some((Instruction::NOP, AddressingMode::Implied)),
-    /*0xEB*/
+    //0xEB
     None,
-    /*0xEC*/
+    //0xEC
     Some((Instruction::CPX, AddressingMode::Absolute)),
-    /*0xED*/
+    //0xED
     Some((Instruction::SBC, AddressingMode::Absolute)),
-    /*0xEE*/
+    //0xEE
     Some((Instruction::INC, AddressingMode::Absolute)),
-    /*0xEF*/
+    //0xEF
     None,
-    /*0xF0*/
+    //0xF0
     Some((Instruction::BEQ, AddressingMode::Relative)),
-    /*0xF1*/
+    //0xF1
     Some((Instruction::SBC, AddressingMode::IndirectIndexedY)),
-    /*0xF2*/
+    //0xF2
     None,
-    /*0xF3*/
+    //0xF3
     None,
-    /*0xF4*/
+    //0xF4
     None,
-    /*0xF5*/
+    //0xF5
     Some((Instruction::SBC, AddressingMode::ZeroPageX)),
-    /*0xF6*/
+    //0xF6
     Some((Instruction::INC, AddressingMode::ZeroPageX)),
-    /*0xF7*/
+    //0xF7
     None,
-    /*0xF8*/
+    //0xF8
     Some((Instruction::SED, AddressingMode::Implied)),
-    /*0xF9*/
+    //0xF9
     Some((Instruction::SBC, AddressingMode::AbsoluteY)),
-    /*0xFA*/
+    //0xFA
     None,
-    /*0xFB*/
+    //0xFB
     None,
-    /*0xFC*/
+    //0xFC
     None,
-    /*0xFD*/
+    //0xFD
     Some((Instruction::SBC, AddressingMode::AbsoluteX)),
-    /*0xFE*/
+    //0xFE
     Some((Instruction::INC, AddressingMode::AbsoluteX)),
-    /*0xFF*/
+    //0xFF
     None,
 ];
+*/

@@ -25,8 +25,9 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use crate::instruction::{self, AddressingMode, DecodedInstr, Instruction, OpInput};
+use crate::instruction::{AddressingMode, DecodedInstr, Instruction, OpInput};
 use crate::memory::Bus;
+use crate::Variant;
 
 use crate::registers::{Registers, StackPointer, Status, StatusArgs};
 
@@ -37,19 +38,22 @@ fn arr_to_addr(arr: &[u8]) -> u16 {
 }
 
 #[derive(Clone)]
-pub struct CPU<M>
+pub struct CPU<M, V>
 where
     M: Bus,
+    V: Variant,
 {
     pub registers: Registers,
     pub memory: M,
+    variant: core::marker::PhantomData<V>,
 }
 
-impl<M: Bus> CPU<M> {
-    pub fn new(memory: M) -> CPU<M> {
+impl<M: Bus, V: Variant> CPU<M, V> {
+    pub fn new(memory: M, _variant: V) -> CPU<M, V> {
         CPU {
             registers: Registers::new(),
             memory,
+            variant: core::marker::PhantomData::<V>,
         }
     }
 
@@ -60,7 +64,7 @@ impl<M: Bus> CPU<M> {
     pub fn fetch_next_and_decode(&mut self) -> Option<DecodedInstr> {
         let x: u8 = self.memory.get_byte(self.registers.program_counter);
 
-        match instruction::OPCODES[x as usize] {
+        match V::decode(x) {
             Some((instr, am)) => {
                 let extra_bytes = am.extra_bytes();
                 let num_bytes = extra_bytes + 1;
@@ -204,12 +208,12 @@ impl<M: Bus> CPU<M> {
             (Instruction::ASL, OpInput::UseImplied) => {
                 // Accumulator mode
                 let mut val = self.registers.accumulator;
-                CPU::<M>::shift_left_with_flags(&mut val, &mut self.registers.status);
+                CPU::<M, V>::shift_left_with_flags(&mut val, &mut self.registers.status);
                 self.registers.accumulator = val;
             }
             (Instruction::ASL, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::<M>::shift_left_with_flags(&mut operand, &mut self.registers.status);
+                CPU::<M, V>::shift_left_with_flags(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
 
@@ -329,16 +333,16 @@ impl<M: Bus> CPU<M> {
 
             (Instruction::DEC, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::<M>::decrement(&mut operand, &mut self.registers.status);
+                CPU::<M, V>::decrement(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
 
             (Instruction::DEY, OpInput::UseImplied) => {
-                CPU::<M>::decrement(&mut self.registers.index_y, &mut self.registers.status);
+                CPU::<M, V>::decrement(&mut self.registers.index_y, &mut self.registers.status);
             }
 
             (Instruction::DEX, OpInput::UseImplied) => {
-                CPU::<M>::decrement(&mut self.registers.index_x, &mut self.registers.status);
+                CPU::<M, V>::decrement(&mut self.registers.index_x, &mut self.registers.status);
             }
 
             (Instruction::EOR, OpInput::UseImmediate(val)) => {
@@ -351,14 +355,14 @@ impl<M: Bus> CPU<M> {
 
             (Instruction::INC, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::<M>::increment(&mut operand, &mut self.registers.status);
+                CPU::<M, V>::increment(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
             (Instruction::INX, OpInput::UseImplied) => {
-                CPU::<M>::increment(&mut self.registers.index_x, &mut self.registers.status);
+                CPU::<M, V>::increment(&mut self.registers.index_x, &mut self.registers.status);
             }
             (Instruction::INY, OpInput::UseImplied) => {
-                CPU::<M>::increment(&mut self.registers.index_y, &mut self.registers.status);
+                CPU::<M, V>::increment(&mut self.registers.index_y, &mut self.registers.status);
             }
 
             (Instruction::JMP, OpInput::UseAddress(addr)) => self.jump(addr),
@@ -403,12 +407,12 @@ impl<M: Bus> CPU<M> {
             (Instruction::LSR, OpInput::UseImplied) => {
                 // Accumulator mode
                 let mut val = self.registers.accumulator;
-                CPU::<M>::shift_right_with_flags(&mut val, &mut self.registers.status);
+                CPU::<M, V>::shift_right_with_flags(&mut val, &mut self.registers.status);
                 self.registers.accumulator = val;
             }
             (Instruction::LSR, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::<M>::shift_right_with_flags(&mut operand, &mut self.registers.status);
+                CPU::<M, V>::shift_right_with_flags(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
 
@@ -457,23 +461,23 @@ impl<M: Bus> CPU<M> {
             (Instruction::ROL, OpInput::UseImplied) => {
                 // Accumulator mode
                 let mut val = self.registers.accumulator;
-                CPU::<M>::rotate_left_with_flags(&mut val, &mut self.registers.status);
+                CPU::<M, V>::rotate_left_with_flags(&mut val, &mut self.registers.status);
                 self.registers.accumulator = val;
             }
             (Instruction::ROL, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::<M>::rotate_left_with_flags(&mut operand, &mut self.registers.status);
+                CPU::<M, V>::rotate_left_with_flags(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
             (Instruction::ROR, OpInput::UseImplied) => {
                 // Accumulator mode
                 let mut val = self.registers.accumulator;
-                CPU::<M>::rotate_right_with_flags(&mut val, &mut self.registers.status);
+                CPU::<M, V>::rotate_right_with_flags(&mut val, &mut self.registers.status);
                 self.registers.accumulator = val;
             }
             (Instruction::ROR, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::<M>::rotate_right_with_flags(&mut operand, &mut self.registers.status);
+                CPU::<M, V>::rotate_right_with_flags(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
             (Instruction::RTI, OpInput::UseImplied) => {
@@ -617,7 +621,7 @@ impl<M: Bus> CPU<M> {
                 ..StatusArgs::none()
             }),
         );
-        CPU::<M>::set_flags_from_i8(status, *p_val as i8);
+        CPU::<M, V>::set_flags_from_i8(status, *p_val as i8);
     }
 
     fn shift_right_with_flags(p_val: &mut u8, status: &mut Status) {
@@ -631,7 +635,7 @@ impl<M: Bus> CPU<M> {
                 ..StatusArgs::none()
             }),
         );
-        CPU::<M>::set_flags_from_i8(status, *p_val as i8);
+        CPU::<M, V>::set_flags_from_i8(status, *p_val as i8);
     }
 
     fn rotate_left_with_flags(p_val: &mut u8, status: &mut Status) {
@@ -647,7 +651,7 @@ impl<M: Bus> CPU<M> {
                 ..StatusArgs::none()
             }),
         );
-        CPU::<M>::set_flags_from_i8(status, *p_val as i8);
+        CPU::<M, V>::set_flags_from_i8(status, *p_val as i8);
     }
 
     fn rotate_right_with_flags(p_val: &mut u8, status: &mut Status) {
@@ -663,16 +667,16 @@ impl<M: Bus> CPU<M> {
                 ..StatusArgs::none()
             }),
         );
-        CPU::<M>::set_flags_from_i8(status, *p_val as i8);
+        CPU::<M, V>::set_flags_from_i8(status, *p_val as i8);
     }
 
     fn set_u8_with_flags(mem: &mut u8, status: &mut Status, value: u8) {
         *mem = value;
-        CPU::<M>::set_flags_from_u8(status, value);
+        CPU::<M, V>::set_flags_from_u8(status, value);
     }
 
     fn load_x_register(&mut self, value: u8) {
-        CPU::<M>::set_u8_with_flags(
+        CPU::<M, V>::set_u8_with_flags(
             &mut self.registers.index_x,
             &mut self.registers.status,
             value,
@@ -680,7 +684,7 @@ impl<M: Bus> CPU<M> {
     }
 
     fn load_y_register(&mut self, value: u8) {
-        CPU::<M>::set_u8_with_flags(
+        CPU::<M, V>::set_u8_with_flags(
             &mut self.registers.index_y,
             &mut self.registers.status,
             value,
@@ -688,7 +692,7 @@ impl<M: Bus> CPU<M> {
     }
 
     fn load_accumulator(&mut self, value: u8) {
-        CPU::<M>::set_u8_with_flags(
+        CPU::<M, V>::set_u8_with_flags(
             &mut self.registers.accumulator,
             &mut self.registers.status,
             value,
@@ -980,7 +984,7 @@ impl<M: Bus> CPU<M> {
     }
 }
 
-impl<M: Bus> core::fmt::Debug for CPU<M> {
+impl<M: Bus, V: Variant> core::fmt::Debug for CPU<M, V> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(
             f,
