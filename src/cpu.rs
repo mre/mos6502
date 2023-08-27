@@ -998,12 +998,13 @@ impl<M: Bus, V: Variant> core::fmt::Debug for CPU<M, V> {
 mod tests {
 
     use super::*;
+    use crate::instruction::Nmos6502;
     use crate::memory::Memory as Ram;
     use num::range_inclusive;
 
     #[test]
     fn dont_panic_for_overflow() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.add_with_carry(0x80);
         assert_eq!(cpu.registers.accumulator, 0x80);
         cpu.add_with_carry(0x80);
@@ -1017,7 +1018,7 @@ mod tests {
 
     #[cfg_attr(feature = "decimal_mode", test)]
     fn decimal_add_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.registers.status.or(Status::PS_DECIMAL_MODE);
 
         cpu.add_with_carry(0x09);
@@ -1044,7 +1045,7 @@ mod tests {
 
     #[cfg_attr(feature = "decimal_mode", test)]
     fn decimal_subtract_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.registers
             .status
             .or(Status::PS_DECIMAL_MODE | Status::PS_CARRY);
@@ -1066,7 +1067,7 @@ mod tests {
 
     #[test]
     fn add_with_carry_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.add_with_carry(1);
         assert_eq!(cpu.registers.accumulator, 1);
@@ -1089,7 +1090,7 @@ mod tests {
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         assert_eq!(cpu.registers.accumulator, 0);
         cpu.add_with_carry(127);
@@ -1121,7 +1122,7 @@ mod tests {
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.add_with_carry(127);
         assert_eq!(cpu.registers.accumulator, 127);
@@ -1137,7 +1138,7 @@ mod tests {
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.registers.status.or(Status::PS_CARRY);
         cpu.add_with_carry(0xff);
         assert_eq!(cpu.registers.accumulator, 0);
@@ -1146,7 +1147,7 @@ mod tests {
 
     #[test]
     fn solid65_adc_immediate() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         // Adding $FF plus carry should be the same as adding $00 and no carry, so these three
         // instructions should leave the carry flags unaffected, i.e. set.
@@ -1160,7 +1161,7 @@ mod tests {
 
     #[test]
     fn and_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.registers.accumulator = 0;
         cpu.and(0xff);
@@ -1189,7 +1190,7 @@ mod tests {
 
     #[test]
     fn subtract_with_carry_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
         cpu.registers.accumulator = 0;
@@ -1249,7 +1250,7 @@ mod tests {
 
     #[test]
     fn decrement_memory_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         let addr: u16 = 0xA1B2;
 
         cpu.memory.set_byte(addr, 5);
@@ -1286,7 +1287,7 @@ mod tests {
 
     #[test]
     fn decrement_x_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.registers.index_x = 0x80;
         cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
         assert_eq!(cpu.registers.index_x, 127);
@@ -1296,7 +1297,7 @@ mod tests {
 
     #[test]
     fn decrement_y_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.registers.index_y = 0x80;
         cpu.execute_instruction((Instruction::DEY, OpInput::UseImplied));
         assert_eq!(cpu.registers.index_y, 127);
@@ -1308,7 +1309,7 @@ mod tests {
     fn logical_shift_right_test() {
         // Testing UseImplied version (which targets the accumulator) only, for now
 
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(0)));
         cpu.execute_instruction((Instruction::LSR, OpInput::UseImplied));
         assert_eq!(cpu.registers.accumulator, 0);
@@ -1344,7 +1345,7 @@ mod tests {
 
     #[test]
     fn dec_x_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
         assert_eq!(cpu.registers.index_x, 0xff);
@@ -1389,7 +1390,7 @@ mod tests {
 
     #[test]
     fn jump_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         let addr: u16 = 0xA1B1;
 
         cpu.jump(addr);
@@ -1398,7 +1399,7 @@ mod tests {
 
     #[test]
     fn branch_if_carry_clear_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
         cpu.branch_if_carry_clear(0xABCD);
@@ -1411,7 +1412,7 @@ mod tests {
 
     #[test]
     fn branch_if_carry_set_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.execute_instruction((Instruction::CLC, OpInput::UseImplied));
         cpu.branch_if_carry_set(0xABCD);
@@ -1424,7 +1425,7 @@ mod tests {
 
     #[test]
     fn branch_if_equal_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.branch_if_equal(0xABCD);
         assert_eq!(cpu.registers.program_counter, (0));
@@ -1437,7 +1438,7 @@ mod tests {
     #[test]
     fn branch_if_minus_test() {
         {
-            let mut cpu = CPU::new(Ram::new());
+            let mut cpu = CPU::new(Ram::new(), Nmos6502);
             let registers_before = cpu.registers;
 
             cpu.branch_if_minus(0xABCD);
@@ -1446,7 +1447,7 @@ mod tests {
         }
 
         {
-            let mut cpu = CPU::new(Ram::new());
+            let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
             cpu.registers.status.or(Status::PS_NEGATIVE);
             let registers_before = cpu.registers;
@@ -1459,7 +1460,7 @@ mod tests {
 
     #[test]
     fn branch_if_positive_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.registers.status.insert(Status::PS_NEGATIVE);
         cpu.branch_if_positive(0xABCD);
@@ -1472,7 +1473,7 @@ mod tests {
 
     #[test]
     fn branch_if_overflow_clear_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.registers.status.insert(Status::PS_OVERFLOW);
         cpu.branch_if_overflow_clear(0xABCD);
@@ -1485,7 +1486,7 @@ mod tests {
 
     #[test]
     fn branch_across_end_of_address_space() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.registers.program_counter = 0xffff;
 
         cpu.registers.status.insert(Status::PS_OVERFLOW);
@@ -1495,7 +1496,7 @@ mod tests {
 
     #[test]
     fn branch_if_overflow_set_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.branch_if_overflow_set(0xABCD);
         assert_eq!(cpu.registers.program_counter, (0));
@@ -1508,9 +1509,9 @@ mod tests {
     #[cfg(test)]
     fn compare_test_helper<F>(compare: &mut F, load_instruction: Instruction)
     where
-        F: FnMut(&mut CPU<Ram>, u8),
+        F: FnMut(&mut CPU<Ram, crate::instruction::Nmos6502>, u8),
     {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
 
@@ -1558,7 +1559,7 @@ mod tests {
     #[test]
     fn compare_with_a_register_test() {
         compare_test_helper(
-            &mut |cpu: &mut CPU<Ram>, val: u8| {
+            &mut |cpu: &mut CPU<Ram, Nmos6502>, val: u8| {
                 cpu.compare_with_a_register(val);
             },
             Instruction::LDA,
@@ -1568,7 +1569,7 @@ mod tests {
     #[test]
     fn compare_with_x_register_test() {
         compare_test_helper(
-            &mut |cpu: &mut CPU<Ram>, val: u8| {
+            &mut |cpu: &mut CPU<Ram, Nmos6502>, val: u8| {
                 cpu.compare_with_x_register(val);
             },
             Instruction::LDX,
@@ -1578,7 +1579,7 @@ mod tests {
     #[test]
     fn compare_with_y_register_test() {
         compare_test_helper(
-            &mut |cpu: &mut CPU<Ram>, val: u8| {
+            &mut |cpu: &mut CPU<Ram, Nmos6502>, val: u8| {
                 cpu.compare_with_y_register(val);
             },
             Instruction::LDY,
@@ -1587,7 +1588,7 @@ mod tests {
 
     #[test]
     fn exclusive_or_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         for a_before in range_inclusive(0u8, 255u8) {
             for val in range_inclusive(0u8, 255u8) {
@@ -1615,7 +1616,7 @@ mod tests {
 
     #[test]
     fn inclusive_or_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         for a_before in range_inclusive(0u8, 255u8) {
             for val in range_inclusive(0u8, 255u8) {
@@ -1643,7 +1644,7 @@ mod tests {
 
     #[test]
     fn stack_underflow() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         let _val: u8 = cpu.pull_from_stack();
     }
 }

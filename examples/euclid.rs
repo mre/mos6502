@@ -1,4 +1,5 @@
 use mos6502::cpu;
+use mos6502::instruction::Nmos6502;
 use mos6502::memory::Bus;
 use mos6502::memory::Memory;
 use std::fs::read;
@@ -22,7 +23,7 @@ fn main() {
         }
     };
 
-    let mut cpu = cpu::CPU::new(Memory::new());
+    let mut cpu = cpu::CPU::new(Memory::new(), Nmos6502);
 
     cpu.memory.set_bytes(0x00, &zero_page_data);
     cpu.memory.set_bytes(0x10, &program);
