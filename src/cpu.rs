@@ -196,6 +196,15 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 debug!("add with carry. address: {:?}. value: {}", addr, val);
                 self.add_with_carry(val);
             }
+            (Instruction::ADCnd, OpInput::UseImmediate(val)) => {
+                debug!("add with carry immediate: {}", val);
+                self.add_with_no_decimal(val);
+            }
+            (Instruction::ADCnd, OpInput::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+                debug!("add with carry. address: {:?}. value: {}", addr, val);
+                self.add_with_no_decimal(val);
+            }
 
             (Instruction::AND, OpInput::UseImmediate(val)) => {
                 self.and(val);
@@ -509,6 +518,16 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.subtract_with_carry(val);
             }
 
+            (Instruction::SBCnd, OpInput::UseImmediate(val)) => {
+                debug!("subtract with carry immediate: {}", val);
+                self.subtract_with_no_decimal(val);
+            }
+            (Instruction::SBCnd, OpInput::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+                debug!("subtract with carry. address: {:?}. value: {}", addr, val);
+                self.subtract_with_no_decimal(val);
+            }
+
             (Instruction::SEC, OpInput::UseImplied) => {
                 self.registers.status.or(Status::PS_CARRY);
             }
@@ -700,7 +719,6 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     }
 
     fn add_with_carry(&mut self, value: u8) {
-        #[cfg(feature = "decimal_mode")]
         fn decimal_adjust(result: u8) -> u8 {
             let bcd1: u8 = if (result & 0x0f) > 0x09 { 0x06 } else { 0x00 };
 
@@ -719,15 +737,43 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
         debug_assert_eq!(a_after, a_before.wrapping_add(c_before).wrapping_add(value));
 
-        #[cfg(feature = "decimal_mode")]
         let result: u8 = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
             decimal_adjust(a_after)
         } else {
             a_after
         };
 
-        #[cfg(not(feature = "decimal_mode"))]
-        let result: u8 = a_after;
+        let did_carry = (result) < (a_before)
+            || (a_after == 0 && c_before == 0x01)
+            || (value == 0xff && c_before == 0x01);
+
+        let did_overflow = (a_before > 127 && value > 127 && a_after < 128)
+            || (a_before < 128 && value < 128 && a_after > 127);
+
+        let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
+
+        self.registers.status.set_with_mask(
+            mask,
+            Status::new(StatusArgs {
+                carry: did_carry,
+                overflow: did_overflow,
+                ..StatusArgs::none()
+            }),
+        );
+
+        self.load_accumulator(result);
+
+        debug!("accumulator: {}", self.registers.accumulator);
+    }
+
+    fn add_with_no_decimal(&mut self, value: u8) {
+        let a_before: u8 = self.registers.accumulator;
+        let c_before: u8 = u8::from(self.registers.status.contains(Status::PS_CARRY));
+        let a_after: u8 = a_before.wrapping_add(c_before).wrapping_add(value);
+
+        debug_assert_eq!(a_after, a_before.wrapping_add(c_before).wrapping_add(value));
+
+        let result = a_after;
 
         let did_carry = (result) < (a_before)
             || (a_after == 0 && c_before == 0x01)
@@ -755,6 +801,52 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     fn and(&mut self, value: u8) {
         let a_after = self.registers.accumulator & value;
         self.load_accumulator(a_after);
+    }
+
+    fn subtract_with_no_decimal(&mut self, value: u8) {
+        // A - M - (1 - C)
+
+        // nc -- 'not carry'
+        let nc: u8 = if self.registers.status.contains(Status::PS_CARRY) {
+            0
+        } else {
+            1
+        };
+
+        let a_before = self.registers.accumulator;
+
+        let a_after = a_before.wrapping_sub(value).wrapping_sub(nc);
+
+        // The overflow flag is set on two's-complement overflow.
+        //
+        // range of A              is  -128 to 127
+        // range of - M - (1 - C)  is  -128 to 128
+        //                             -(127 + 1) to -(-128 + 0)
+        //
+        let over = (nc == 0 && value > 127) && a_before < 128 && a_after > 127;
+
+        let under =
+            (a_before > 127) && (0u8.wrapping_sub(value).wrapping_sub(nc) > 127) && a_after < 128;
+
+        let did_overflow = over || under;
+
+        let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
+
+        let result = a_after;
+
+        // The carry flag is set on unsigned overflow.
+        let did_carry = (result) > (a_before);
+
+        self.registers.status.set_with_mask(
+            mask,
+            Status::new(StatusArgs {
+                carry: did_carry,
+                overflow: did_overflow,
+                ..StatusArgs::none()
+            }),
+        );
+
+        self.load_accumulator(result);
     }
 
     fn subtract_with_carry(&mut self, value: u8) {
@@ -798,15 +890,11 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             0x00
         };
 
-        #[cfg(feature = "decimal_mode")]
         let result: u8 = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
             a_after.wrapping_sub(bcd1).wrapping_sub(bcd2)
         } else {
             a_after
         };
-
-        #[cfg(not(feature = "decimal_mode"))]
-        let result = a_after;
 
         // The carry flag is set on unsigned overflow.
         let did_carry = (result) > (a_before);

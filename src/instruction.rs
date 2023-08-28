@@ -44,39 +44,40 @@
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Instruction {
-    ADC, // ADd with Carry................ | NV ...ZC A            = A + M + C
-    AND, // logical AND (bitwise)......... | N. ...Z. A            = A && M
-    ASL, // Arithmetic Shift Left......... | N. ...ZC A            = M << 1
-    BCC, // Branch if Carry Clear......... | .. .....         PC   = !C
-    BCS, // Branch if Carry Set........... | .. .....         PC   = C
-    BEQ, // Branch if Equal (to zero?).... | .. .....         PC   = Z
-    BIT, // BIT test...................... | NV ...Z.              = A & M
-    BMI, // Branch if Minus............... | .. .....         PC   = N
-    BNE, // Branch if Not Equal........... | .. .....         PC   = !Z
-    BPL, // Branch if Positive............ | .. .....         PC   = Z
-    BRK, // BReaK......................... | .. B....       S PC   =
-    BVC, // Branch if oVerflow Clear...... | .. .....         PC   = !V
-    BVS, // Branch if oVerflow Set........ | .. .....         PC   = V
-    CLC, // CLear Carry flag.............. | .. ....C              = 0
-    CLD, // Clear Decimal Mode............ | .. .D...              = 0
-    CLI, // Clear Interrupt Disable....... | .. ..I..              = 0
-    CLV, // Clear oVerflow flag........... | .V .....              = 0
-    CMP, // Compare....................... | N. ...ZC              = A - M
-    CPX, // Compare X register............ | N. ...ZC              = X - M
-    CPY, // Compare Y register............ | N. ...ZC              = Y - M
-    DEC, // DECrement memory.............. | N. ...Z.            M = M - 1
-    DEX, // DEcrement X register.......... | N. ...Z.   X          = X - 1
-    DEY, // DEcrement Y register.......... | N. ...Z.     Y        = Y - 1
-    EOR, // Exclusive OR (bitwise)........ | N. ...Z. A            = A ^ M
-    INC, // INCrement memory.............. | N. ...Z.            M = M + 1
-    INX, // INcrement X register.......... | N. ...Z.   X          = X + 1
-    INY, // INcrement Y register.......... | N. ...Z.     Y        = Y + 1
-    JMP, // JuMP.......................... | .. .....       S PC   =
-    JSR, // Jump to SubRoutine............ | .. .....       S PC   =
-    LDA, // LoaD Accumulator.............. | N. ...Z. A            = M
-    LDX, // LoaD X register............... | N. ...Z.   X          = M
-    LDY, // LoaD Y register............... | N. ...Z.     Y        = M
-    LSR, // Logical Shift Right........... | N. ...ZC A            = A/2
+    ADC,   // ADd with Carry................ | NV ...ZC A            = A + M + C
+    ADCnd, // ADd with Carry................ | NV ...ZC A            = A + M + C
+    AND,   // logical AND (bitwise)......... | N. ...Z. A            = A && M
+    ASL,   // Arithmetic Shift Left......... | N. ...ZC A            = M << 1
+    BCC,   // Branch if Carry Clear......... | .. .....         PC   = !C
+    BCS,   // Branch if Carry Set........... | .. .....         PC   = C
+    BEQ,   // Branch if Equal (to zero?).... | .. .....         PC   = Z
+    BIT,   // BIT test...................... | NV ...Z.              = A & M
+    BMI,   // Branch if Minus............... | .. .....         PC   = N
+    BNE,   // Branch if Not Equal........... | .. .....         PC   = !Z
+    BPL,   // Branch if Positive............ | .. .....         PC   = Z
+    BRK,   // BReaK......................... | .. B....       S PC   =
+    BVC,   // Branch if oVerflow Clear...... | .. .....         PC   = !V
+    BVS,   // Branch if oVerflow Set........ | .. .....         PC   = V
+    CLC,   // CLear Carry flag.............. | .. ....C              = 0
+    CLD,   // Clear Decimal Mode............ | .. .D...              = 0
+    CLI,   // Clear Interrupt Disable....... | .. ..I..              = 0
+    CLV,   // Clear oVerflow flag........... | .V .....              = 0
+    CMP,   // Compare....................... | N. ...ZC              = A - M
+    CPX,   // Compare X register............ | N. ...ZC              = X - M
+    CPY,   // Compare Y register............ | N. ...ZC              = Y - M
+    DEC,   // DECrement memory.............. | N. ...Z.            M = M - 1
+    DEX,   // DEcrement X register.......... | N. ...Z.   X          = X - 1
+    DEY,   // DEcrement Y register.......... | N. ...Z.     Y        = Y - 1
+    EOR,   // Exclusive OR (bitwise)........ | N. ...Z. A            = A ^ M
+    INC,   // INCrement memory.............. | N. ...Z.            M = M + 1
+    INX,   // INcrement X register.......... | N. ...Z.   X          = X + 1
+    INY,   // INcrement Y register.......... | N. ...Z.     Y        = Y + 1
+    JMP,   // JuMP.......................... | .. .....       S PC   =
+    JSR,   // Jump to SubRoutine............ | .. .....       S PC   =
+    LDA,   // LoaD Accumulator.............. | N. ...Z. A            = M
+    LDX,   // LoaD X register............... | N. ...Z.   X          = M
+    LDY,   // LoaD Y register............... | N. ...Z.     Y        = M
+    LSR,   // Logical Shift Right........... | N. ...ZC A            = A/2
     //                               or N. ...ZC            M = M/2
     NOP, // No OPeration.................. | .. .....              =
     ORA, // inclusive OR (bitwise)........ | N. ...Z. A            = A | M
@@ -88,21 +89,22 @@ pub enum Instruction {
     //                               or N. ...ZC            M = C M rotated
     ROR, // ROtate Right.................. | N. ...ZC A            = C A rotated
     //                               or N. ...ZC            M = C M rotated
-    RTI, // ReTurn from Interrupt......... | NV BDIZC         PC   = M (stack)
-    RTS, // ReTurn from Subroutine........ | .. .....         PC   = M (stack)
-    SBC, // SuBtract with Carry........... | NV ...ZC A            = A-M-(1-C)
-    SEC, // SEt Carry flag................ | .. ....C              = 1
-    SED, // SEt Decimal flag.............. | .. .D...              = 1
-    SEI, // SEt Interrupt disable......... | .. ..I..              = 1
-    STA, // STore Accumulator............. | .. .....            M = A
-    STX, // STore X register.............. | .. .....            M = X
-    STY, // STore Y register.............. | .. .....            M = Y
-    TAX, // Transfer Accumulator to X..... | N. ...Z.   X          = A
-    TAY, // Transfer Accumulator to Y..... | N. ...Z.     Y        = A
-    TSX, // Transfer Stack pointer to X... | N. ...Z.   X          = S
-    TXA, // Transfer X to Accumulator..... | N. ...Z. A            = X
-    TXS, // Transfer X to Stack pointer... | .. .....       S      = X
-    TYA, // Transfer Y to Accumulator..... | N. ...Z. A            = Y
+    RTI,   // ReTurn from Interrupt......... | NV BDIZC         PC   = M (stack)
+    RTS,   // ReTurn from Subroutine........ | .. .....         PC   = M (stack)
+    SBC,   // SuBtract with Carry........... | NV ...ZC A            = A-M-(1-C)
+    SBCnd, // SuBtract with Carry........... | NV ...ZC A            = A-M-(1-C)
+    SEC,   // SEt Carry flag................ | .. ....C              = 1
+    SED,   // SEt Decimal flag.............. | .. .D...              = 1
+    SEI,   // SEt Interrupt disable......... | .. ..I..              = 1
+    STA,   // STore Accumulator............. | .. .....            M = A
+    STX,   // STore X register.............. | .. .....            M = X
+    STY,   // STore Y register.............. | .. .....            M = Y
+    TAX,   // Transfer Accumulator to X..... | N. ...Z.   X          = A
+    TAY,   // Transfer Accumulator to Y..... | N. ...Z.     Y        = A
+    TSX,   // Transfer Stack pointer to X... | N. ...Z.   X          = S
+    TXA,   // Transfer X to Accumulator..... | N. ...Z. A            = X
+    TXS,   // Transfer X to Stack pointer... | .. .....       S      = X
+    TYA,   // Transfer Y to Accumulator..... | N. ...Z. A            = Y
 }
 
 #[derive(Copy, Clone)]
@@ -415,6 +417,32 @@ impl crate::Variant for Nmos6502 {
             0xfd => Some((Instruction::SBC, AddressingMode::AbsoluteX)),
             0xfe => Some((Instruction::INC, AddressingMode::AbsoluteX)),
             0xff => None,
+        }
+    }
+}
+
+pub struct Ricoh2a03;
+
+impl crate::Variant for Ricoh2a03 {
+    fn decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
+        match opcode {
+            0x61 => Some((Instruction::ADCnd, AddressingMode::IndexedIndirectX)),
+            0x65 => Some((Instruction::ADCnd, AddressingMode::ZeroPage)),
+            0x69 => Some((Instruction::ADCnd, AddressingMode::Immediate)),
+            0x6d => Some((Instruction::ADCnd, AddressingMode::Absolute)),
+            0x71 => Some((Instruction::ADCnd, AddressingMode::IndirectIndexedY)),
+            0x75 => Some((Instruction::ADCnd, AddressingMode::ZeroPageX)),
+            0x79 => Some((Instruction::ADCnd, AddressingMode::AbsoluteY)),
+            0x7d => Some((Instruction::ADCnd, AddressingMode::AbsoluteX)),
+            0xe1 => Some((Instruction::SBCnd, AddressingMode::IndexedIndirectX)),
+            0xe5 => Some((Instruction::SBCnd, AddressingMode::ZeroPage)),
+            0xe9 => Some((Instruction::SBCnd, AddressingMode::Immediate)),
+            0xed => Some((Instruction::SBCnd, AddressingMode::Absolute)),
+            0xf1 => Some((Instruction::SBCnd, AddressingMode::IndirectIndexedY)),
+            0xf5 => Some((Instruction::SBCnd, AddressingMode::ZeroPageX)),
+            0xf9 => Some((Instruction::SBCnd, AddressingMode::AbsoluteY)),
+            0xfd => Some((Instruction::SBCnd, AddressingMode::AbsoluteX)),
+            _ => Nmos6502::decode(opcode),
         }
     }
 }
