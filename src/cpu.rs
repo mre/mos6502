@@ -1155,6 +1155,16 @@ mod tests {
     }
 
     #[test]
+    fn php_sets_bits_4_and_5() {
+        let mut cpu = CPU::new(Ram::new());
+        cpu.execute_instruction((Instruction::PHP, OpInput::UseImplied));
+        cpu.execute_instruction((Instruction::PLA, OpInput::UseImplied));
+        cpu.execute_instruction((Instruction::AND, OpInput::UseImmediate(0x30)));
+
+        assert_eq!(cpu.registers.accumulator, 0x30);
+    }
+
+    #[test]
     fn and_test() {
         let mut cpu = CPU::new(Ram::new());
 
