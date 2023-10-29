@@ -995,7 +995,6 @@ mod tests {
 
     use super::*;
     use crate::memory::Memory as Ram;
-    use num::range_inclusive;
 
     #[test]
     fn dont_panic_for_overflow() {
@@ -1585,8 +1584,8 @@ mod tests {
     fn exclusive_or_test() {
         let mut cpu = CPU::new(Ram::new());
 
-        for a_before in range_inclusive(0u8, 255u8) {
-            for val in range_inclusive(0u8, 255u8) {
+        for a_before in 0u8..=255u8 {
+            for val in 0u8..=255u8 {
                 cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(a_before)));
 
                 cpu.exclusive_or(val);
@@ -1613,8 +1612,8 @@ mod tests {
     fn inclusive_or_test() {
         let mut cpu = CPU::new(Ram::new());
 
-        for a_before in range_inclusive(0u8, 255u8) {
-            for val in range_inclusive(0u8, 255u8) {
+        for a_before in 0u8..=255u8 {
+            for val in 0u8..=255u8 {
                 cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(a_before)));
 
                 cpu.inclusive_or(val);
