@@ -427,7 +427,7 @@ impl<M: Bus> CPU<M> {
             }
             (Instruction::PHP, OpInput::UseImplied) => {
                 // Push status
-                let val = self.registers.status.bits();
+                let val = self.registers.status.bits() | 0x30;
                 self.push_on_stack(val);
             }
             (Instruction::PLA, OpInput::UseImplied) => {
