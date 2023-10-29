@@ -32,7 +32,6 @@ description = "A MOS 6502 Emulator"
 license = "BSD-3-Clause"
 version = "0.5.0"
 authors = ["The 6502-rs Developers"]
-build = "build.rs"
 exclude = ["examples/**"]
 edition = "2021"
 
@@ -48,12 +47,6 @@ log = "0.4.19"
 version = "0.4.0"
 # no_std support
 default-features = false
-
-[build-dependencies]
-skeptic = "0.13.7"
-
-[dev-dependencies]
-skeptic = "0.13.7"
 
 [features]
 decimal_mode = []
