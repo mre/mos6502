@@ -44,11 +44,6 @@ name = "mos6502"
 bitflags = "2.3.3"
 log = "0.4.19"
 
-[dependencies.num]
-version = "0.4.0"
-# no_std support
-default-features = false
-
 [build-dependencies]
 skeptic = "0.13.7"
 
