@@ -440,7 +440,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
             (Instruction::PHP, OpInput::UseImplied) => {
                 // Push status
-                let val = self.registers.status.bits();
+                let val = self.registers.status.bits() | 0x30;
                 self.push_on_stack(val);
             }
             (Instruction::PLA, OpInput::UseImplied) => {
@@ -1088,7 +1088,6 @@ mod tests {
     use super::*;
     use crate::instruction::Nmos6502;
     use crate::memory::Memory as Ram;
-    use num::range_inclusive;
 
     #[test]
     fn dont_panic_for_overflow() {
@@ -1245,6 +1244,16 @@ mod tests {
 
         assert_eq!(cpu.registers.accumulator, 0x9c);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
+    }
+
+    #[test]
+    fn php_sets_bits_4_and_5() {
+        let mut cpu = CPU::new(Ram::new());
+        cpu.execute_instruction((Instruction::PHP, OpInput::UseImplied));
+        cpu.execute_instruction((Instruction::PLA, OpInput::UseImplied));
+        cpu.execute_instruction((Instruction::AND, OpInput::UseImmediate(0x30)));
+
+        assert_eq!(cpu.registers.accumulator, 0x30);
     }
 
     #[test]
@@ -1678,8 +1687,8 @@ mod tests {
     fn exclusive_or_test() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
-        for a_before in range_inclusive(0u8, 255u8) {
-            for val in range_inclusive(0u8, 255u8) {
+        for a_before in 0u8..=255u8 {
+            for val in 0u8..=255u8 {
                 cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(a_before)));
 
                 cpu.exclusive_or(val);
@@ -1706,8 +1715,8 @@ mod tests {
     fn inclusive_or_test() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
-        for a_before in range_inclusive(0u8, 255u8) {
-            for val in range_inclusive(0u8, 255u8) {
+        for a_before in 0u8..=255u8 {
+            for val in 0u8..=255u8 {
                 cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(a_before)));
 
                 cpu.inclusive_or(val);
