@@ -156,6 +156,7 @@ impl AddressingMode {
 
 pub type DecodedInstr = (Instruction, OpInput);
 
+/// The NMOS 6502 variant. This one is present in the Commodore 64, early Apple IIs, etc.
 pub struct Nmos6502;
 
 impl crate::Variant for Nmos6502 {
@@ -421,6 +422,8 @@ impl crate::Variant for Nmos6502 {
     }
 }
 
+/// The Ricoh variant which has no decimal mode. This is what to use if you want to emulate the
+/// NES.
 pub struct Ricoh2a03;
 
 impl crate::Variant for Ricoh2a03 {
@@ -446,6 +449,9 @@ impl crate::Variant for Ricoh2a03 {
         }
     }
 }
+
+/// Emulates some very early 6502s which have no ROR instruction. This one is used in very early
+/// KIM-1s.
 pub struct RevisionA;
 
 impl crate::Variant for RevisionA {
