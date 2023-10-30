@@ -1248,7 +1248,7 @@ mod tests {
 
     #[test]
     fn php_sets_bits_4_and_5() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.execute_instruction((Instruction::PHP, OpInput::UseImplied));
         cpu.execute_instruction((Instruction::PLA, OpInput::UseImplied));
         cpu.execute_instruction((Instruction::AND, OpInput::UseImmediate(0x30)));
