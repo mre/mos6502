@@ -427,7 +427,7 @@ impl<M: Bus> CPU<M> {
             }
             (Instruction::PHP, OpInput::UseImplied) => {
                 // Push status
-                let val = self.registers.status.bits();
+                let val = self.registers.status.bits() | 0x30;
                 self.push_on_stack(val);
             }
             (Instruction::PLA, OpInput::UseImplied) => {
@@ -1151,6 +1151,16 @@ mod tests {
 
         assert_eq!(cpu.registers.accumulator, 0x9c);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
+    }
+
+    #[test]
+    fn php_sets_bits_4_and_5() {
+        let mut cpu = CPU::new(Ram::new());
+        cpu.execute_instruction((Instruction::PHP, OpInput::UseImplied));
+        cpu.execute_instruction((Instruction::PLA, OpInput::UseImplied));
+        cpu.execute_instruction((Instruction::AND, OpInput::UseImmediate(0x30)));
+
+        assert_eq!(cpu.registers.accumulator, 0x30);
     }
 
     #[test]
