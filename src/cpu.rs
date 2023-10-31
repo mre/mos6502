@@ -25,8 +25,9 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use crate::instruction::{self, AddressingMode, DecodedInstr, Instruction, OpInput};
+use crate::instruction::{AddressingMode, DecodedInstr, Instruction, OpInput};
 use crate::memory::Bus;
+use crate::Variant;
 
 use crate::registers::{Registers, StackPointer, Status, StatusArgs};
 
@@ -37,19 +38,22 @@ fn arr_to_addr(arr: &[u8]) -> u16 {
 }
 
 #[derive(Clone)]
-pub struct CPU<M>
+pub struct CPU<M, V>
 where
     M: Bus,
+    V: Variant,
 {
     pub registers: Registers,
     pub memory: M,
+    variant: core::marker::PhantomData<V>,
 }
 
-impl<M: Bus> CPU<M> {
-    pub fn new(memory: M) -> CPU<M> {
+impl<M: Bus, V: Variant> CPU<M, V> {
+    pub fn new(memory: M, _variant: V) -> CPU<M, V> {
         CPU {
             registers: Registers::new(),
             memory,
+            variant: core::marker::PhantomData::<V>,
         }
     }
 
@@ -60,7 +64,7 @@ impl<M: Bus> CPU<M> {
     pub fn fetch_next_and_decode(&mut self) -> Option<DecodedInstr> {
         let x: u8 = self.memory.get_byte(self.registers.program_counter);
 
-        match instruction::OPCODES[x as usize] {
+        match V::decode(x) {
             Some((instr, am)) => {
                 let extra_bytes = am.extra_bytes();
                 let num_bytes = extra_bytes + 1;
@@ -192,6 +196,15 @@ impl<M: Bus> CPU<M> {
                 debug!("add with carry. address: {:?}. value: {}", addr, val);
                 self.add_with_carry(val);
             }
+            (Instruction::ADCnd, OpInput::UseImmediate(val)) => {
+                debug!("add with carry immediate: {}", val);
+                self.add_with_no_decimal(val);
+            }
+            (Instruction::ADCnd, OpInput::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+                debug!("add with carry. address: {:?}. value: {}", addr, val);
+                self.add_with_no_decimal(val);
+            }
 
             (Instruction::AND, OpInput::UseImmediate(val)) => {
                 self.and(val);
@@ -204,12 +217,12 @@ impl<M: Bus> CPU<M> {
             (Instruction::ASL, OpInput::UseImplied) => {
                 // Accumulator mode
                 let mut val = self.registers.accumulator;
-                CPU::<M>::shift_left_with_flags(&mut val, &mut self.registers.status);
+                CPU::<M, V>::shift_left_with_flags(&mut val, &mut self.registers.status);
                 self.registers.accumulator = val;
             }
             (Instruction::ASL, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::<M>::shift_left_with_flags(&mut operand, &mut self.registers.status);
+                CPU::<M, V>::shift_left_with_flags(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
 
@@ -329,16 +342,16 @@ impl<M: Bus> CPU<M> {
 
             (Instruction::DEC, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::<M>::decrement(&mut operand, &mut self.registers.status);
+                CPU::<M, V>::decrement(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
 
             (Instruction::DEY, OpInput::UseImplied) => {
-                CPU::<M>::decrement(&mut self.registers.index_y, &mut self.registers.status);
+                CPU::<M, V>::decrement(&mut self.registers.index_y, &mut self.registers.status);
             }
 
             (Instruction::DEX, OpInput::UseImplied) => {
-                CPU::<M>::decrement(&mut self.registers.index_x, &mut self.registers.status);
+                CPU::<M, V>::decrement(&mut self.registers.index_x, &mut self.registers.status);
             }
 
             (Instruction::EOR, OpInput::UseImmediate(val)) => {
@@ -351,14 +364,14 @@ impl<M: Bus> CPU<M> {
 
             (Instruction::INC, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::<M>::increment(&mut operand, &mut self.registers.status);
+                CPU::<M, V>::increment(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
             (Instruction::INX, OpInput::UseImplied) => {
-                CPU::<M>::increment(&mut self.registers.index_x, &mut self.registers.status);
+                CPU::<M, V>::increment(&mut self.registers.index_x, &mut self.registers.status);
             }
             (Instruction::INY, OpInput::UseImplied) => {
-                CPU::<M>::increment(&mut self.registers.index_y, &mut self.registers.status);
+                CPU::<M, V>::increment(&mut self.registers.index_y, &mut self.registers.status);
             }
 
             (Instruction::JMP, OpInput::UseAddress(addr)) => self.jump(addr),
@@ -403,12 +416,12 @@ impl<M: Bus> CPU<M> {
             (Instruction::LSR, OpInput::UseImplied) => {
                 // Accumulator mode
                 let mut val = self.registers.accumulator;
-                CPU::<M>::shift_right_with_flags(&mut val, &mut self.registers.status);
+                CPU::<M, V>::shift_right_with_flags(&mut val, &mut self.registers.status);
                 self.registers.accumulator = val;
             }
             (Instruction::LSR, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::<M>::shift_right_with_flags(&mut operand, &mut self.registers.status);
+                CPU::<M, V>::shift_right_with_flags(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
 
@@ -457,23 +470,23 @@ impl<M: Bus> CPU<M> {
             (Instruction::ROL, OpInput::UseImplied) => {
                 // Accumulator mode
                 let mut val = self.registers.accumulator;
-                CPU::<M>::rotate_left_with_flags(&mut val, &mut self.registers.status);
+                CPU::<M, V>::rotate_left_with_flags(&mut val, &mut self.registers.status);
                 self.registers.accumulator = val;
             }
             (Instruction::ROL, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::<M>::rotate_left_with_flags(&mut operand, &mut self.registers.status);
+                CPU::<M, V>::rotate_left_with_flags(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
             (Instruction::ROR, OpInput::UseImplied) => {
                 // Accumulator mode
                 let mut val = self.registers.accumulator;
-                CPU::<M>::rotate_right_with_flags(&mut val, &mut self.registers.status);
+                CPU::<M, V>::rotate_right_with_flags(&mut val, &mut self.registers.status);
                 self.registers.accumulator = val;
             }
             (Instruction::ROR, OpInput::UseAddress(addr)) => {
                 let mut operand: u8 = self.memory.get_byte(addr);
-                CPU::<M>::rotate_right_with_flags(&mut operand, &mut self.registers.status);
+                CPU::<M, V>::rotate_right_with_flags(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
             (Instruction::RTI, OpInput::UseImplied) => {
@@ -503,6 +516,16 @@ impl<M: Bus> CPU<M> {
                 let val = self.memory.get_byte(addr);
                 debug!("subtract with carry. address: {:?}. value: {}", addr, val);
                 self.subtract_with_carry(val);
+            }
+
+            (Instruction::SBCnd, OpInput::UseImmediate(val)) => {
+                debug!("subtract with carry immediate: {}", val);
+                self.subtract_with_no_decimal(val);
+            }
+            (Instruction::SBCnd, OpInput::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+                debug!("subtract with carry. address: {:?}. value: {}", addr, val);
+                self.subtract_with_no_decimal(val);
             }
 
             (Instruction::SEC, OpInput::UseImplied) => {
@@ -617,7 +640,7 @@ impl<M: Bus> CPU<M> {
                 ..StatusArgs::none()
             }),
         );
-        CPU::<M>::set_flags_from_i8(status, *p_val as i8);
+        CPU::<M, V>::set_flags_from_i8(status, *p_val as i8);
     }
 
     fn shift_right_with_flags(p_val: &mut u8, status: &mut Status) {
@@ -631,7 +654,7 @@ impl<M: Bus> CPU<M> {
                 ..StatusArgs::none()
             }),
         );
-        CPU::<M>::set_flags_from_i8(status, *p_val as i8);
+        CPU::<M, V>::set_flags_from_i8(status, *p_val as i8);
     }
 
     fn rotate_left_with_flags(p_val: &mut u8, status: &mut Status) {
@@ -647,7 +670,7 @@ impl<M: Bus> CPU<M> {
                 ..StatusArgs::none()
             }),
         );
-        CPU::<M>::set_flags_from_i8(status, *p_val as i8);
+        CPU::<M, V>::set_flags_from_i8(status, *p_val as i8);
     }
 
     fn rotate_right_with_flags(p_val: &mut u8, status: &mut Status) {
@@ -663,16 +686,16 @@ impl<M: Bus> CPU<M> {
                 ..StatusArgs::none()
             }),
         );
-        CPU::<M>::set_flags_from_i8(status, *p_val as i8);
+        CPU::<M, V>::set_flags_from_i8(status, *p_val as i8);
     }
 
     fn set_u8_with_flags(mem: &mut u8, status: &mut Status, value: u8) {
         *mem = value;
-        CPU::<M>::set_flags_from_u8(status, value);
+        CPU::<M, V>::set_flags_from_u8(status, value);
     }
 
     fn load_x_register(&mut self, value: u8) {
-        CPU::<M>::set_u8_with_flags(
+        CPU::<M, V>::set_u8_with_flags(
             &mut self.registers.index_x,
             &mut self.registers.status,
             value,
@@ -680,7 +703,7 @@ impl<M: Bus> CPU<M> {
     }
 
     fn load_y_register(&mut self, value: u8) {
-        CPU::<M>::set_u8_with_flags(
+        CPU::<M, V>::set_u8_with_flags(
             &mut self.registers.index_y,
             &mut self.registers.status,
             value,
@@ -688,7 +711,7 @@ impl<M: Bus> CPU<M> {
     }
 
     fn load_accumulator(&mut self, value: u8) {
-        CPU::<M>::set_u8_with_flags(
+        CPU::<M, V>::set_u8_with_flags(
             &mut self.registers.accumulator,
             &mut self.registers.status,
             value,
@@ -696,7 +719,6 @@ impl<M: Bus> CPU<M> {
     }
 
     fn add_with_carry(&mut self, value: u8) {
-        #[cfg(feature = "decimal_mode")]
         fn decimal_adjust(result: u8) -> u8 {
             let bcd1: u8 = if (result & 0x0f) > 0x09 { 0x06 } else { 0x00 };
 
@@ -715,15 +737,43 @@ impl<M: Bus> CPU<M> {
 
         debug_assert_eq!(a_after, a_before.wrapping_add(c_before).wrapping_add(value));
 
-        #[cfg(feature = "decimal_mode")]
         let result: u8 = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
             decimal_adjust(a_after)
         } else {
             a_after
         };
 
-        #[cfg(not(feature = "decimal_mode"))]
-        let result: u8 = a_after;
+        let did_carry = (result) < (a_before)
+            || (a_after == 0 && c_before == 0x01)
+            || (value == 0xff && c_before == 0x01);
+
+        let did_overflow = (a_before > 127 && value > 127 && a_after < 128)
+            || (a_before < 128 && value < 128 && a_after > 127);
+
+        let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
+
+        self.registers.status.set_with_mask(
+            mask,
+            Status::new(StatusArgs {
+                carry: did_carry,
+                overflow: did_overflow,
+                ..StatusArgs::none()
+            }),
+        );
+
+        self.load_accumulator(result);
+
+        debug!("accumulator: {}", self.registers.accumulator);
+    }
+
+    fn add_with_no_decimal(&mut self, value: u8) {
+        let a_before: u8 = self.registers.accumulator;
+        let c_before: u8 = u8::from(self.registers.status.contains(Status::PS_CARRY));
+        let a_after: u8 = a_before.wrapping_add(c_before).wrapping_add(value);
+
+        debug_assert_eq!(a_after, a_before.wrapping_add(c_before).wrapping_add(value));
+
+        let result = a_after;
 
         let did_carry = (result) < (a_before)
             || (a_after == 0 && c_before == 0x01)
@@ -751,6 +801,52 @@ impl<M: Bus> CPU<M> {
     fn and(&mut self, value: u8) {
         let a_after = self.registers.accumulator & value;
         self.load_accumulator(a_after);
+    }
+
+    fn subtract_with_no_decimal(&mut self, value: u8) {
+        // A - M - (1 - C)
+
+        // nc -- 'not carry'
+        let nc: u8 = if self.registers.status.contains(Status::PS_CARRY) {
+            0
+        } else {
+            1
+        };
+
+        let a_before = self.registers.accumulator;
+
+        let a_after = a_before.wrapping_sub(value).wrapping_sub(nc);
+
+        // The overflow flag is set on two's-complement overflow.
+        //
+        // range of A              is  -128 to 127
+        // range of - M - (1 - C)  is  -128 to 128
+        //                             -(127 + 1) to -(-128 + 0)
+        //
+        let over = (nc == 0 && value > 127) && a_before < 128 && a_after > 127;
+
+        let under =
+            (a_before > 127) && (0u8.wrapping_sub(value).wrapping_sub(nc) > 127) && a_after < 128;
+
+        let did_overflow = over || under;
+
+        let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
+
+        let result = a_after;
+
+        // The carry flag is set on unsigned overflow.
+        let did_carry = (result) > (a_before);
+
+        self.registers.status.set_with_mask(
+            mask,
+            Status::new(StatusArgs {
+                carry: did_carry,
+                overflow: did_overflow,
+                ..StatusArgs::none()
+            }),
+        );
+
+        self.load_accumulator(result);
     }
 
     fn subtract_with_carry(&mut self, value: u8) {
@@ -794,15 +890,11 @@ impl<M: Bus> CPU<M> {
             0x00
         };
 
-        #[cfg(feature = "decimal_mode")]
         let result: u8 = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
             a_after.wrapping_sub(bcd1).wrapping_sub(bcd2)
         } else {
             a_after
         };
-
-        #[cfg(not(feature = "decimal_mode"))]
-        let result = a_after;
 
         // The carry flag is set on unsigned overflow.
         let did_carry = (result) > (a_before);
@@ -980,7 +1072,7 @@ impl<M: Bus> CPU<M> {
     }
 }
 
-impl<M: Bus> core::fmt::Debug for CPU<M> {
+impl<M: Bus, V: Variant> core::fmt::Debug for CPU<M, V> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(
             f,
@@ -994,11 +1086,12 @@ impl<M: Bus> core::fmt::Debug for CPU<M> {
 mod tests {
 
     use super::*;
+    use crate::instruction::Nmos6502;
     use crate::memory::Memory as Ram;
 
     #[test]
     fn dont_panic_for_overflow() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.add_with_carry(0x80);
         assert_eq!(cpu.registers.accumulator, 0x80);
         cpu.add_with_carry(0x80);
@@ -1012,7 +1105,7 @@ mod tests {
 
     #[cfg_attr(feature = "decimal_mode", test)]
     fn decimal_add_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.registers.status.or(Status::PS_DECIMAL_MODE);
 
         cpu.add_with_carry(0x09);
@@ -1039,7 +1132,7 @@ mod tests {
 
     #[cfg_attr(feature = "decimal_mode", test)]
     fn decimal_subtract_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.registers
             .status
             .or(Status::PS_DECIMAL_MODE | Status::PS_CARRY);
@@ -1061,7 +1154,7 @@ mod tests {
 
     #[test]
     fn add_with_carry_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.add_with_carry(1);
         assert_eq!(cpu.registers.accumulator, 1);
@@ -1084,7 +1177,7 @@ mod tests {
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         assert_eq!(cpu.registers.accumulator, 0);
         cpu.add_with_carry(127);
@@ -1116,7 +1209,7 @@ mod tests {
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.add_with_carry(127);
         assert_eq!(cpu.registers.accumulator, 127);
@@ -1132,7 +1225,7 @@ mod tests {
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.registers.status.or(Status::PS_CARRY);
         cpu.add_with_carry(0xff);
         assert_eq!(cpu.registers.accumulator, 0);
@@ -1141,7 +1234,7 @@ mod tests {
 
     #[test]
     fn solid65_adc_immediate() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         // Adding $FF plus carry should be the same as adding $00 and no carry, so these three
         // instructions should leave the carry flags unaffected, i.e. set.
@@ -1155,7 +1248,7 @@ mod tests {
 
     #[test]
     fn php_sets_bits_4_and_5() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.execute_instruction((Instruction::PHP, OpInput::UseImplied));
         cpu.execute_instruction((Instruction::PLA, OpInput::UseImplied));
         cpu.execute_instruction((Instruction::AND, OpInput::UseImmediate(0x30)));
@@ -1165,7 +1258,7 @@ mod tests {
 
     #[test]
     fn and_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.registers.accumulator = 0;
         cpu.and(0xff);
@@ -1194,7 +1287,7 @@ mod tests {
 
     #[test]
     fn subtract_with_carry_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
         cpu.registers.accumulator = 0;
@@ -1254,7 +1347,7 @@ mod tests {
 
     #[test]
     fn decrement_memory_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         let addr: u16 = 0xA1B2;
 
         cpu.memory.set_byte(addr, 5);
@@ -1291,7 +1384,7 @@ mod tests {
 
     #[test]
     fn decrement_x_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.registers.index_x = 0x80;
         cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
         assert_eq!(cpu.registers.index_x, 127);
@@ -1301,7 +1394,7 @@ mod tests {
 
     #[test]
     fn decrement_y_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.registers.index_y = 0x80;
         cpu.execute_instruction((Instruction::DEY, OpInput::UseImplied));
         assert_eq!(cpu.registers.index_y, 127);
@@ -1313,7 +1406,7 @@ mod tests {
     fn logical_shift_right_test() {
         // Testing UseImplied version (which targets the accumulator) only, for now
 
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(0)));
         cpu.execute_instruction((Instruction::LSR, OpInput::UseImplied));
         assert_eq!(cpu.registers.accumulator, 0);
@@ -1349,7 +1442,7 @@ mod tests {
 
     #[test]
     fn dec_x_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
         assert_eq!(cpu.registers.index_x, 0xff);
@@ -1394,7 +1487,7 @@ mod tests {
 
     #[test]
     fn jump_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         let addr: u16 = 0xA1B1;
 
         cpu.jump(addr);
@@ -1403,7 +1496,7 @@ mod tests {
 
     #[test]
     fn branch_if_carry_clear_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
         cpu.branch_if_carry_clear(0xABCD);
@@ -1416,7 +1509,7 @@ mod tests {
 
     #[test]
     fn branch_if_carry_set_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.execute_instruction((Instruction::CLC, OpInput::UseImplied));
         cpu.branch_if_carry_set(0xABCD);
@@ -1429,7 +1522,7 @@ mod tests {
 
     #[test]
     fn branch_if_equal_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.branch_if_equal(0xABCD);
         assert_eq!(cpu.registers.program_counter, (0));
@@ -1442,7 +1535,7 @@ mod tests {
     #[test]
     fn branch_if_minus_test() {
         {
-            let mut cpu = CPU::new(Ram::new());
+            let mut cpu = CPU::new(Ram::new(), Nmos6502);
             let registers_before = cpu.registers;
 
             cpu.branch_if_minus(0xABCD);
@@ -1451,7 +1544,7 @@ mod tests {
         }
 
         {
-            let mut cpu = CPU::new(Ram::new());
+            let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
             cpu.registers.status.or(Status::PS_NEGATIVE);
             let registers_before = cpu.registers;
@@ -1464,7 +1557,7 @@ mod tests {
 
     #[test]
     fn branch_if_positive_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.registers.status.insert(Status::PS_NEGATIVE);
         cpu.branch_if_positive(0xABCD);
@@ -1477,7 +1570,7 @@ mod tests {
 
     #[test]
     fn branch_if_overflow_clear_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.registers.status.insert(Status::PS_OVERFLOW);
         cpu.branch_if_overflow_clear(0xABCD);
@@ -1490,7 +1583,7 @@ mod tests {
 
     #[test]
     fn branch_across_end_of_address_space() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.registers.program_counter = 0xffff;
 
         cpu.registers.status.insert(Status::PS_OVERFLOW);
@@ -1500,7 +1593,7 @@ mod tests {
 
     #[test]
     fn branch_if_overflow_set_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.branch_if_overflow_set(0xABCD);
         assert_eq!(cpu.registers.program_counter, (0));
@@ -1513,9 +1606,9 @@ mod tests {
     #[cfg(test)]
     fn compare_test_helper<F>(compare: &mut F, load_instruction: Instruction)
     where
-        F: FnMut(&mut CPU<Ram>, u8),
+        F: FnMut(&mut CPU<Ram, crate::instruction::Nmos6502>, u8),
     {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         cpu.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
 
@@ -1563,7 +1656,7 @@ mod tests {
     #[test]
     fn compare_with_a_register_test() {
         compare_test_helper(
-            &mut |cpu: &mut CPU<Ram>, val: u8| {
+            &mut |cpu: &mut CPU<Ram, Nmos6502>, val: u8| {
                 cpu.compare_with_a_register(val);
             },
             Instruction::LDA,
@@ -1573,7 +1666,7 @@ mod tests {
     #[test]
     fn compare_with_x_register_test() {
         compare_test_helper(
-            &mut |cpu: &mut CPU<Ram>, val: u8| {
+            &mut |cpu: &mut CPU<Ram, Nmos6502>, val: u8| {
                 cpu.compare_with_x_register(val);
             },
             Instruction::LDX,
@@ -1583,7 +1676,7 @@ mod tests {
     #[test]
     fn compare_with_y_register_test() {
         compare_test_helper(
-            &mut |cpu: &mut CPU<Ram>, val: u8| {
+            &mut |cpu: &mut CPU<Ram, Nmos6502>, val: u8| {
                 cpu.compare_with_y_register(val);
             },
             Instruction::LDY,
@@ -1592,7 +1685,7 @@ mod tests {
 
     #[test]
     fn exclusive_or_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         for a_before in 0u8..=255u8 {
             for val in 0u8..=255u8 {
@@ -1620,7 +1713,7 @@ mod tests {
 
     #[test]
     fn inclusive_or_test() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         for a_before in 0u8..=255u8 {
             for val in 0u8..=255u8 {
@@ -1648,7 +1741,7 @@ mod tests {
 
     #[test]
     fn stack_underflow() {
-        let mut cpu = CPU::new(Ram::new());
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
         let _val: u8 = cpu.pull_from_stack();
     }
 }

@@ -38,3 +38,14 @@ pub mod cpu;
 pub mod instruction;
 pub mod memory;
 pub mod registers;
+
+/// Trait for 6502 variant. This is the mechanism allowing the different 6502-like CPUs to be
+/// emulated. It allows a struct to decode an opcode into its instruction and addressing mode.
+pub trait Variant {
+    fn decode(
+        opcode: u8,
+    ) -> Option<(
+        crate::instruction::Instruction,
+        crate::instruction::AddressingMode,
+    )>;
+}

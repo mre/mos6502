@@ -29,12 +29,13 @@ extern crate mos6502;
 
 #[cfg(not(test))]
 use mos6502::cpu;
+use mos6502::instruction::Nmos6502;
 use mos6502::memory::Bus;
 use mos6502::memory::Memory;
 
 #[cfg(not(test))]
 fn main() {
-    let mut cpu = cpu::CPU::new(Memory::new());
+    let mut cpu = cpu::CPU::new(Memory::new(), Nmos6502);
 
     // "Load" a program
 

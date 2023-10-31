@@ -23,6 +23,7 @@ Source: [Wikipedia](https://en.wikipedia.org/wiki/MOS_Technology_6502)
 ```rust
 use mos6502::memory::Bus;
 use mos6502::memory::Memory;
+use mos6502::instruction::Nmos6502;
 use mos6502::cpu;
 
 fn main() {
@@ -52,7 +53,7 @@ fn main() {
         0x4c, 0x10, 0x00, // Jump to .algo
     ];
 
-    let mut cpu = cpu::CPU::new(Memory::new());
+    let mut cpu = cpu::CPU::new(Memory::new(), Nmos6502);
 
     cpu.memory.set_bytes(0x00, &zero_page_data);
     cpu.memory.set_bytes(0x10, &program);
@@ -86,6 +87,7 @@ This will create a binary file `euclid.bin` that you can load into the emulator:
 ```rust
 use mos6502::memory::Bus;
 use mos6502::memory::Memory;
+use mos6502::instruction::Nmos6502;
 use mos6502::cpu;
 use std::fs::read;
 
@@ -103,7 +105,7 @@ fn main() {
         }
     };
 
-    let mut cpu = cpu::CPU::new(Memory::new());
+    let mut cpu = cpu::CPU::new(Memory::new(), Nmos6502);
 
     cpu.memory.set_bytes(0x00, &zero_page_data);
     cpu.memory.set_bytes(0x10, &program);
