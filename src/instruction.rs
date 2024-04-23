@@ -474,7 +474,7 @@ pub struct Cmos6502;
 
 impl crate::Variant for Cmos6502 {
     fn decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
-        // TODO: We obviously need to add the other CMOS isntructions here.
+        // TODO: We obviously need to add the other CMOS instructions here.
         match opcode {
             0x6c => Some((Instruction::JMP, AddressingMode::IndirectWithFix)),
             _ => Nmos6502::decode(opcode),
