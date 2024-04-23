@@ -127,8 +127,8 @@ pub enum AddressingMode {
     Absolute,         // 3    JMP $1000    full 16-bit address
     AbsoluteX,        // 3    STA $1000,X  full 16-bit address plus X register
     AbsoluteY,        // 3    STA $1000,Y  full 16-bit address plus Y register
-    BuggyIndirect,    // 3    JMP ($1000)  jump to address stored at address
-    IndirectWithFix,  // 3    JMP ($1000)  jump to address stored at address
+    BuggyIndirect,    // 3    JMP ($1000)  jump to address stored at address, with the page-crossing bug founr in NMOS chips
+    Indirect,         // 3    JMP ($1000)  jump to address stored at address
     IndexedIndirectX, // 2    LDA ($10,X)  load from address stored at (constant
     //                   zero page address plus X register)
     IndirectIndexedY, // 2    LDA ($10),Y  load from (address stored at constant
@@ -148,7 +148,7 @@ impl AddressingMode {
             AddressingMode::Absolute => 2,
             AddressingMode::AbsoluteX => 2,
             AddressingMode::AbsoluteY => 2,
-            AddressingMode::IndirectWithFix => 2,
+            AddressingMode::Indirect => 2,
             AddressingMode::BuggyIndirect => 2,
             AddressingMode::IndexedIndirectX => 1,
             AddressingMode::IndirectIndexedY => 1,
@@ -476,7 +476,7 @@ impl crate::Variant for Cmos6502 {
     fn decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
         // TODO: We obviously need to add the other CMOS instructions here.
         match opcode {
-            0x6c => Some((Instruction::JMP, AddressingMode::IndirectWithFix)),
+            0x6c => Some((Instruction::JMP, AddressingMode::Indirect)),
             _ => Nmos6502::decode(opcode),
         }
     }
