@@ -150,7 +150,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                             address_from_bytes(slice[0], slice[1]).wrapping_add(y.into()),
                         )
                     }
-                    AddressingMode::IndirectWithFix => {
+                    AddressingMode::Indirect => {
                         // Use [u8, ..2] from instruction as an address. Interpret the
                         // two bytes starting at that address as an address.
                         // (Output: a 16-bit address)
