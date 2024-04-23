@@ -32,7 +32,6 @@ use crate::Variant;
 use crate::registers::{Registers, StackPointer, Status, StatusArgs};
 
 fn address_from_bytes(lo: u8, hi: u8) -> u16 {
-
     u16::from(lo) + (u16::from(hi) << 8usize)
 }
 
@@ -140,12 +139,16 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                     AddressingMode::AbsoluteX => {
                         // Use [u8, ..2] from instruction as address, add X
                         // (Output: a 16-bit address)
-                        OpInput::UseAddress(address_from_bytes(slice[0], slice[1]).wrapping_add(x.into()))
+                        OpInput::UseAddress(
+                            address_from_bytes(slice[0], slice[1]).wrapping_add(x.into()),
+                        )
                     }
                     AddressingMode::AbsoluteY => {
                         // Use [u8, ..2] from instruction as address, add Y
                         // (Output: a 16-bit address)
-                        OpInput::UseAddress(address_from_bytes(slice[0], slice[1]).wrapping_add(y.into()))
+                        OpInput::UseAddress(
+                            address_from_bytes(slice[0], slice[1]).wrapping_add(y.into()),
+                        )
                     }
                     AddressingMode::IndirectWithFix => {
                         // Use [u8, ..2] from instruction as an address. Interpret the
@@ -165,11 +168,18 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
                         let low_byte_of_target = memory.get_byte(pointer);
 
-                        let low_byte_of_incremented_pointer = pointer.to_le_bytes()[0].wrapping_add(1);
-                        let incremented_pointer = u16::from_le_bytes([low_byte_of_incremented_pointer, pointer.to_le_bytes()[1]]);
+                        let low_byte_of_incremented_pointer =
+                            pointer.to_le_bytes()[0].wrapping_add(1);
+                        let incremented_pointer = u16::from_le_bytes([
+                            low_byte_of_incremented_pointer,
+                            pointer.to_le_bytes()[1],
+                        ]);
 
                         let high_byte_of_target = memory.get_byte(incremented_pointer);
-                        OpInput::UseAddress(address_from_bytes(low_byte_of_target, high_byte_of_target))
+                        OpInput::UseAddress(address_from_bytes(
+                            low_byte_of_target,
+                            high_byte_of_target,
+                        ))
                     }
                     AddressingMode::IndexedIndirectX => {
                         // Use [u8, ..1] from instruction
@@ -187,7 +197,9 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // (Output: a 16-bit address)
                         let start = slice[0];
                         let slice = read_address(memory, u16::from(start));
-                        OpInput::UseAddress(address_from_bytes(slice[0], slice[1]).wrapping_add(y.into()))
+                        OpInput::UseAddress(
+                            address_from_bytes(slice[0], slice[1]).wrapping_add(y.into()),
+                        )
                     }
                 };
 
