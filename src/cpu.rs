@@ -147,12 +147,29 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // (Output: a 16-bit address)
                         OpInput::UseAddress(address_from_bytes(slice[0], slice[1]).wrapping_add(y.into()))
                     }
-                    AddressingMode::Indirect => {
+                    AddressingMode::IndirectWithFix => {
                         // Use [u8, ..2] from instruction as an address. Interpret the
                         // two bytes starting at that address as an address.
                         // (Output: a 16-bit address)
-                        let slice = read_address(memory, arr_to_addr(&slice));
-                        OpInput::UseAddress(arr_to_addr(&slice))
+                        // TODO: If the pointer ends in 0xff, then incrementing it would propagate
+                        // the carry to the high byte of the pointer. This incurs a cost of one
+                        // machine on the real 65C02, which is not implemented here.
+                        let slice = read_address(memory, address_from_bytes(slice[0], slice[1]));
+                        OpInput::UseAddress(address_from_bytes(slice[0], slice[1]))
+                    }
+                    AddressingMode::BuggyIndirect => {
+                        // Use [u8, ..2] from instruction as an address. Interpret the
+                        // two bytes starting at that address as an address.
+                        // (Output: a 16-bit address)
+                        let pointer = address_from_bytes(slice[0], slice[1]);
+
+                        let low_byte_of_target = memory.get_byte(pointer);
+
+                        let low_byte_of_incremented_pointer = pointer.to_le_bytes()[0].wrapping_add(1);
+                        let incremented_pointer = u16::from_le_bytes([low_byte_of_incremented_pointer, pointer.to_le_bytes()[1]]);
+
+                        let high_byte_of_target = memory.get_byte(incremented_pointer);
+                        OpInput::UseAddress(address_from_bytes(low_byte_of_target, high_byte_of_target))
                     }
                     AddressingMode::IndexedIndirectX => {
                         // Use [u8, ..1] from instruction
