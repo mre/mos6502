@@ -156,7 +156,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // (Output: a 16-bit address)
                         // TODO: If the pointer ends in 0xff, then incrementing it would propagate
                         // the carry to the high byte of the pointer. This incurs a cost of one
-                        // machine on the real 65C02, which is not implemented here.
+                        // machine instruction on the real 65C02, which is not implemented here.
                         let slice = read_address(memory, address_from_bytes(slice[0], slice[1]));
                         OpInput::UseAddress(address_from_bytes(slice[0], slice[1]))
                     }
