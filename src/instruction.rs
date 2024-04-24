@@ -55,6 +55,7 @@ pub enum Instruction {
     BMI,   // Branch if Minus............... | .. .....         PC   = N
     BNE,   // Branch if Not Equal........... | .. .....         PC   = !Z
     BPL,   // Branch if Positive............ | .. .....         PC   = Z
+    BRA,   // Unconditional BRAnch.......... | .. B....       S PC   =
     BRK,   // BReaK......................... | .. B....       S PC   =
     BVC,   // Branch if oVerflow Clear...... | .. .....         PC   = !V
     BVS,   // Branch if oVerflow Set........ | .. .....         PC   = V
@@ -495,6 +496,7 @@ impl crate::Variant for Cmos6502 {
         // TODO: We obviously need to add the other CMOS instructions here.
         match opcode {
             0x6c => Some((Instruction::JMP, AddressingMode::Indirect)),
+            0x80 => Some((Instruction::BRA, AddressingMode::Relative)),
             _ => Nmos6502::decode(opcode),
         }
     }

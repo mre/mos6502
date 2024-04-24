@@ -322,6 +322,11 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.branch_if_positive(addr);
             }
 
+            (Instruction::BRA, OpInput::UseRelative(rel)) => {
+                let addr = self.registers.program_counter.wrapping_add(rel);
+                self.branch(addr);
+            }
+
             (Instruction::BRK, OpInput::UseImplied) => {
                 for b in self.registers.program_counter.wrapping_sub(1).to_be_bytes() {
                     self.push_on_stack(b);
@@ -1009,6 +1014,10 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         if self.registers.status.contains(Status::PS_NEGATIVE) {
             self.registers.program_counter = addr;
         }
+    }
+
+    fn branch(&mut self, addr: u16) {
+        self.registers.program_counter = addr;
     }
 
     fn branch_if_positive(&mut self, addr: u16) {
