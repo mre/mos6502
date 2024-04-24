@@ -495,6 +495,8 @@ impl crate::Variant for Cmos6502 {
     fn decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
         // TODO: We obviously need to add the other CMOS instructions here.
         match opcode {
+            0x1a => Some((Instruction::INC, AddressingMode::Accumulator)),
+            0x3a => Some((Instruction::DEC, AddressingMode::Accumulator)),
             0x6c => Some((Instruction::JMP, AddressingMode::Indirect)),
             0x80 => Some((Instruction::BRA, AddressingMode::Relative)),
             _ => Nmos6502::decode(opcode),
