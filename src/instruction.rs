@@ -117,22 +117,47 @@ pub enum OpInput {
 
 #[derive(Copy, Clone)]
 pub enum AddressingMode {
-    Accumulator,      // 1    LSR A        work directly on accumulator
-    Implied,          // 1    BRK
-    Immediate,        // 2    LDA #10      8-bit constant in instruction
-    ZeroPage,         // 2    LDA $00      zero-page address
-    ZeroPageX,        // 2    LDA $80,X    address is X register + 8-bit constant
-    ZeroPageY,        // 2    LDX $10,Y    address is Y register + 8-bit constant
-    Relative,         // 2    BNE LABEL    branch target as signed relative offset
-    Absolute,         // 3    JMP $1000    full 16-bit address
-    AbsoluteX,        // 3    STA $1000,X  full 16-bit address plus X register
-    AbsoluteY,        // 3    STA $1000,Y  full 16-bit address plus Y register
-    BuggyIndirect,    // 3    JMP ($1000)  jump to address stored at address, with the page-crossing bug founr in NMOS chips
-    Indirect,         // 3    JMP ($1000)  jump to address stored at address
-    IndexedIndirectX, // 2    LDA ($10,X)  load from address stored at (constant
-    //                   zero page address plus X register)
-    IndirectIndexedY, // 2    LDA ($10),Y  load from (address stored at constant
-                      //                   zero page address) plus Y register
+    // work directly on accumulator, e. g. `lsr a`.
+    Accumulator,
+
+    // BRK
+    Implied,
+
+    // 8-bit constant in instruction, e. g. `lda #10`.
+    Immediate,
+
+    // zero-page address, e. g. `lda $00`.
+    ZeroPage,
+
+    // address is X register + 8-bit constant, e. g. `lda $80,x`.
+    ZeroPageX,
+
+    // address is Y register + 8-bit constant, e. g. `ldx $10,y`.
+    ZeroPageY,
+
+    // branch target as signed relative offset, e. g. `bne label`.
+    Relative,
+
+    // full 16-bit address, e. g. `jmp $1000`.
+    Absolute,
+
+    // full 16-bit address plus X register, e. g. `sta $1000,X`.
+    AbsoluteX,
+
+    // full 16-bit address plus Y register, e. g. `sta $1000,Y`.
+    AbsoluteY,
+
+    // jump to address stored at address, with the page-crossing bug found in NMOS chips, e. g. `jmp ($1000)`.
+    BuggyIndirect,
+
+    // jump to address stored at address, e. g. `jmp ($1000)`.
+    Indirect,
+
+    // load from address stored at (constant zero page address plus X register), e. g. `lda ($10,X)`.
+    IndexedIndirectX,
+
+    // load from (address stored at constant zero page address) plus Y register, e. g. `lda ($10),Y`.
+    IndirectIndexedY,
 }
 
 impl AddressingMode {
