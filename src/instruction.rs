@@ -100,6 +100,7 @@ pub enum Instruction {
     STA,   // STore Accumulator............. | .. .....            M = A
     STX,   // STore X register.............. | .. .....            M = X
     STY,   // STore Y register.............. | .. .....            M = Y
+    STZ,   // STore Zero.................... | .. .....            M = Y
     TAX,   // Transfer Accumulator to X..... | N. ...Z.   X          = A
     TAY,   // Transfer Accumulator to Y..... | N. ...Z.     Y        = A
     TSX,   // Transfer Stack pointer to X... | N. ...Z.   X          = S
@@ -499,6 +500,10 @@ impl crate::Variant for Cmos6502 {
             0x3a => Some((Instruction::DEC, AddressingMode::Accumulator)),
             0x6c => Some((Instruction::JMP, AddressingMode::Indirect)),
             0x80 => Some((Instruction::BRA, AddressingMode::Relative)),
+            0x64 => Some((Instruction::STZ, AddressingMode::ZeroPage)),
+            0x74 => Some((Instruction::STZ, AddressingMode::ZeroPageX)),
+            0x9c => Some((Instruction::STZ, AddressingMode::Absolute)),
+            0x9e => Some((Instruction::STZ, AddressingMode::AbsoluteX)),
             _ => Nmos6502::decode(opcode),
         }
     }

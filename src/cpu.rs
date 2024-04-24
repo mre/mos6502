@@ -593,6 +593,9 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             (Instruction::STY, OpInput::UseAddress(addr)) => {
                 self.memory.set_byte(addr, self.registers.index_y);
             }
+            (Instruction::STZ, OpInput::UseAddress(addr)) => {
+                self.memory.set_byte(addr, 0);
+            }
 
             (Instruction::TAX, OpInput::UseImplied) => {
                 let val = self.registers.accumulator;
