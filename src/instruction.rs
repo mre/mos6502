@@ -458,24 +458,15 @@ pub struct Ricoh2a03;
 
 impl crate::Variant for Ricoh2a03 {
     fn decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
-        match opcode {
-            0x61 => Some((Instruction::ADCnd, AddressingMode::IndexedIndirectX)),
-            0x65 => Some((Instruction::ADCnd, AddressingMode::ZeroPage)),
-            0x69 => Some((Instruction::ADCnd, AddressingMode::Immediate)),
-            0x6d => Some((Instruction::ADCnd, AddressingMode::Absolute)),
-            0x71 => Some((Instruction::ADCnd, AddressingMode::IndirectIndexedY)),
-            0x75 => Some((Instruction::ADCnd, AddressingMode::ZeroPageX)),
-            0x79 => Some((Instruction::ADCnd, AddressingMode::AbsoluteY)),
-            0x7d => Some((Instruction::ADCnd, AddressingMode::AbsoluteX)),
-            0xe1 => Some((Instruction::SBCnd, AddressingMode::IndexedIndirectX)),
-            0xe5 => Some((Instruction::SBCnd, AddressingMode::ZeroPage)),
-            0xe9 => Some((Instruction::SBCnd, AddressingMode::Immediate)),
-            0xed => Some((Instruction::SBCnd, AddressingMode::Absolute)),
-            0xf1 => Some((Instruction::SBCnd, AddressingMode::IndirectIndexedY)),
-            0xf5 => Some((Instruction::SBCnd, AddressingMode::ZeroPageX)),
-            0xf9 => Some((Instruction::SBCnd, AddressingMode::AbsoluteY)),
-            0xfd => Some((Instruction::SBCnd, AddressingMode::AbsoluteX)),
-            _ => Nmos6502::decode(opcode),
+        // It's the same as on NMOS, but doesn't support decimal mode.
+        match Nmos6502::decode(opcode) {
+            Some((Instruction::ADC, addressing_mode)) => {
+                Some((Instruction::ADCnd, addressing_mode))
+            }
+            Some((Instruction::SBC, addressing_mode)) => {
+                Some((Instruction::SBCnd, addressing_mode))
+            }
+            something_else => something_else,
         }
     }
 }
@@ -487,14 +478,10 @@ pub struct RevisionA;
 
 impl crate::Variant for RevisionA {
     fn decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
-        #[allow(clippy::match_same_arms)]
-        match opcode {
-            0x66 => None,
-            0x6a => None,
-            0x6e => None,
-            0x76 => None,
-            0x7e => None,
-            _ => Nmos6502::decode(opcode),
+        // It's the same as on NMOS, but has no ROR instruction.
+        match Nmos6502::decode(opcode) {
+            Some((Instruction::ROR, _)) => None,
+            something_else => something_else,
         }
     }
 }
