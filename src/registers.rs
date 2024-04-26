@@ -25,8 +25,11 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+use bitflags::bitflags;
+
 // Useful for constructing Status instances
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct StatusArgs {
     pub negative: bool,
     pub overflow: bool,
@@ -39,7 +42,8 @@ pub struct StatusArgs {
 }
 
 impl StatusArgs {
-    pub fn none() -> StatusArgs {
+    #[must_use]
+    pub const fn none() -> StatusArgs {
         StatusArgs {
             negative: false,
             overflow: false,
@@ -71,6 +75,7 @@ bitflags! {
 }
 
 impl Status {
+    #[must_use]
     pub fn new(
         StatusArgs {
             negative,
@@ -86,28 +91,28 @@ impl Status {
         let mut out = Status::empty();
 
         if negative {
-            out |= Status::PS_NEGATIVE
+            out |= Status::PS_NEGATIVE;
         }
         if overflow {
-            out |= Status::PS_OVERFLOW
+            out |= Status::PS_OVERFLOW;
         }
         if unused {
-            out |= Status::PS_UNUSED
+            out |= Status::PS_UNUSED;
         }
         if brk {
-            out |= Status::PS_BRK
+            out |= Status::PS_BRK;
         }
         if decimal_mode {
-            out |= Status::PS_DECIMAL_MODE
+            out |= Status::PS_DECIMAL_MODE;
         }
         if disable_interrupts {
-            out |= Status::PS_DISABLE_INTERRUPTS
+            out |= Status::PS_DISABLE_INTERRUPTS;
         }
         if zero {
-            out |= Status::PS_ZERO
+            out |= Status::PS_ZERO;
         }
         if carry {
-            out |= Status::PS_CARRY
+            out |= Status::PS_CARRY;
         }
 
         out
@@ -146,7 +151,8 @@ impl Default for Status {
 pub struct StackPointer(pub u8);
 
 impl StackPointer {
-    pub fn to_u16(self) -> u16 {
+    #[must_use]
+    pub const fn to_u16(self) -> u16 {
         let StackPointer(val) = self;
         u16::from_le_bytes([val, 0x01])
     }
@@ -177,6 +183,7 @@ impl Default for Registers {
 }
 
 impl Registers {
+    #[must_use]
     pub fn new() -> Registers {
         // TODO akeeton: Revisit these defaults.
         Registers {

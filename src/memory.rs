@@ -47,7 +47,7 @@ pub const IRQ_INTERRUPT_VECTOR_HI: u16 = 0xFFFF;
 const MEMORY_SIZE: usize = (ADDR_HI_BARE - ADDR_LO_BARE) as usize + 1usize;
 
 // FIXME: Should this use indirection for `bytes`?
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Memory {
     bytes: [u8; MEMORY_SIZE],
 }
@@ -58,10 +58,37 @@ impl Default for Memory {
     }
 }
 
+/// Trait for a bus that can read and write bytes.
+///
+/// This is used to abstract the memory and I/O operations of the CPU.
+///
+/// # Examples
+///
+/// ```
+/// use mos6502::memory::{Bus, Memory};
+///
+/// let mut memory = Memory::new();
+/// memory.set_byte(0x0000, 0x12);
+/// assert_eq!(memory.get_byte(0x0000), 0x12);
+/// ```
 pub trait Bus {
+    /// Returns the byte at the given address.
     fn get_byte(&mut self, address: u16) -> u8;
+
+    /// Sets the byte at the given address to the given value.
     fn set_byte(&mut self, address: u16, value: u8);
 
+    /// Sets the bytes starting at the given address to the given values.
+    ///
+    /// This is a default implementation that calls `set_byte` for each byte.
+    ///
+    /// # Note
+    ///
+    /// This assumes that the length of `values` is less than or equal to
+    /// [`u16::MAX`] (65535). If the length of `values` is greater than `u16::MAX`,
+    /// this will truncate the length. This assumption is made because the
+    /// maximum addressable memory for the 6502 is 64KB.
+    #[allow(clippy::cast_possible_truncation)]
     fn set_bytes(&mut self, start: u16, values: &[u8]) {
         for i in 0..values.len() as u16 {
             self.set_byte(start + i, values[i as usize]);
@@ -70,7 +97,8 @@ pub trait Bus {
 }
 
 impl Memory {
-    pub fn new() -> Memory {
+    #[must_use]
+    pub const fn new() -> Memory {
         Memory {
             bytes: [0; MEMORY_SIZE],
         }
@@ -82,12 +110,14 @@ impl Bus for Memory {
         self.bytes[address as usize]
     }
 
-    // Sets the byte at the given address to the given value and returns the
-    // previous value at the address.
+    /// Sets the byte at the given address to the given value and returns the
+    /// previous value at the address.
     fn set_byte(&mut self, address: u16, value: u8) {
         self.bytes[address as usize] = value;
     }
 
+    /// Fast way to set multiple bytes in memory when the underlying memory is a
+    /// consecutive block of bytes.
     fn set_bytes(&mut self, start: u16, values: &[u8]) {
         let start = start as usize;
 
@@ -103,7 +133,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "range end index 65537 out of range for slice of length 65536")]
     fn test_memory_overflow_panic() {
         let mut memory = Memory::new();
         memory.set_bytes(0xFFFE, &[1, 2, 3]);

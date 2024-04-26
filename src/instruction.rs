@@ -107,7 +107,7 @@ pub enum Instruction {
     TYA,   // Transfer Y to Accumulator..... | N. ...Z. A            = Y
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum OpInput {
     UseImplied,
     UseImmediate(u8),
@@ -115,7 +115,7 @@ pub enum OpInput {
     UseAddress(u16),
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum AddressingMode {
     // work directly on accumulator, e. g. `lsr a`.
     Accumulator,
@@ -161,7 +161,8 @@ pub enum AddressingMode {
 }
 
 impl AddressingMode {
-    pub fn extra_bytes(self) -> u16 {
+    #[must_use]
+    pub const fn extra_bytes(self) -> u16 {
         match self {
             AddressingMode::Accumulator => 0,
             AddressingMode::Implied => 0,
@@ -184,6 +185,7 @@ impl AddressingMode {
 pub type DecodedInstr = (Instruction, OpInput);
 
 /// The NMOS 6502 variant. This one is present in the Commodore 64, early Apple IIs, etc.
+#[derive(Copy, Clone, Debug)]
 pub struct Nmos6502;
 
 impl crate::Variant for Nmos6502 {
@@ -449,8 +451,9 @@ impl crate::Variant for Nmos6502 {
     }
 }
 
-/// The Ricoh variant which has no decimal mode. This is what to use if you want to emulate the
-/// NES.
+/// The Ricoh variant which has no decimal mode. This is what to use if you want
+/// to emulate the NES.
+#[derive(Copy, Clone, Debug)]
 pub struct Ricoh2a03;
 
 impl crate::Variant for Ricoh2a03 {
@@ -479,10 +482,12 @@ impl crate::Variant for Ricoh2a03 {
 
 /// Emulates some very early 6502s which have no ROR instruction. This one is used in very early
 /// KIM-1s.
+#[derive(Copy, Clone, Debug)]
 pub struct RevisionA;
 
 impl crate::Variant for RevisionA {
     fn decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
+        #[allow(clippy::match_same_arms)]
         match opcode {
             0x66 => None,
             0x6a => None,
@@ -495,6 +500,7 @@ impl crate::Variant for RevisionA {
 }
 
 /// Emulates the 65C02, which has a few bugfixes, and another addressing mode
+#[derive(Copy, Clone, Debug)]
 pub struct Cmos6502;
 
 impl crate::Variant for Cmos6502 {
