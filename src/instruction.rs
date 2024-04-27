@@ -280,6 +280,9 @@ pub enum AddressingMode {
 
     // load from (address stored at constant zero page address) plus Y register, e. g. `lda ($10),Y`.
     IndirectIndexedY,
+
+    // Address stored at constant zero page address
+    ZeroPageIndirect,
 }
 
 impl AddressingMode {
@@ -300,6 +303,7 @@ impl AddressingMode {
             AddressingMode::BuggyIndirect => 2,
             AddressingMode::IndexedIndirectX => 1,
             AddressingMode::IndirectIndexedY => 1,
+            AddressingMode::ZeroPageIndirect => 1,
         }
     }
 }
@@ -633,6 +637,14 @@ impl crate::Variant for Cmos6502 {
             0x14 => Some((Instruction::TRB, AddressingMode::ZeroPage)),
             0x0c => Some((Instruction::TSB, AddressingMode::Absolute)),
             0x1c => Some((Instruction::TRB, AddressingMode::Absolute)),
+            0x12 => Some((Instruction::ORA, AddressingMode::ZeroPageIndirect)),
+            0x32 => Some((Instruction::AND, AddressingMode::ZeroPageIndirect)),
+            0x52 => Some((Instruction::EOR, AddressingMode::ZeroPageIndirect)),
+            0x72 => Some((Instruction::ADC, AddressingMode::ZeroPageIndirect)),
+            0x92 => Some((Instruction::STA, AddressingMode::ZeroPageIndirect)),
+            0xb2 => Some((Instruction::LDA, AddressingMode::ZeroPageIndirect)),
+            0xd2 => Some((Instruction::CMP, AddressingMode::ZeroPageIndirect)),
+            0xf2 => Some((Instruction::SBC, AddressingMode::ZeroPageIndirect)),
             _ => Nmos6502::decode(opcode),
         }
     }

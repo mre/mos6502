@@ -212,6 +212,16 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                             address_from_bytes(slice[0], slice[1]).wrapping_add(y.into()),
                         )
                     }
+                    AddressingMode::ZeroPageIndirect => {
+                        // Use [u8, ..1] from instruction
+                        // This is where the absolute (16-bit) target address is stored.
+                        // (Output: a 16-bit address)
+                        let start = slice[0];
+                        let slice = read_address(memory, u16::from(start));
+                        OpInput::UseAddress(
+                            address_from_bytes(slice[0], slice[1])
+                        )
+                    }
                 };
 
                 // Increment program counter
