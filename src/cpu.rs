@@ -218,9 +218,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // (Output: a 16-bit address)
                         let start = slice[0];
                         let slice = read_address(memory, u16::from(start));
-                        OpInput::UseAddress(
-                            address_from_bytes(slice[0], slice[1])
-                        )
+                        OpInput::UseAddress(address_from_bytes(slice[0], slice[1]))
                     }
                 };
 
