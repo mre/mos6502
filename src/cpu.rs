@@ -653,6 +653,38 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 let val = self.registers.accumulator;
                 self.load_y_register(val);
             }
+            (Instruction::TRB, OpInput::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+
+                // The zero flag is set based on the result of the 'and'.
+                self.registers.status.set_with_mask(
+                    Status::PS_ZERO,
+                    Status::new(StatusArgs {
+                        zero: 0 == (self.registers.accumulator & val),
+                        ..StatusArgs::none()
+                    }),
+                );
+
+                // The 1's in the accumulator set the corresponding bits in the operand
+                let res = self.registers.accumulator | val;
+                self.memory.set_byte(addr, res);
+            }
+            (Instruction::TSB, OpInput::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+
+                // The zero flag is set based on the result of the 'and'.
+                self.registers.status.set_with_mask(
+                    Status::PS_ZERO,
+                    Status::new(StatusArgs {
+                        zero: 0 == (self.registers.accumulator & val),
+                        ..StatusArgs::none()
+                    }),
+                );
+
+                // The 1's in the accumulator clear the corresponding bits in the operand
+                let res = (self.registers.accumulator ^ 0xff) & val;
+                self.memory.set_byte(addr, res);
+            }
             (Instruction::TSX, OpInput::UseImplied) => {
                 let StackPointer(val) = self.registers.stack_pointer;
                 self.load_x_register(val);

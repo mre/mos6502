@@ -210,6 +210,12 @@ pub enum Instruction {
     // Transfer Accumulator to Y
     TAY,
 
+    // Test and Reset Bits
+    TRB,
+
+    // Test and Set Bits
+    TSB,
+
     // Transfer Stack pointer to X
     TSX,
 
@@ -623,6 +629,10 @@ impl crate::Variant for Cmos6502 {
             0xfa => Some((Instruction::PLX, AddressingMode::Implied)),
             0x5a => Some((Instruction::PHY, AddressingMode::Implied)),
             0xda => Some((Instruction::PHX, AddressingMode::Implied)),
+            0x04 => Some((Instruction::TSB, AddressingMode::ZeroPage)),
+            0x14 => Some((Instruction::TRB, AddressingMode::ZeroPage)),
+            0x0c => Some((Instruction::TSB, AddressingMode::Absolute)),
+            0x1c => Some((Instruction::TRB, AddressingMode::Absolute)),
             _ => Nmos6502::decode(opcode),
         }
     }
