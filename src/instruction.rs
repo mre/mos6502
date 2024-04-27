@@ -57,6 +57,7 @@ pub enum Instruction {
     BPL,   // Branch if Positive............ | .. .....         PC   = Z
     BRA,   // Unconditional BRAnch.......... | .. B....       S PC   =
     BRK,   // BReaK......................... | .. B....       S PC   =
+    BRKcld,// BReaK, clearing decimal flag.. | .. BD...       S PC   =
     BVC,   // Branch if oVerflow Clear...... | .. .....         PC   = !V
     BVS,   // Branch if oVerflow Set........ | .. .....         PC   = V
     CLC,   // CLear Carry flag.............. | .. ....C              = 0
@@ -500,6 +501,7 @@ impl crate::Variant for Cmos6502 {
     fn decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
         // TODO: We obviously need to add the other CMOS instructions here.
         match opcode {
+            0x00 => Some((Instruction::BRKcld, AddressingMode::Implied)),
             0x1a => Some((Instruction::INC, AddressingMode::Accumulator)),
             0x3a => Some((Instruction::DEC, AddressingMode::Accumulator)),
             0x6c => Some((Instruction::JMP, AddressingMode::Indirect)),

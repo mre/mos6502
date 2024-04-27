@@ -338,6 +338,18 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.registers.status.or(Status::PS_DISABLE_INTERRUPTS);
             }
 
+            (Instruction::BRKcld, OpInput::UseImplied) => {
+                for b in self.registers.program_counter.wrapping_sub(1).to_be_bytes() {
+                    self.push_on_stack(b);
+                }
+                self.push_on_stack(self.registers.status.bits());
+                let pcl = self.memory.get_byte(0xfffe);
+                let pch = self.memory.get_byte(0xffff);
+                self.jump(((pch as u16) << 8) | pcl as u16);
+                self.registers.status.or(Status::PS_DISABLE_INTERRUPTS);
+                self.registers.status.and(!Status::PS_DECIMAL_MODE);
+            }
+
             (Instruction::BVC, OpInput::UseRelative(rel)) => {
                 let addr = self.registers.program_counter.wrapping_add(rel);
                 self.branch_if_overflow_clear(addr);
