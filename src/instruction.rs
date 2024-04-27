@@ -83,8 +83,12 @@ pub enum Instruction {
     NOP, // No OPeration.................. | .. .....              =
     ORA, // inclusive OR (bitwise)........ | N. ...Z. A            = A | M
     PHA, // PusH Accumulator.............. | .. .....       S    M = A
+    PHX, // PusH X........................ | .. .....       S    M = A
+    PHY, // PusH Y........................ | .. .....       S    M = A
     PHP, // PusH Processor status......... | .. .....       S    M = F
     PLA, // PuLl Accumulator.............. | N. ...Z. A     S      = M (stack)
+    PLX, // PuLl X........................ | N. ...Z. A     S      = M (stack)
+    PLY, // PuLl Y........................ | N. ...Z. A     S      = M (stack)
     PLP, // PuLl Processor status......... | NV BDIZC       S      = M (stack)
     ROL, // ROtate Left................... | N. ...ZC A            = C A rotated
     //                               or N. ...ZC            M = C M rotated
@@ -504,6 +508,10 @@ impl crate::Variant for Cmos6502 {
             0x74 => Some((Instruction::STZ, AddressingMode::ZeroPageX)),
             0x9c => Some((Instruction::STZ, AddressingMode::Absolute)),
             0x9e => Some((Instruction::STZ, AddressingMode::AbsoluteX)),
+            0x7a => Some((Instruction::PLY, AddressingMode::Implied)),
+            0xfa => Some((Instruction::PLX, AddressingMode::Implied)),
+            0x5a => Some((Instruction::PHY, AddressingMode::Implied)),
+            0xda => Some((Instruction::PHX, AddressingMode::Implied)),
             _ => Nmos6502::decode(opcode),
         }
     }

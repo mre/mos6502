@@ -483,10 +483,46 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 let val = self.registers.accumulator;
                 self.push_on_stack(val);
             }
+            (Instruction::PHX, OpInput::UseImplied) => {
+                // Push X
+                self.push_on_stack(self.registers.index_x);
+            }
+            (Instruction::PHY, OpInput::UseImplied) => {
+                // Push Y
+                self.push_on_stack(self.registers.index_y);
+            }
             (Instruction::PHP, OpInput::UseImplied) => {
                 // Push status
                 let val = self.registers.status.bits() | 0x30;
                 self.push_on_stack(val);
+            }
+            (Instruction::PLX, OpInput::UseImplied) => {
+                // Pull accumulator
+                self.pull_from_stack();
+                let val: u8 = self.fetch_from_stack();
+                self.registers.index_x = val;
+                self.registers.status.set_with_mask(
+                    Status::PS_ZERO | Status::PS_NEGATIVE,
+                    Status::new(StatusArgs {
+                        zero: val == 0,
+                        negative: self.registers.accumulator > 127,
+                        ..StatusArgs::none()
+                    }),
+                );
+            }
+            (Instruction::PLY, OpInput::UseImplied) => {
+                // Pull accumulator
+                self.pull_from_stack();
+                let val: u8 = self.fetch_from_stack();
+                self.registers.index_y = val;
+                self.registers.status.set_with_mask(
+                    Status::PS_ZERO | Status::PS_NEGATIVE,
+                    Status::new(StatusArgs {
+                        zero: val == 0,
+                        negative: self.registers.accumulator > 127,
+                        ..StatusArgs::none()
+                    }),
+                );
             }
             (Instruction::PLA, OpInput::UseImplied) => {
                 // Pull accumulator
