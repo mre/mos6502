@@ -645,6 +645,7 @@ impl crate::Variant for Cmos6502 {
             0xb2 => Some((Instruction::LDA, AddressingMode::ZeroPageIndirect)),
             0xd2 => Some((Instruction::CMP, AddressingMode::ZeroPageIndirect)),
             0xf2 => Some((Instruction::SBC, AddressingMode::ZeroPageIndirect)),
+            0x89 => Some((Instruction::BIT, AddressingMode::Immediate)),
             _ => Nmos6502::decode(opcode),
         }
     }

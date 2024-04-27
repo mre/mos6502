@@ -294,6 +294,16 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.branch_if_not_equal(addr);
             }
 
+            (Instruction::BIT, OpInput::UseImmediate(val)) => {
+                self.registers.status.set_with_mask(
+                    Status::PS_ZERO,
+                    Status::new(StatusArgs {
+                        zero: 0 == (self.registers.accumulator & val),
+                        ..StatusArgs::none()
+                    }),
+                );
+            }
+
             (Instruction::BIT, OpInput::UseAddress(addr)) => {
                 let a: u8 = self.registers.accumulator;
                 let m: u8 = self.memory.get_byte(addr);
