@@ -47,6 +47,10 @@ where
 }
 
 impl<M: Bus, V: Variant> CPU<M, V> {
+    // Allowing `needless_pass_by_value` to simplify construction. Passing by
+    // value avoids the borrow and improves readability when constructing the
+    // CPU.
+    #[allow(clippy::needless_pass_by_value)]
     pub fn new(memory: M, _variant: V) -> CPU<M, V> {
         CPU {
             registers: Registers::new(),
@@ -56,10 +60,23 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     }
 
     pub fn reset(&mut self) {
-        //TODO: // should read some bytes from the stack and also get the PC from the reset vector
+        //TODO: should read some bytes from the stack and also get the PC from the reset vector
     }
 
+    /// Get the next byte from memory and decode it into an instruction and addressing mode.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the instruction is not recognized
+    /// (i.e. the opcode is invalid or has not been implemented).
     pub fn fetch_next_and_decode(&mut self) -> Option<DecodedInstr> {
+        // Helper function to read a 16-bit address from memory
+        fn read_address<M: Bus>(mem: &mut M, addr: u16) -> [u8; 2] {
+            let lo = mem.get_byte(addr);
+            let hi = mem.get_byte(addr.wrapping_add(1));
+            [lo, hi]
+        }
+
         let x: u8 = self.memory.get_byte(self.registers.program_counter);
 
         match V::decode(x) {
@@ -86,12 +103,6 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 let y = self.registers.index_y;
 
                 let memory = &mut self.memory;
-
-                fn read_address<M: Bus>(mem: &mut M, addr: u16) -> [u8; 2] {
-                    let lo = mem.get_byte(addr);
-                    let hi = mem.get_byte(addr.wrapping_add(1));
-                    [lo, hi]
-                }
 
                 let am_out = match am {
                     AddressingMode::Accumulator | AddressingMode::Implied => {
@@ -213,24 +224,25 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     pub fn execute_instruction(&mut self, decoded_instr: DecodedInstr) {
         match decoded_instr {
             (Instruction::ADC, OpInput::UseImmediate(val)) => {
-                debug!("add with carry immediate: {}", val);
+                log::debug!("add with carry immediate: {}", val);
                 self.add_with_carry(val);
             }
             (Instruction::ADC, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
-                debug!("add with carry. address: {:?}. value: {}", addr, val);
+                log::debug!("add with carry. address: {:?}. value: {}", addr, val);
                 self.add_with_carry(val);
             }
             (Instruction::ADCnd, OpInput::UseImmediate(val)) => {
-                debug!("add with carry immediate: {}", val);
+                log::debug!("add with carry immediate: {}", val);
                 self.add_with_no_decimal(val);
             }
             (Instruction::ADCnd, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
-                debug!("add with carry. address: {:?}. value: {}", addr, val);
+                log::debug!("add with carry. address: {:?}. value: {}", addr, val);
                 self.add_with_no_decimal(val);
             }
 
@@ -301,7 +313,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
             (Instruction::BMI, OpInput::UseRelative(rel)) => {
                 let addr = self.registers.program_counter.wrapping_add(rel);
-                debug!("branch if minus relative. address: {:?}", addr);
+                log::debug!("branch if minus relative. address: {:?}", addr);
                 self.branch_if_minus(addr);
             }
 
@@ -317,7 +329,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.push_on_stack(self.registers.status.bits());
                 let pcl = self.memory.get_byte(0xfffe);
                 let pch = self.memory.get_byte(0xffff);
-                self.jump(((pch as u16) << 8) | pcl as u16);
+                self.jump((u16::from(pch) << 8) | u16::from(pcl));
                 self.registers.status.or(Status::PS_DISABLE_INTERRUPTS);
             }
 
@@ -412,32 +424,32 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
 
             (Instruction::LDA, OpInput::UseImmediate(val)) => {
-                debug!("load A immediate: {}", val);
+                log::debug!("load A immediate: {}", val);
                 self.load_accumulator(val);
             }
             (Instruction::LDA, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
-                debug!("load A. address: {:?}. value: {}", addr, val);
+                log::debug!("load A. address: {:?}. value: {}", addr, val);
                 self.load_accumulator(val);
             }
 
             (Instruction::LDX, OpInput::UseImmediate(val)) => {
-                debug!("load X immediate: {}", val);
+                log::debug!("load X immediate: {}", val);
                 self.load_x_register(val);
             }
             (Instruction::LDX, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
-                debug!("load X. address: {:?}. value: {}", addr, val);
+                log::debug!("load X. address: {:?}. value: {}", addr, val);
                 self.load_x_register(val);
             }
 
             (Instruction::LDY, OpInput::UseImmediate(val)) => {
-                debug!("load Y immediate: {}", val);
+                log::debug!("load Y immediate: {}", val);
                 self.load_y_register(val);
             }
             (Instruction::LDY, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
-                debug!("load Y. address: {:?}. value: {}", addr, val);
+                log::debug!("load Y. address: {:?}. value: {}", addr, val);
                 self.load_y_register(val);
             }
 
@@ -527,32 +539,33 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.registers.status = Status::from_bits_truncate(val);
                 let pcl: u8 = self.pull_from_stack();
                 let pch: u8 = self.fetch_from_stack();
-                self.registers.program_counter = ((pch as u16) << 8) | pcl as u16;
+                self.registers.program_counter = (u16::from(pch) << 8) | u16::from(pcl);
             }
             (Instruction::RTS, OpInput::UseImplied) => {
                 self.pull_from_stack();
                 let pcl: u8 = self.pull_from_stack();
                 let pch: u8 = self.fetch_from_stack();
-                self.registers.program_counter = (((pch as u16) << 8) | pcl as u16).wrapping_add(1);
+                self.registers.program_counter =
+                    ((u16::from(pch) << 8) | u16::from(pcl)).wrapping_add(1);
             }
 
             (Instruction::SBC, OpInput::UseImmediate(val)) => {
-                debug!("subtract with carry immediate: {}", val);
+                log::debug!("subtract with carry immediate: {}", val);
                 self.subtract_with_carry(val);
             }
             (Instruction::SBC, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
-                debug!("subtract with carry. address: {:?}. value: {}", addr, val);
+                log::debug!("subtract with carry. address: {:?}. value: {}", addr, val);
                 self.subtract_with_carry(val);
             }
 
             (Instruction::SBCnd, OpInput::UseImmediate(val)) => {
-                debug!("subtract with carry immediate: {}", val);
+                log::debug!("subtract with carry immediate: {}", val);
                 self.subtract_with_no_decimal(val);
             }
             (Instruction::SBCnd, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
-                debug!("subtract with carry. address: {:?}. value: {}", addr, val);
+                log::debug!("subtract with carry. address: {:?}. value: {}", addr, val);
                 self.subtract_with_no_decimal(val);
             }
 
@@ -605,10 +618,10 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
 
             (Instruction::NOP, OpInput::UseImplied) => {
-                debug!("NOP instruction");
+                log::debug!("NOP instruction");
             }
             (_, _) => {
-                debug!(
+                log::debug!(
                     "attempting to execute unimplemented or invalid \
                      instruction"
                 );
@@ -628,23 +641,23 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         }
     }
 
-    fn set_flags_from_i8(status: &mut Status, value: i8) {
-        let is_zero = value == 0;
-        let is_negative = value < 0;
-
-        status.set_with_mask(
-            Status::PS_ZERO | Status::PS_NEGATIVE,
-            Status::new(StatusArgs {
-                zero: is_zero,
-                negative: is_negative,
-                ..StatusArgs::none()
-            }),
-        );
+    /// Checks if a given `u8` value should be interpreted as negative when
+    /// considered as `i8`.
+    ///
+    /// In an 8-bit unsigned integer (`u8`), values range from 0 to 255. When
+    /// these values are interpreted as signed integers (`i8`), values from 128
+    /// to 255 are considered negative, corresponding to the signed range -128
+    /// to -1. This function checks if the provided `u8` value falls within that
+    /// range, effectively determining if the most significant bit is set, which
+    /// indicates a negative number in two's complement form.
+    /// ```
+    const fn value_is_negative(value: u8) -> bool {
+        value > 127
     }
 
     fn set_flags_from_u8(status: &mut Status, value: u8) {
         let is_zero = value == 0;
-        let is_negative = value > 127;
+        let is_negative = Self::value_is_negative(value);
 
         status.set_with_mask(
             Status::PS_ZERO | Status::PS_NEGATIVE,
@@ -668,7 +681,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 ..StatusArgs::none()
             }),
         );
-        CPU::<M, V>::set_flags_from_i8(status, *p_val as i8);
+        CPU::<M, V>::set_flags_from_u8(status, *p_val);
     }
 
     fn shift_right_with_flags(p_val: &mut u8, status: &mut Status) {
@@ -682,7 +695,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 ..StatusArgs::none()
             }),
         );
-        CPU::<M, V>::set_flags_from_i8(status, *p_val as i8);
+        CPU::<M, V>::set_flags_from_u8(status, *p_val);
     }
 
     fn rotate_left_with_flags(p_val: &mut u8, status: &mut Status) {
@@ -698,7 +711,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 ..StatusArgs::none()
             }),
         );
-        CPU::<M, V>::set_flags_from_i8(status, *p_val as i8);
+        CPU::<M, V>::set_flags_from_u8(status, *p_val);
     }
 
     fn rotate_right_with_flags(p_val: &mut u8, status: &mut Status) {
@@ -714,7 +727,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 ..StatusArgs::none()
             }),
         );
-        CPU::<M, V>::set_flags_from_i8(status, *p_val as i8);
+        CPU::<M, V>::set_flags_from_u8(status, *p_val);
     }
 
     fn set_u8_with_flags(mem: &mut u8, status: &mut Status, value: u8) {
@@ -747,7 +760,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     }
 
     fn add_with_carry(&mut self, value: u8) {
-        fn decimal_adjust(result: u8) -> u8 {
+        const fn decimal_adjust(result: u8) -> u8 {
             let bcd1: u8 = if (result & 0x0f) > 0x09 { 0x06 } else { 0x00 };
 
             let bcd2: u8 = if (result.wrapping_add(bcd1) & 0xf0) > 0x90 {
@@ -791,7 +804,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
         self.load_accumulator(result);
 
-        debug!("accumulator: {}", self.registers.accumulator);
+        log::debug!("accumulator: {}", self.registers.accumulator);
     }
 
     fn add_with_no_decimal(&mut self, value: u8) {
@@ -823,7 +836,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
         self.load_accumulator(result);
 
-        debug!("accumulator: {}", self.registers.accumulator);
+        log::debug!("accumulator: {}", self.registers.accumulator);
     }
 
     fn and(&mut self, value: u8) {
@@ -835,11 +848,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         // A - M - (1 - C)
 
         // nc -- 'not carry'
-        let nc: u8 = if self.registers.status.contains(Status::PS_CARRY) {
-            0
-        } else {
-            1
-        };
+        let nc: u8 = u8::from(!self.registers.status.contains(Status::PS_CARRY));
 
         let a_before = self.registers.accumulator;
 
@@ -881,11 +890,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         // A - M - (1 - C)
 
         // nc -- 'not carry'
-        let nc: u8 = if self.registers.status.contains(Status::PS_CARRY) {
-            0
-        } else {
-            1
-        };
+        let nc: u8 = u8::from(!self.registers.status.contains(Status::PS_CARRY));
 
         let a_before = self.registers.accumulator;
 
@@ -943,13 +948,12 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         let value_new = val.wrapping_add(1);
         *val = value_new;
 
-        let is_negative = (value_new as i8) < 0;
         let is_zero = value_new == 0;
 
         flags.set_with_mask(
             Status::PS_NEGATIVE | Status::PS_ZERO,
             Status::new(StatusArgs {
-                negative: is_negative,
+                negative: Self::value_is_negative(value_new),
                 zero: is_zero,
                 ..StatusArgs::none()
             }),
@@ -960,14 +964,14 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         let value_new = val.wrapping_sub(1);
         *val = value_new;
 
-        let is_negative = (value_new as i8) < 0;
         let is_zero = value_new == 0;
+        let is_negative = Self::value_is_negative(value_new);
 
         flags.set_with_mask(
             Status::PS_NEGATIVE | Status::PS_ZERO,
             Status::new(StatusArgs {
-                negative: is_negative,
                 zero: is_zero,
+                negative: is_negative,
                 ..StatusArgs::none()
             }),
         );
@@ -1033,20 +1037,24 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     //   ...
     //   The N flag contains most significant bit of the subtraction result.
     fn compare(&mut self, r: u8, val: u8) {
+        // Setting the CARRY flag: A (unsigned) >= NUM (unsigned)
         if r >= val {
             self.registers.status.insert(Status::PS_CARRY);
         } else {
             self.registers.status.remove(Status::PS_CARRY);
         }
 
+        // Setting the ZERO flag: A = NUM
         if r == val {
             self.registers.status.insert(Status::PS_ZERO);
         } else {
             self.registers.status.remove(Status::PS_ZERO);
         }
 
-        let diff: i8 = (r as i8).wrapping_sub(val as i8);
-        if diff < 0 {
+        // Set the NEGATIVE flag based on the MSB of the result of subtraction
+        // This checks if the 8th bit is set (0x80 in hex is 128 in decimal, which is the 8th bit in a byte)
+        let diff = r.wrapping_sub(val);
+        if Self::value_is_negative(diff) {
             self.registers.status.insert(Status::PS_NEGATIVE);
         } else {
             self.registers.status.remove(Status::PS_NEGATIVE);
@@ -1059,7 +1067,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     }
 
     fn compare_with_x_register(&mut self, val: u8) {
-        debug!("compare_with_x_register");
+        log::debug!("compare_with_x_register");
 
         let x = self.registers.index_x;
         self.compare(x, val);
@@ -1112,6 +1120,11 @@ impl<M: Bus, V: Variant> core::fmt::Debug for CPU<M, V> {
 
 #[cfg(test)]
 mod tests {
+    // Casting from signed to unsigned integers is intentional in these tests
+    #![allow(clippy::cast_sign_loss)]
+    // Operations may intentionally wrap due to emulation of 8-bit unsigned
+    // integer arithmetic. We do this to test wrap-around conditions.
+    #![allow(clippy::cast_possible_wrap)]
 
     use super::*;
     use crate::instruction::Nmos6502;
@@ -1215,6 +1228,8 @@ mod tests {
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
+        // Allow casting from i8 to u8; -127i8 wraps to 129u8, as intended for
+        // two's complement arithmetic.
         cpu.add_with_carry(-127i8 as u8);
         assert_eq!(cpu.registers.accumulator, 0);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));

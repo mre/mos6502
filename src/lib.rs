@@ -25,15 +25,29 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+#![warn(clippy::all, clippy::pedantic)]
+#![warn(
+    absolute_paths_not_starting_with_crate,
+    rustdoc::invalid_html_tags,
+    missing_copy_implementations,
+    missing_debug_implementations,
+    semicolon_in_expressions_from_macros,
+    unreachable_pub,
+    unused_crate_dependencies,
+    unused_extern_crates,
+    variant_size_differences,
+    clippy::missing_const_for_fn
+)]
+#![deny(anonymous_parameters, macro_use_extern_crate, pointer_structural_match)]
+#![allow(clippy::module_name_repetitions)]
+// Registers and ops follow the 6502 naming convention and have similar names at
+// times
+#![allow(clippy::similar_names)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::too_many_lines)]
 #![no_std]
 
 #[doc = include_str!("../README.md")]
-#[macro_use]
-extern crate log;
-
-#[macro_use]
-extern crate bitflags;
-
 pub mod cpu;
 pub mod instruction;
 pub mod memory;
