@@ -363,7 +363,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.push_on_stack(self.registers.status.bits());
                 let pcl = self.memory.get_byte(0xfffe);
                 let pch = self.memory.get_byte(0xffff);
-                self.jump(((pch as u16) << 8) | pcl as u16);
+                self.jump((u16::from(pch) << 8) | u16::from(pcl));
                 self.registers.status.or(Status::PS_DISABLE_INTERRUPTS);
                 self.registers.status.and(!Status::PS_DECIMAL_MODE);
             }
