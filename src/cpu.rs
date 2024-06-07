@@ -894,8 +894,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             || (a_after == 0 && c_before == 0x01)
             || (value == 0xff && c_before == 0x01);
 
-        let did_overflow = (a_before > 127 && value > 127 && a_after < 128)
-            || (a_before < 128 && value < 128 && a_after > 127);
+        let did_overflow = (a_after ^ a_before) & (a_after ^ value) & 0x80 != 0;
 
         let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
 
@@ -926,8 +925,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             || (a_after == 0 && c_before == 0x01)
             || (value == 0xff && c_before == 0x01);
 
-        let did_overflow = (a_before > 127 && value > 127 && a_after < 128)
-            || (a_before < 128 && value < 128 && a_after > 127);
+        let did_overflow = (a_after ^ a_before) & (a_after ^ value) & 0x80 != 0;
 
         let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
 
@@ -960,18 +958,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
         let a_after = a_before.wrapping_sub(value).wrapping_sub(nc);
 
-        // The overflow flag is set on two's-complement overflow.
-        //
-        // range of A              is  -128 to 127
-        // range of - M - (1 - C)  is  -128 to 128
-        //                             -(127 + 1) to -(-128 + 0)
-        //
-        let over = (nc == 0 && value > 127) && a_before < 128 && a_after > 127;
-
-        let under =
-            (a_before > 127) && (0u8.wrapping_sub(value).wrapping_sub(nc) > 127) && a_after < 128;
-
-        let did_overflow = over || under;
+        let did_overflow = (a_after ^ a_before) & (a_after ^ value) & 0x80 == 0;
 
         let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
 
@@ -1002,18 +989,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
         let a_after = a_before.wrapping_sub(value).wrapping_sub(nc);
 
-        // The overflow flag is set on two's-complement overflow.
-        //
-        // range of A              is  -128 to 127
-        // range of - M - (1 - C)  is  -128 to 128
-        //                             -(127 + 1) to -(-128 + 0)
-        //
-        let over = (nc == 0 && value > 127) && a_before < 128 && a_after > 127;
-
-        let under =
-            (a_before > 127) && (0u8.wrapping_sub(value).wrapping_sub(nc) > 127) && a_after < 128;
-
-        let did_overflow = over || under;
+        let did_overflow = (a_after ^ a_before) & (a_after ^ value) & 0x80 == 0;
 
         let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
 
