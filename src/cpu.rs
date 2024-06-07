@@ -212,6 +212,14 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                             address_from_bytes(slice[0], slice[1]).wrapping_add(y.into()),
                         )
                     }
+                    AddressingMode::ZeroPageIndirect => {
+                        // Use [u8, ..1] from instruction
+                        // This is where the absolute (16-bit) target address is stored.
+                        // (Output: a 16-bit address)
+                        let start = slice[0];
+                        let slice = read_address(memory, u16::from(start));
+                        OpInput::UseAddress(address_from_bytes(slice[0], slice[1]))
+                    }
                 };
 
                 // Increment program counter
@@ -286,6 +294,16 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.branch_if_not_equal(addr);
             }
 
+            (Instruction::BIT, OpInput::UseImmediate(val)) => {
+                self.registers.status.set_with_mask(
+                    Status::PS_ZERO,
+                    Status::new(StatusArgs {
+                        zero: 0 == (self.registers.accumulator & val),
+                        ..StatusArgs::none()
+                    }),
+                );
+            }
+
             (Instruction::BIT, OpInput::UseAddress(addr)) => {
                 let a: u8 = self.registers.accumulator;
                 let m: u8 = self.memory.get_byte(addr);
@@ -322,6 +340,11 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.branch_if_positive(addr);
             }
 
+            (Instruction::BRA, OpInput::UseRelative(rel)) => {
+                let addr = self.registers.program_counter.wrapping_add(rel);
+                self.branch(addr);
+            }
+
             (Instruction::BRK, OpInput::UseImplied) => {
                 for b in self.registers.program_counter.wrapping_sub(1).to_be_bytes() {
                     self.push_on_stack(b);
@@ -331,6 +354,18 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 let pch = self.memory.get_byte(0xffff);
                 self.jump((u16::from(pch) << 8) | u16::from(pcl));
                 self.registers.status.or(Status::PS_DISABLE_INTERRUPTS);
+            }
+
+            (Instruction::BRKcld, OpInput::UseImplied) => {
+                for b in self.registers.program_counter.wrapping_sub(1).to_be_bytes() {
+                    self.push_on_stack(b);
+                }
+                self.push_on_stack(self.registers.status.bits());
+                let pcl = self.memory.get_byte(0xfffe);
+                let pch = self.memory.get_byte(0xffff);
+                self.jump((u16::from(pch) << 8) | u16::from(pcl));
+                self.registers.status.or(Status::PS_DISABLE_INTERRUPTS);
+                self.registers.status.and(!Status::PS_DECIMAL_MODE);
             }
 
             (Instruction::BVC, OpInput::UseRelative(rel)) => {
@@ -478,10 +513,46 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 let val = self.registers.accumulator;
                 self.push_on_stack(val);
             }
+            (Instruction::PHX, OpInput::UseImplied) => {
+                // Push X
+                self.push_on_stack(self.registers.index_x);
+            }
+            (Instruction::PHY, OpInput::UseImplied) => {
+                // Push Y
+                self.push_on_stack(self.registers.index_y);
+            }
             (Instruction::PHP, OpInput::UseImplied) => {
                 // Push status
                 let val = self.registers.status.bits() | 0x30;
                 self.push_on_stack(val);
+            }
+            (Instruction::PLX, OpInput::UseImplied) => {
+                // Pull accumulator
+                self.pull_from_stack();
+                let val: u8 = self.fetch_from_stack();
+                self.registers.index_x = val;
+                self.registers.status.set_with_mask(
+                    Status::PS_ZERO | Status::PS_NEGATIVE,
+                    Status::new(StatusArgs {
+                        zero: val == 0,
+                        negative: self.registers.accumulator > 127,
+                        ..StatusArgs::none()
+                    }),
+                );
+            }
+            (Instruction::PLY, OpInput::UseImplied) => {
+                // Pull accumulator
+                self.pull_from_stack();
+                let val: u8 = self.fetch_from_stack();
+                self.registers.index_y = val;
+                self.registers.status.set_with_mask(
+                    Status::PS_ZERO | Status::PS_NEGATIVE,
+                    Status::new(StatusArgs {
+                        zero: val == 0,
+                        negative: self.registers.accumulator > 127,
+                        ..StatusArgs::none()
+                    }),
+                );
             }
             (Instruction::PLA, OpInput::UseImplied) => {
                 // Pull accumulator
@@ -588,6 +659,9 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             (Instruction::STY, OpInput::UseAddress(addr)) => {
                 self.memory.set_byte(addr, self.registers.index_y);
             }
+            (Instruction::STZ, OpInput::UseAddress(addr)) => {
+                self.memory.set_byte(addr, 0);
+            }
 
             (Instruction::TAX, OpInput::UseImplied) => {
                 let val = self.registers.accumulator;
@@ -596,6 +670,38 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             (Instruction::TAY, OpInput::UseImplied) => {
                 let val = self.registers.accumulator;
                 self.load_y_register(val);
+            }
+            (Instruction::TRB, OpInput::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+
+                // The zero flag is set based on the result of the 'and'.
+                self.registers.status.set_with_mask(
+                    Status::PS_ZERO,
+                    Status::new(StatusArgs {
+                        zero: 0 == (self.registers.accumulator & val),
+                        ..StatusArgs::none()
+                    }),
+                );
+
+                // The 1's in the accumulator set the corresponding bits in the operand
+                let res = self.registers.accumulator | val;
+                self.memory.set_byte(addr, res);
+            }
+            (Instruction::TSB, OpInput::UseAddress(addr)) => {
+                let val = self.memory.get_byte(addr);
+
+                // The zero flag is set based on the result of the 'and'.
+                self.registers.status.set_with_mask(
+                    Status::PS_ZERO,
+                    Status::new(StatusArgs {
+                        zero: 0 == (self.registers.accumulator & val),
+                        ..StatusArgs::none()
+                    }),
+                );
+
+                // The 1's in the accumulator clear the corresponding bits in the operand
+                let res = (self.registers.accumulator ^ 0xff) & val;
+                self.memory.set_byte(addr, res);
             }
             (Instruction::TSX, OpInput::UseImplied) => {
                 let StackPointer(val) = self.registers.stack_pointer;
@@ -1009,6 +1115,10 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         if self.registers.status.contains(Status::PS_NEGATIVE) {
             self.registers.program_counter = addr;
         }
+    }
+
+    fn branch(&mut self, addr: u16) {
+        self.registers.program_counter = addr;
     }
 
     fn branch_if_positive(&mut self, addr: u16) {
