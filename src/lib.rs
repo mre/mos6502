@@ -39,7 +39,7 @@
     clippy::missing_const_for_fn
 )]
 #![deny(anonymous_parameters, macro_use_extern_crate)]
-#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::module_name_repetitions, clippy::needless_doctest_main)]
 // Registers and ops follow the 6502 naming convention and have similar names at
 // times
 #![allow(clippy::similar_names)]
