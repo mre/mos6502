@@ -35,7 +35,7 @@ fn address_from_bytes(lo: u8, hi: u8) -> u16 {
     u16::from(lo) + (u16::from(hi) << 8usize)
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct CPU<M, V>
 where
     M: Bus,
