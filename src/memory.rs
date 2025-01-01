@@ -50,6 +50,8 @@ const MEMORY_SIZE: usize = (ADDR_HI_BARE - ADDR_LO_BARE) as usize + 1usize;
 #[derive(Copy, Clone, Debug)]
 pub struct Memory {
     bytes: [u8; MEMORY_SIZE],
+    watch_write_address: Option<u16>,
+    watch_write_triggered: bool,
 }
 
 impl Default for Memory {
@@ -96,11 +98,19 @@ pub trait Bus {
     }
 }
 
+pub trait Watch {
+    fn watch_write(&mut self, address: u16);
+    fn write_triggered(&mut self) -> bool;
+    fn write_untrigger(&mut self);
+}
+
 impl Memory {
     #[must_use]
     pub const fn new() -> Memory {
         Memory {
             bytes: [0; MEMORY_SIZE],
+	    watch_write_address: None,
+	    watch_write_triggered: false,
         }
     }
 }
@@ -114,6 +124,9 @@ impl Bus for Memory {
     /// previous value at the address.
     fn set_byte(&mut self, address: u16, value: u8) {
         self.bytes[address as usize] = value;
+	if self.watch_write_address.is_some() && self.watch_write_address.unwrap() == address {
+	    self.watch_write_triggered = true;
+	}
     }
 
     /// Fast way to set multiple bytes in memory when the underlying memory is a
@@ -125,6 +138,20 @@ impl Bus for Memory {
         let end = start + values.len();
 
         self.bytes[start..end].copy_from_slice(values);
+    }
+}
+
+impl Watch for Memory {
+    fn watch_write(&mut self, address: u16) {
+	self.watch_write_address = Some(address)
+    }
+
+    fn write_triggered(&mut self) -> bool {
+	self.watch_write_triggered
+    }
+
+    fn write_untrigger(&mut self) {
+	self.watch_write_triggered = false
     }
 }
 
