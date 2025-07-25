@@ -912,26 +912,22 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             (result, did_carry)
         } else {
             // Non-decimal mode: use the binary addition result
-            // Carry occurs if the result is less than either operand
-            (
-                temp_result,
-                temp_result < accumulator_before || temp_result < value,
-            )
+            // Carry occurs when the addition overflows 8 bits
+            let result_16 = (accumulator_before as u16) + (value as u16) + (carry as u16);
+            let did_carry = result_16 > 0xFF;
+            (result_16 as u8, did_carry)
         };
 
-        // Calculate overflow
+        // Calculate overflow based on the binary addition result
         // Overflow occurs when both inputs have the same sign bit,
         // but the result has a different sign bit
+        let binary_result = temp_result;
         let calculated_overflow =
-            (!(accumulator_before ^ value) & (accumulator_before ^ final_result)) & 0x80 != 0;
-
-        // In decimal mode, the overflow flag is not affected by ADC
-        let did_overflow = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
-            // Preserve the current overflow flag in decimal mode
-            self.registers.status.contains(Status::PS_OVERFLOW)
-        } else {
-            calculated_overflow
-        };
+            (!(accumulator_before ^ value) & (accumulator_before ^ binary_result)) & 0x80 != 0;
+        
+        // The overflow flag is always calculated from the binary addition result,
+        // even in decimal mode. This matches the actual 6502 hardware behavior.
+        let did_overflow = calculated_overflow;
 
         // Update carry and overflow flags
         let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
@@ -1347,29 +1343,24 @@ mod tests {
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
-        // Overflow flag should remain unchanged in decimal mode
-        let overflow_before = cpu.registers.status.contains(Status::PS_OVERFLOW);
+        // Overflow flag is calculated from binary result
+        assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
         cpu.add_with_carry(0x43);
         assert_eq!(cpu.registers.accumulator, 0x52);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
-        assert_eq!(
-            cpu.registers.status.contains(Status::PS_OVERFLOW),
-            overflow_before
-        );
+        // No overflow: 0x09 + 0x43 = 0x4C (binary), both positive, result positive
+        assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
         cpu.add_with_carry(0x48);
         assert_eq!(cpu.registers.accumulator, 0x00);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
         assert!(cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
-        // Overflow flag should still remain unchanged
-        assert_eq!(
-            cpu.registers.status.contains(Status::PS_OVERFLOW),
-            overflow_before
-        );
+        // Overflow: 0x52 + 0x48 = 0x9A (binary), both positive, result negative
+        assert!(cpu.registers.status.contains(Status::PS_OVERFLOW));
     }
 
     #[cfg_attr(feature = "decimal_mode", test)]
@@ -1463,6 +1454,39 @@ mod tests {
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+
+        // Additional test cases for comprehensive verification
+        
+        // Non-decimal mode: Test carry flag with 0xFF + 0x01
+        cpu.registers.status.remove(Status::PS_DECIMAL_MODE);
+        cpu.registers.accumulator = 0xFF;
+        cpu.registers.status.remove(Status::PS_CARRY);
+        cpu.add_with_carry(0x01);
+        assert_eq!(cpu.registers.accumulator, 0x00);
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+        assert!(cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+        assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
+
+        // Non-decimal mode: Test carry flag with 0xFF + 0x01 + carry
+        cpu.registers.accumulator = 0xFF;
+        cpu.registers.status.insert(Status::PS_CARRY);
+        cpu.add_with_carry(0x01);
+        assert_eq!(cpu.registers.accumulator, 0x01);
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+        assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
+
+        // Non-decimal mode: Test negative overflow (0x80 + 0x80)
+        cpu.registers.accumulator = 0x80;
+        cpu.registers.status.remove(Status::PS_CARRY);
+        cpu.add_with_carry(0x80);
+        assert_eq!(cpu.registers.accumulator, 0x00);
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+        assert!(cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+        assert!(cpu.registers.status.contains(Status::PS_OVERFLOW));
     }
 
     #[test]
