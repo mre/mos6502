@@ -30,7 +30,7 @@ pub enum Instruction {
     // ADd with Carry
     ADC,
 
-    // ADd with Carry. This one has now decimal mode.
+    // ADd with Carry. This one has no decimal mode.
     ADCnd,
 
     // logical AND (bitwise)
@@ -180,7 +180,7 @@ pub enum Instruction {
     // SuBtract with Carry
     SBC,
 
-    // SuBtract with Carry. This one has now decimal mode.
+    // SuBtract with Carry. This one has no decimal mode.
     SBCnd,
 
     // SEt Carry flag
@@ -592,7 +592,7 @@ impl crate::Variant for Ricoh2a03 {
             Some((Instruction::SBC, addressing_mode)) => {
                 Some((Instruction::SBCnd, addressing_mode))
             }
-            something_else => something_else,
+            other_instruction => other_instruction,
         }
     }
 }
@@ -607,7 +607,7 @@ impl crate::Variant for RevisionA {
         // It's the same as on NMOS, but has no ROR instruction.
         match Nmos6502::decode(opcode) {
             Some((Instruction::ROR, _)) => None,
-            something_else => something_else,
+            other_instruction => other_instruction,
         }
     }
 }
