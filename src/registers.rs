@@ -157,11 +157,11 @@ impl StackPointer {
         u16::from_le_bytes([val, 0x01])
     }
 
-    pub fn decrement(&mut self) {
+    pub const fn decrement(&mut self) {
         self.0 = self.0.wrapping_sub(1);
     }
 
-    pub fn increment(&mut self) {
+    pub const fn increment(&mut self) {
         self.0 = self.0.wrapping_add(1);
     }
 }

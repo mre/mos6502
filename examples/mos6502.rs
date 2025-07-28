@@ -102,5 +102,5 @@ fn main() {
 
     cpu.run();
 
-    println!("{:?}", cpu);
+    println!("{cpu:?}");
 }

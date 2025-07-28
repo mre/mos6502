@@ -80,7 +80,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         }
     }
 
-    pub fn reset(&mut self) {
+    pub const fn reset(&mut self) {
         //TODO: should read some bytes from the stack and also get the PC from the reset vector
     }
 
@@ -753,7 +753,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                      instruction"
                 );
             }
-        };
+        }
     }
 
     pub fn single_step(&mut self) {
@@ -962,8 +962,9 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         } else {
             // Non-decimal mode: use the binary addition result
             // Carry occurs when the addition overflows 8 bits
-            let result_16 = (accumulator_before as u16) + (value as u16) + (carry as u16);
+            let result_16 = u16::from(accumulator_before) + u16::from(value) + u16::from(carry);
             let did_carry = result_16 > 0xFF;
+            #[allow(clippy::cast_possible_truncation)]
             (result_16 as u8, did_carry)
         };
 
@@ -1237,57 +1238,57 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         );
     }
 
-    fn jump(&mut self, addr: u16) {
+    const fn jump(&mut self, addr: u16) {
         self.registers.program_counter = addr;
     }
 
-    fn branch_if_carry_clear(&mut self, addr: u16) {
+    const fn branch_if_carry_clear(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_CARRY) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_carry_set(&mut self, addr: u16) {
+    const fn branch_if_carry_set(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_CARRY) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_equal(&mut self, addr: u16) {
+    const fn branch_if_equal(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_ZERO) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_not_equal(&mut self, addr: u16) {
+    const fn branch_if_not_equal(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_ZERO) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_minus(&mut self, addr: u16) {
+    const fn branch_if_minus(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_NEGATIVE) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch(&mut self, addr: u16) {
+    const fn branch(&mut self, addr: u16) {
         self.registers.program_counter = addr;
     }
 
-    fn branch_if_positive(&mut self, addr: u16) {
+    const fn branch_if_positive(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_NEGATIVE) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_overflow_clear(&mut self, addr: u16) {
+    const fn branch_if_overflow_clear(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_OVERFLOW) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_overflow_set(&mut self, addr: u16) {
+    const fn branch_if_overflow_set(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_OVERFLOW) {
             self.registers.program_counter = addr;
         }

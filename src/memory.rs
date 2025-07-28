@@ -100,6 +100,7 @@ impl Memory {
     #[must_use]
     pub const fn new() -> Memory {
         Memory {
+            #[allow(clippy::large_stack_arrays)]
             bytes: [0; MEMORY_SIZE],
         }
     }
