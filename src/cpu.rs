@@ -920,80 +920,27 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     /// - **65C02**: N and Z flags are valid, V flag still undocumented, +1 cycle in decimal mode
     /// - **RP2A03** (NES): Decimal mode completely disabled in hardware
     fn add_with_carry(&mut self, value: u8) {
-        // Convert the carry flag to a 0 or 1 for addition
-        let carry: u8 = u8::from(self.registers.status.contains(Status::PS_CARRY));
-        let accumulator_before = self.registers.accumulator;
+        let carry_set = u8::from(self.registers.status.contains(Status::PS_CARRY));
+        let decimal_mode = self.registers.status.contains(Status::PS_DECIMAL_MODE);
 
-        // Perform binary addition first
-        let temp_result = accumulator_before.wrapping_add(value).wrapping_add(carry);
+        // Use variant-specific ADC implementation
+        let (result, carry, overflow, negative, zero) =
+            V::execute_adc(self.registers.accumulator, value, carry_set, decimal_mode);
 
-        let (final_result, did_carry) = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
-            // Decimal mode: treat each nibble as a decimal digit (0-9)
-
-            // Add the low nibbles (including carry)
-            let mut low_nibble = (accumulator_before & 0x0f)
-                .wrapping_add(value & 0x0f)
-                .wrapping_add(carry);
-
-            // Add the high nibbles
-            let mut high_nibble = (accumulator_before >> 4).wrapping_add(value >> 4);
-            let mut carry_to_high = false;
-
-            // If low nibble is > 9, we need to adjust it and carry to high nibble
-            // This is because in BCD, each nibble should represent 0-9
-            if low_nibble > 9 {
-                low_nibble = low_nibble.wrapping_sub(10);
-                carry_to_high = true;
-            }
-
-            // Add the carry from low nibble to high nibble if necessary
-            high_nibble = high_nibble.wrapping_add(u8::from(carry_to_high));
-
-            // Adjust high nibble if it's > 9 and set final carry flag
-            let (adjusted_high, did_carry) = if high_nibble > 9 {
-                (high_nibble.wrapping_sub(10), true)
-            } else {
-                (high_nibble, false)
-            };
-
-            // Combine adjusted high and low nibbles
-            let result = (adjusted_high << 4) | (low_nibble & 0x0f);
-            (result, did_carry)
-        } else {
-            // Non-decimal mode: use the binary addition result
-            // Carry occurs when the addition overflows 8 bits
-            let result_16 = u16::from(accumulator_before) + u16::from(value) + u16::from(carry);
-            let did_carry = result_16 > 0xFF;
-            #[allow(clippy::cast_possible_truncation)]
-            (result_16 as u8, did_carry)
-        };
-
-        // Calculate overflow based on the binary addition result
-        // Overflow occurs when both inputs have the same sign bit,
-        // but the result has a different sign bit
-        let binary_result = temp_result;
-        let calculated_overflow =
-            (!(accumulator_before ^ value) & (accumulator_before ^ binary_result)) & 0x80 != 0;
-
-        // The overflow flag is always calculated from the binary addition result,
-        // even in decimal mode. This matches the actual NMOS 6502 hardware behavior.
-        // Note: While the V flag is set, its meaning is effectively undocumented in
-        // decimal mode since BCD arithmetic is inherently unsigned.
-        let did_overflow = calculated_overflow;
-
-        // Update carry and overflow flags
-        let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
+        // Update processor status flags
         self.registers.status.set_with_mask(
-            mask,
+            Status::PS_CARRY | Status::PS_OVERFLOW | Status::PS_ZERO | Status::PS_NEGATIVE,
             Status::new(StatusArgs {
-                carry: did_carry,
-                overflow: did_overflow,
+                carry,
+                overflow,
+                zero,
+                negative,
                 ..StatusArgs::none()
             }),
         );
 
-        // Set the accumulator and update zero and negative flags
-        self.load_accumulator(final_result);
+        // Update accumulator
+        self.registers.accumulator = result;
     }
 
     fn add_with_no_decimal(&mut self, value: u8) {
@@ -2095,5 +2042,49 @@ mod tests {
     fn stack_underflow() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
         let _val: u8 = cpu.pull_from_stack();
+    }
+
+    #[test]
+    fn variant_specific_adc_behavior() {
+        use crate::instruction::{Cmos6502, RevisionA, Ricoh2a03};
+
+        // Test Ricoh2a03 (NES): decimal mode should be ignored
+        let mut ricoh_cpu = CPU::new(Ram::new(), Ricoh2a03);
+        ricoh_cpu.registers.accumulator = 0x09;
+        ricoh_cpu.registers.status.insert(Status::PS_DECIMAL_MODE);
+        ricoh_cpu.registers.status.remove(Status::PS_CARRY);
+        ricoh_cpu.add_with_carry(0x01);
+        // Should be 0x0A (binary), not 0x10 (decimal)
+        assert_eq!(ricoh_cpu.registers.accumulator, 0x0A);
+
+        // Test NMOS 6502: standard decimal mode behavior
+        let mut nmos_cpu = CPU::new(Ram::new(), Nmos6502);
+        nmos_cpu.registers.accumulator = 0x09;
+        nmos_cpu.registers.status.insert(Status::PS_DECIMAL_MODE);
+        nmos_cpu.registers.status.remove(Status::PS_CARRY);
+        nmos_cpu.add_with_carry(0x01);
+        // Should be 0x10 (decimal BCD result)
+        assert_eq!(nmos_cpu.registers.accumulator, 0x10);
+
+        // Test 65C02: should behave the same as NMOS for ADC
+        let mut cmos_cpu = CPU::new(Ram::new(), Cmos6502);
+        cmos_cpu.registers.accumulator = 0x09;
+        cmos_cpu.registers.status.insert(Status::PS_DECIMAL_MODE);
+        cmos_cpu.registers.status.remove(Status::PS_CARRY);
+        cmos_cpu.add_with_carry(0x01);
+        // Should be 0x10 (decimal BCD result)
+        assert_eq!(cmos_cpu.registers.accumulator, 0x10);
+
+        // Test RevisionA: should behave the same as NMOS for ADC
+        let mut revision_a_cpu = CPU::new(Ram::new(), RevisionA);
+        revision_a_cpu.registers.accumulator = 0x09;
+        revision_a_cpu
+            .registers
+            .status
+            .insert(Status::PS_DECIMAL_MODE);
+        revision_a_cpu.registers.status.remove(Status::PS_CARRY);
+        revision_a_cpu.add_with_carry(0x01);
+        // Should be 0x10 (decimal BCD result)
+        assert_eq!(revision_a_cpu.registers.accumulator, 0x10);
     }
 }

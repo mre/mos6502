@@ -54,7 +54,8 @@ pub mod memory;
 pub mod registers;
 
 /// Trait for 6502 variant. This is the mechanism allowing the different 6502-like CPUs to be
-/// emulated. It allows a struct to decode an opcode into its instruction and addressing mode.
+/// emulated. It allows a struct to decode an opcode into its instruction and addressing mode,
+/// and implements variant-specific instruction behavior.
 pub trait Variant {
     fn decode(
         opcode: u8,
@@ -62,4 +63,21 @@ pub trait Variant {
         crate::instruction::Instruction,
         crate::instruction::AddressingMode,
     )>;
+
+    /// Execute Add with Carry (ADC) with variant-specific behavior
+    ///
+    /// # Arguments
+    /// * `accumulator` - Current accumulator value
+    /// * `value` - Value to add  
+    /// * `carry_set` - Input carry flag set (0 or 1)
+    /// * `decimal_mode` - Whether decimal mode is enabled
+    ///
+    /// # Returns
+    /// Tuple of (result, `carry_out`, overflow, negative, zero)
+    fn execute_adc(
+        accumulator: u8,
+        value: u8,
+        carry_set: u8,
+        decimal_mode: bool,
+    ) -> (u8, bool, bool, bool, bool);
 }
