@@ -889,33 +889,33 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     /// Executes the following calculation: A + M + C (Add with Carry)
     ///
     /// This implementation follows the NMOS 6502 behavior as documented in authoritative sources.
-    /// 
+    ///
     /// ## Decimal Mode Behavior (NMOS 6502)
-    /// 
+    ///
     /// In decimal mode, this instruction performs Binary Coded Decimal (BCD) arithmetic
     /// where each nibble represents a decimal digit (0-9). However, flag behavior differs
     /// significantly from binary mode:
-    /// 
+    ///
     /// - **Carry Flag (C)**: Correctly set when BCD addition overflows (> 99)
     /// - **Overflow Flag (V)**: Calculated from the binary addition result, not the BCD result.
     ///   The meaning is effectively undocumented in decimal mode since BCD is unsigned arithmetic.
     /// - **Negative Flag (N)**: Set from the BCD result but may not match expected 10's complement behavior
     /// - **Zero Flag (Z)**: Set from the BCD result but may not always be correct on NMOS 6502
-    /// 
+    ///
     /// ## Invalid BCD Values
-    /// 
-    /// When either nibble contains values A-F (invalid BCD), the NMOS 6502 behavior is 
+    ///
+    /// When either nibble contains values A-F (invalid BCD), the NMOS 6502 behavior is
     /// undefined. This implementation treats them as valid binary values, which produces
     /// deterministic results but may not match all real hardware variants.
-    /// 
+    ///
     /// ## References
-    /// 
+    ///
     /// - [6502.org Decimal Mode Tutorial](http://www.6502.org/tutorials/decimal_mode.html)
     /// - [NESdev Wiki 6502 Decimal Mode](https://www.nesdev.org/wiki/Visual6502wiki/6502DecimalMode)
     /// - Bruce Clark's comprehensive decimal mode test programs
-    /// 
+    ///
     /// ## Variant Differences
-    /// 
+    ///
     /// - **NMOS 6502**: Only carry flag is reliable in decimal mode
     /// - **65C02**: N and Z flags are valid, V flag still undocumented, +1 cycle in decimal mode
     /// - **RP2A03** (NES): Decimal mode completely disabled in hardware
@@ -973,7 +973,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         let binary_result = temp_result;
         let calculated_overflow =
             (!(accumulator_before ^ value) & (accumulator_before ^ binary_result)) & 0x80 != 0;
-        
+
         // The overflow flag is always calculated from the binary addition result,
         // even in decimal mode. This matches the actual NMOS 6502 hardware behavior.
         // Note: While the V flag is set, its meaning is effectively undocumented in
@@ -1077,30 +1077,30 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     /// Executes the following calculation: A - M - (1 - C) (Subtract with Carry)
     ///
     /// This implementation follows the NMOS 6502 behavior as documented in authoritative sources.
-    /// 
+    ///
     /// ## Decimal Mode Behavior (NMOS 6502)
-    /// 
+    ///
     /// In decimal mode, this instruction performs Binary Coded Decimal (BCD) arithmetic
     /// where each nibble represents a decimal digit (0-9). Flag behavior matches ADC:
-    /// 
+    ///
     /// - **Carry Flag (C)**: Correctly set (inverse of borrow) for BCD subtraction
     /// - **Overflow Flag (V)**: Disabled in decimal mode (always false) to match real hardware
     /// - **Negative Flag (N)**: Set from the BCD result but behavior is undocumented
     /// - **Zero Flag (Z)**: Set from the BCD result but may not always be correct on NMOS 6502
-    /// 
+    ///
     /// ## Invalid BCD Values
-    /// 
-    /// When either nibble contains values A-F (invalid BCD), the NMOS 6502 behavior is 
+    ///
+    /// When either nibble contains values A-F (invalid BCD), the NMOS 6502 behavior is
     /// undefined. This implementation handles them deterministically but results may vary
     /// from real hardware.
-    /// 
+    ///
     /// ## References
-    /// 
+    ///
     /// - [6502.org Decimal Mode Tutorial](http://www.6502.org/tutorials/decimal_mode.html)
     /// - [NESdev Wiki 6502 Decimal Mode](https://www.nesdev.org/wiki/Visual6502wiki/6502DecimalMode)
-    /// 
+    ///
     /// ## Variant Differences
-    /// 
+    ///
     /// - **NMOS 6502**: Only carry flag is reliable in decimal mode
     /// - **65C02**: N and Z flags are valid, V flag still undocumented
     /// - **RP2A03** (NES): Decimal mode completely disabled in hardware
@@ -1533,7 +1533,7 @@ mod tests {
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
 
         // Additional test cases for comprehensive verification
-        
+
         // Non-decimal mode: Test carry flag with 0xFF + 0x01
         cpu.registers.status.remove(Status::PS_DECIMAL_MODE);
         cpu.registers.accumulator = 0xFF;
