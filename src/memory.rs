@@ -46,9 +46,10 @@ pub const IRQ_INTERRUPT_VECTOR_HI: u16 = 0xFFFF;
 
 const MEMORY_SIZE: usize = (ADDR_HI_BARE - ADDR_LO_BARE) as usize + 1usize;
 
-// FIXME: Should this use indirection for `bytes`?
+/// 64KB memory implementation  
 #[derive(Copy, Clone, Debug)]
 pub struct Memory {
+    #[allow(clippy::large_stack_arrays)]
     bytes: [u8; MEMORY_SIZE],
 }
 
@@ -98,6 +99,7 @@ pub trait Bus {
 
 impl Memory {
     #[must_use]
+    #[allow(clippy::large_stack_arrays)]
     pub const fn new() -> Memory {
         Memory {
             bytes: [0; MEMORY_SIZE],
