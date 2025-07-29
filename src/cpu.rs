@@ -59,7 +59,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         }
     }
 
-    pub fn reset(&mut self) {
+    pub const fn reset(&mut self) {
         //TODO: should read some bytes from the stack and also get the PC from the reset vector
     }
 
@@ -732,7 +732,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                      instruction"
                 );
             }
-        };
+        }
     }
 
     pub fn single_step(&mut self) {
@@ -1130,57 +1130,57 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         );
     }
 
-    fn jump(&mut self, addr: u16) {
+    const fn jump(&mut self, addr: u16) {
         self.registers.program_counter = addr;
     }
 
-    fn branch_if_carry_clear(&mut self, addr: u16) {
+    const fn branch_if_carry_clear(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_CARRY) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_carry_set(&mut self, addr: u16) {
+    const fn branch_if_carry_set(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_CARRY) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_equal(&mut self, addr: u16) {
+    const fn branch_if_equal(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_ZERO) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_not_equal(&mut self, addr: u16) {
+    const fn branch_if_not_equal(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_ZERO) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_minus(&mut self, addr: u16) {
+    const fn branch_if_minus(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_NEGATIVE) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch(&mut self, addr: u16) {
+    const fn branch(&mut self, addr: u16) {
         self.registers.program_counter = addr;
     }
 
-    fn branch_if_positive(&mut self, addr: u16) {
+    const fn branch_if_positive(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_NEGATIVE) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_overflow_clear(&mut self, addr: u16) {
+    const fn branch_if_overflow_clear(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_OVERFLOW) {
             self.registers.program_counter = addr;
         }
     }
 
-    fn branch_if_overflow_set(&mut self, addr: u16) {
+    const fn branch_if_overflow_set(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_OVERFLOW) {
             self.registers.program_counter = addr;
         }

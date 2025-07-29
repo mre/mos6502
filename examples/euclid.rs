@@ -18,7 +18,7 @@ fn main() {
     let program = match read("examples/asm/euclid/euclid.bin") {
         Ok(data) => data,
         Err(err) => {
-            println!("Error reading euclid.bin: {}", err);
+            println!("Error reading euclid.bin: {err}");
             return;
         }
     };
