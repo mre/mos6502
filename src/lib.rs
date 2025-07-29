@@ -54,7 +54,7 @@ pub mod memory;
 pub mod registers;
 
 /// Output of the ADC instruction
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct AdcOutput {
     result: u8,

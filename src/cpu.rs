@@ -2168,7 +2168,7 @@ mod tests {
     }
 
     #[test]
-    fn clear_flag() {
+    fn unset_flag() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         // Set all flags first
@@ -2196,5 +2196,92 @@ mod tests {
         assert!(!cpu.get_flag(Status::PS_CARRY));
         assert!(!cpu.get_flag(Status::PS_ZERO));
         assert!(!cpu.get_flag(Status::PS_NEGATIVE));
+    }
+
+    // ADC function-level tests - test the pure ADC logic without CPU state
+    #[test]
+    fn adc_function_nmos6502_binary_basic() {
+        use crate::instruction::Nmos6502;
+        use crate::{AdcOutput, Variant};
+
+        // Test basic binary addition: 5 + 3 = 8
+        let result = Nmos6502::adc_binary(5, 3, 0);
+        assert_eq!(result, AdcOutput {
+            result: 8,
+            did_carry: false,
+            overflow: false,
+            negative: false,
+            zero: false,
+        });
+
+        // Test with carry: 5 + 3 + 1 = 9
+        let result = Nmos6502::adc_binary(5, 3, 1);
+        assert_eq!(result, AdcOutput {
+            result: 9,
+            did_carry: false,
+            overflow: false,
+            negative: false,
+            zero: false,
+        });
+    }
+
+    #[test]
+    fn adc_function_nmos6502_binary_overflow() {
+        use crate::instruction::Nmos6502;
+        use crate::{AdcOutput, Variant};
+
+        // Test signed overflow: 127 + 1 = -128 (0x80)
+        let result = Nmos6502::adc_binary(0x7F, 1, 0);
+        assert_eq!(result, AdcOutput {
+            result: 0x80,
+            did_carry: false,
+            overflow: true,  // V flag set for signed overflow
+            negative: true,  // N flag set because result has bit 7 set
+            zero: false,
+        });
+    }
+
+    #[test]
+    fn adc_function_nmos6502_binary_carry() {
+        use crate::instruction::Nmos6502;
+        use crate::{AdcOutput, Variant};
+
+        // Test carry: 255 + 1 = 0 with carry
+        let result = Nmos6502::adc_binary(255, 1, 0);
+        assert_eq!(result, AdcOutput {
+            result: 0,
+            did_carry: true,  // C flag set for unsigned overflow
+            overflow: false,
+            negative: false,
+            zero: true,       // Z flag set because result is 0
+        });
+    }
+
+    #[cfg(feature = "decimal_mode")]
+    #[test]
+    fn adc_function_nmos6502_decimal_basic() {
+        use crate::instruction::Nmos6502;
+        use crate::{AdcOutput, Variant};
+
+        // Test BCD addition: 09 + 01 = 10 (0x10 in BCD)
+        let result = Nmos6502::adc_decimal(0x09, 0x01, 0);
+        assert_eq!(result, AdcOutput {
+            result: 0x10,    // BCD result
+            did_carry: false,
+            overflow: false,  // V calculated from binary operation
+            negative: false,
+            zero: false,
+        });
+    }
+
+    #[test]
+    fn adc_function_ricoh2a03_decimal_calls_binary() {
+        use crate::instruction::Ricoh2a03;
+        use crate::Variant;
+
+        // Ricoh2A03 has no decimal mode, so decimal should match binary
+        let binary_result = Ricoh2a03::adc_binary(0x09, 0x01, 0);
+        let decimal_result = Ricoh2a03::adc_decimal(0x09, 0x01, 0);
+        assert_eq!(binary_result, decimal_result);
     }
 }
