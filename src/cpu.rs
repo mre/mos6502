@@ -374,7 +374,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 let pcl = self.memory.get_byte(0xfffe);
                 let pch = self.memory.get_byte(0xffff);
                 self.jump((u16::from(pch) << 8) | u16::from(pcl));
-                self.registers.status.or(Status::PS_DISABLE_INTERRUPTS);
+                self.set_flag(Status::PS_DISABLE_INTERRUPTS);
             }
 
             (Instruction::BRKcld, OpInput::UseImplied) => {
@@ -385,8 +385,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 let pcl = self.memory.get_byte(0xfffe);
                 let pch = self.memory.get_byte(0xffff);
                 self.jump((u16::from(pch) << 8) | u16::from(pcl));
-                self.registers.status.or(Status::PS_DISABLE_INTERRUPTS);
-                self.registers.status.and(!Status::PS_DECIMAL_MODE);
+                self.set_flag(Status::PS_DISABLE_INTERRUPTS);
+                self.unset_flag(Status::PS_DECIMAL_MODE);
             }
 
             (Instruction::BVC, OpInput::UseRelative(rel)) => {
@@ -400,16 +400,16 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
 
             (Instruction::CLC, OpInput::UseImplied) => {
-                self.registers.status.and(!Status::PS_CARRY);
+                self.unset_flag(Status::PS_CARRY);
             }
             (Instruction::CLD, OpInput::UseImplied) => {
-                self.registers.status.and(!Status::PS_DECIMAL_MODE);
+                self.unset_flag(Status::PS_DECIMAL_MODE);
             }
             (Instruction::CLI, OpInput::UseImplied) => {
-                self.registers.status.and(!Status::PS_DISABLE_INTERRUPTS);
+                self.unset_flag(Status::PS_DISABLE_INTERRUPTS);
             }
             (Instruction::CLV, OpInput::UseImplied) => {
-                self.registers.status.and(!Status::PS_OVERFLOW);
+                self.unset_flag(Status::PS_OVERFLOW);
             }
 
             (Instruction::CMP, OpInput::UseImmediate(val)) => {
@@ -662,13 +662,13 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
 
             (Instruction::SEC, OpInput::UseImplied) => {
-                self.registers.status.or(Status::PS_CARRY);
+                self.set_flag(Status::PS_CARRY);
             }
             (Instruction::SED, OpInput::UseImplied) => {
-                self.registers.status.or(Status::PS_DECIMAL_MODE);
+                self.set_flag(Status::PS_DECIMAL_MODE);
             }
             (Instruction::SEI, OpInput::UseImplied) => {
-                self.registers.status.or(Status::PS_DISABLE_INTERRUPTS);
+                self.set_flag(Status::PS_DISABLE_INTERRUPTS);
             }
 
             (Instruction::STA, OpInput::UseAddress(addr)) => {
@@ -896,6 +896,12 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     #[inline]
     fn set_flag(&mut self, flag: Status) {
         self.registers.status.or(flag);
+    }
+
+    /// Shorthand for clearing a specific flag in the status register
+    #[inline]
+    fn unset_flag(&mut self, flag: Status) {
+        self.registers.status.and(!flag);
     }
 
     /// Executes the following calculation: A + M + C (Add with Carry)
@@ -1831,7 +1837,7 @@ mod tests {
         cpu.branch_if_equal(0xABCD);
         assert_eq!(cpu.registers.program_counter, (0));
 
-        cpu.registers.status.or(Status::PS_ZERO);
+        cpu.set_flag(Status::PS_ZERO);
         cpu.branch_if_equal(0xABCD);
         assert_eq!(cpu.registers.program_counter, (0xABCD));
     }
@@ -1850,7 +1856,7 @@ mod tests {
         {
             let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
-            cpu.registers.status.or(Status::PS_NEGATIVE);
+            cpu.set_flag(Status::PS_NEGATIVE);
             let registers_before = cpu.registers;
 
             cpu.branch_if_minus(0xABCD);
@@ -2157,5 +2163,36 @@ mod tests {
         assert!(cpu.get_flag(Status::PS_CARRY));
         assert!(cpu.get_flag(Status::PS_ZERO));
         assert!(cpu.get_flag(Status::PS_NEGATIVE));
+    }
+
+    #[test]
+    fn clear_flag() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        // Set all flags first
+        cpu.set_flag(Status::PS_CARRY);
+        cpu.set_flag(Status::PS_ZERO);
+        cpu.set_flag(Status::PS_NEGATIVE);
+        assert!(cpu.get_flag(Status::PS_CARRY));
+        assert!(cpu.get_flag(Status::PS_ZERO));
+        assert!(cpu.get_flag(Status::PS_NEGATIVE));
+
+        // Clear the carry flag
+        cpu.unset_flag(Status::PS_CARRY);
+        assert!(!cpu.get_flag(Status::PS_CARRY));
+        assert!(cpu.get_flag(Status::PS_ZERO));
+        assert!(cpu.get_flag(Status::PS_NEGATIVE));
+
+        // Clear the zero flag
+        cpu.unset_flag(Status::PS_ZERO);
+        assert!(!cpu.get_flag(Status::PS_CARRY));
+        assert!(!cpu.get_flag(Status::PS_ZERO));
+        assert!(cpu.get_flag(Status::PS_NEGATIVE));
+
+        // Clear the negative flag
+        cpu.unset_flag(Status::PS_NEGATIVE);
+        assert!(!cpu.get_flag(Status::PS_CARRY));
+        assert!(!cpu.get_flag(Status::PS_ZERO));
+        assert!(!cpu.get_flag(Status::PS_NEGATIVE));
     }
 }
