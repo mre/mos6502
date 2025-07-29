@@ -924,23 +924,22 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         let decimal_mode = self.registers.status.contains(Status::PS_DECIMAL_MODE);
 
         // Use variant-specific ADC implementation
-        let (result, carry, overflow, negative, zero) =
-            V::execute_adc(self.registers.accumulator, value, carry_set, decimal_mode);
+        let output = V::execute_adc(self.registers.accumulator, value, carry_set, decimal_mode);
 
         // Update processor status flags
         self.registers.status.set_with_mask(
             Status::PS_CARRY | Status::PS_OVERFLOW | Status::PS_ZERO | Status::PS_NEGATIVE,
             Status::new(StatusArgs {
-                carry,
-                overflow,
-                zero,
-                negative,
+                carry: output.did_carry,
+                overflow: output.overflow,
+                zero: output.zero,
+                negative: output.negative,
                 ..StatusArgs::none()
             }),
         );
 
         // Update accumulator
-        self.registers.accumulator = result;
+        self.registers.accumulator = output.result;
     }
 
     fn add_with_no_decimal(&mut self, value: u8) {

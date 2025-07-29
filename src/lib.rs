@@ -53,6 +53,16 @@ pub mod instruction;
 pub mod memory;
 pub mod registers;
 
+/// Output of the ADC instruction
+#[derive(Copy, Clone, Debug)]
+pub struct AdcOutput {
+    result: u8,
+    did_carry: bool,
+    overflow: bool,
+    negative: bool,
+    zero: bool,
+}
+
 /// Trait for 6502 variant. This is the mechanism allowing the different 6502-like CPUs to be
 /// emulated. It allows a struct to decode an opcode into its instruction and addressing mode,
 /// and implements variant-specific instruction behavior.
@@ -69,15 +79,10 @@ pub trait Variant {
     /// # Arguments
     /// * `accumulator` - Current accumulator value
     /// * `value` - Value to add  
-    /// * `carry_set` - Input carry flag set (0 or 1)
+    /// * `carry_set` - Carry flag set at the time of execution (0 or 1)
     /// * `decimal_mode` - Whether decimal mode is enabled
     ///
     /// # Returns
     /// Tuple of (result, `carry_out`, overflow, negative, zero)
-    fn execute_adc(
-        accumulator: u8,
-        value: u8,
-        carry_set: u8,
-        decimal_mode: bool,
-    ) -> (u8, bool, bool, bool, bool);
+    fn execute_adc(accumulator: u8, value: u8, carry_set: u8, decimal_mode: bool) -> AdcOutput;
 }
