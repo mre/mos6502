@@ -63,7 +63,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     ///
     /// The reset sequence on a 6502 is an 8-cycle process that simulates the same sequence
     /// as BRK/IRQ/NMI but with reads instead of writes for the stack operations:
-    /// 
+    ///
     /// 1. Cycle 0-2: Initial cycles with IR=0
     /// 2. Cycle 3-5: Three "fake" stack pushes (reads instead of writes):
     ///    - Read from $0100 + SP (would be PC high byte)
@@ -75,7 +75,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     /// 5. Cycle 8: First instruction fetch from new PC
     ///
     /// The interrupt disable flag is set, and on 65C02 the decimal flag is cleared.
-    /// 
+    ///
     /// For detailed cycle-by-cycle analysis, see: <https://www.pagetable.com/?p=410>
     pub fn reset(&mut self) {
         // Simulate the 3 fake stack operations that decrement SP from 0x00 to 0xFD
