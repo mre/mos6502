@@ -96,4 +96,26 @@ pub trait Variant {
     /// # Returns
     /// Tuple of (result, `carry_out`, overflow, negative, zero)
     fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput;
+
+    /// Execute Subtract with Carry (SBC) in binary mode
+    ///
+    /// # Arguments
+    /// * `accumulator` - Current accumulator value
+    /// * `value` - Value to subtract  
+    /// * `carry_set` - Carry flag set at the time of execution (0 or 1)
+    ///
+    /// # Returns
+    /// Tuple of (result, `carry_out`, overflow, negative, zero)
+    fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput;
+
+    /// Execute Subtract with Carry (SBC) in decimal mode (BCD)
+    ///
+    /// # Arguments
+    /// * `accumulator` - Current accumulator value
+    /// * `value` - Value to subtract  
+    /// * `carry_set` - Carry flag set at the time of execution (0 or 1)
+    ///
+    /// # Returns
+    /// Tuple of (result, `carry_out`, overflow, negative, zero)
+    fn sbc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput;
 }
