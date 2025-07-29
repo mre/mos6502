@@ -61,16 +61,26 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
     /// Perform the 6502 reset sequence
     ///
-    /// The reset sequence on a 6502 is a 7-cycle process:
-    /// 1. Three "fake" stack pushes (reads instead of writes) - SP decrements 3 times
-    /// 2. Read reset vector low byte from $FFFC
-    /// 3. Read reset vector high byte from $FFFD  
-    /// 4. Set PC to the 16-bit address from the reset vector
+    /// The reset sequence on a 6502 is an 8-cycle process that simulates the same sequence
+    /// as BRK/IRQ/NMI but with reads instead of writes for the stack operations:
+    /// 
+    /// 1. Cycle 0-2: Initial cycles with IR=0
+    /// 2. Cycle 3-5: Three "fake" stack pushes (reads instead of writes):
+    ///    - Read from $0100 + SP (would be PC high byte)
+    ///    - Read from $01FF + SP (would be PC low byte)  
+    ///    - Read from $01FE + SP (would be status register)
+    ///    - SP decrements 3 times to 0xFD
+    /// 3. Cycle 6: Read reset vector low byte from $FFFC
+    /// 4. Cycle 7: Read reset vector high byte from $FFFD
+    /// 5. Cycle 8: First instruction fetch from new PC
     ///
     /// The interrupt disable flag is set, and on 65C02 the decimal flag is cleared.
+    /// 
+    /// For detailed cycle-by-cycle analysis, see: <https://www.pagetable.com/?p=410>
     pub fn reset(&mut self) {
-        // Simulate the 3 fake stack operations that decrement SP
-        // (Real hardware reads from stack but doesn't write)
+        // Simulate the 3 fake stack operations that decrement SP from 0x00 to 0xFD
+        // Real hardware performs reads from $0100, $01FF, $01FE but discards the results
+        // This matches cycles 3-5 of the reset sequence described at pagetable.com
         self.registers.stack_pointer.decrement();
         self.registers.stack_pointer.decrement();
         self.registers.stack_pointer.decrement();
