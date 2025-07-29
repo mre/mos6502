@@ -1369,7 +1369,8 @@ mod tests {
         assert_eq!(cpu.registers.accumulator, 0);
     }
 
-    #[cfg_attr(feature = "decimal_mode", test)]
+    #[cfg(feature = "decimal_mode")]
+    #[test]
     fn decimal_add_test() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.registers.status.insert(Status::PS_DECIMAL_MODE);
@@ -1399,7 +1400,8 @@ mod tests {
         assert!(cpu.registers.status.contains(Status::PS_OVERFLOW));
     }
 
-    #[cfg_attr(feature = "decimal_mode", test)]
+    #[cfg(feature = "decimal_mode")]
+    #[test]
     fn decimal_subtract_test() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.registers
