@@ -2112,10 +2112,10 @@ mod tests {
     }
 
     #[test]
-    fn generic_flag_checking_demo() {
+    fn flag_status_check() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
-        // Demonstrate checking multiple flags with the generic method
+        // Demonstrate checking multiple flags
         assert!(!cpu.flag_set(Status::PS_CARRY));
         assert!(!cpu.flag_set(Status::PS_ZERO));
         assert!(!cpu.flag_set(Status::PS_NEGATIVE));
