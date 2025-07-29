@@ -888,8 +888,14 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
     /// Shorthand for checking if a specific flag is set in the status register
     #[inline]
-    const fn flag_set(&self, flag: Status) -> bool {
+    const fn get_flag(&self, flag: Status) -> bool {
         self.registers.status.contains(flag)
+    }
+
+    /// Shorthand for setting a specific flag in the status register
+    #[inline]
+    fn set_flag(&mut self, flag: Status) {
+        self.registers.status.or(flag);
     }
 
     /// Executes the following calculation: A + M + C (Add with Carry)
@@ -926,8 +932,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     /// - **65C02**: N and Z flags are valid, V flag still undocumented, +1 cycle in decimal mode
     /// - **RP2A03** (NES): Decimal mode completely disabled in hardware
     fn add_with_carry(&mut self, value: u8) {
-        let carry_set = u8::from(self.flag_set(Status::PS_CARRY));
-        let decimal_mode = self.flag_set(Status::PS_DECIMAL_MODE);
+        let carry_set = u8::from(self.get_flag(Status::PS_CARRY));
+        let decimal_mode = self.get_flag(Status::PS_DECIMAL_MODE);
 
         // Use variant-specific ADC implementation
         let output = if decimal_mode {
@@ -953,7 +959,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     }
 
     fn add_with_no_decimal(&mut self, value: u8) {
-        let carry_set = u8::from(self.flag_set(Status::PS_CARRY));
+        let carry_set = u8::from(self.get_flag(Status::PS_CARRY));
 
         // Use variant-specific binary ADC implementation
         let output = V::adc_binary(self.registers.accumulator, value, carry_set);
@@ -2054,7 +2060,7 @@ mod tests {
 
         // Should produce BCD result: 09 + 01 = 10 (decimal)
         assert_eq!(cpu.registers.accumulator, 0x10);
-        assert!(!cpu.flag_set(Status::PS_CARRY));
+        assert!(!cpu.get_flag(Status::PS_CARRY));
     }
 
     #[test]
@@ -2070,7 +2076,7 @@ mod tests {
 
         // Should be binary arithmetic: 0x09 + 0x01 = 0x0A (not 0x10)
         assert_eq!(cpu.registers.accumulator, 0x0A);
-        assert!(!cpu.flag_set(Status::PS_CARRY));
+        assert!(!cpu.get_flag(Status::PS_CARRY));
     }
 
     #[test]
@@ -2086,7 +2092,7 @@ mod tests {
 
         // Should produce BCD result like NMOS: 09 + 01 = 10 (decimal)
         assert_eq!(cpu.registers.accumulator, 0x10);
-        assert!(!cpu.flag_set(Status::PS_CARRY));
+        assert!(!cpu.get_flag(Status::PS_CARRY));
     }
 
     #[test]
@@ -2102,26 +2108,54 @@ mod tests {
 
         // Should behave identically to NMOS 6502
         assert_eq!(cpu.registers.accumulator, 0x10);
-        assert!(!cpu.flag_set(Status::PS_CARRY));
+        assert!(!cpu.get_flag(Status::PS_CARRY));
     }
 
     #[test]
-    fn flag_status_check() {
+    fn get_flag() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         // Demonstrate checking multiple flags
-        assert!(!cpu.flag_set(Status::PS_CARRY));
-        assert!(!cpu.flag_set(Status::PS_ZERO));
-        assert!(!cpu.flag_set(Status::PS_NEGATIVE));
-        assert!(!cpu.flag_set(Status::PS_OVERFLOW));
-        assert!(!cpu.flag_set(Status::PS_DECIMAL_MODE));
+        assert!(!cpu.get_flag(Status::PS_CARRY));
+        assert!(!cpu.get_flag(Status::PS_ZERO));
+        assert!(!cpu.get_flag(Status::PS_NEGATIVE));
+        assert!(!cpu.get_flag(Status::PS_OVERFLOW));
+        assert!(!cpu.get_flag(Status::PS_DECIMAL_MODE));
 
         // Set some flags and check them
         cpu.registers
             .status
             .insert(Status::PS_CARRY | Status::PS_ZERO);
-        assert!(cpu.flag_set(Status::PS_CARRY));
-        assert!(cpu.flag_set(Status::PS_ZERO));
-        assert!(!cpu.flag_set(Status::PS_NEGATIVE));
+        assert!(cpu.get_flag(Status::PS_CARRY));
+        assert!(cpu.get_flag(Status::PS_ZERO));
+        assert!(!cpu.get_flag(Status::PS_NEGATIVE));
+    }
+
+    #[test]
+    fn set_flag() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        // Initially, no flags are set
+        assert!(!cpu.get_flag(Status::PS_CARRY));
+        assert!(!cpu.get_flag(Status::PS_ZERO));
+        assert!(!cpu.get_flag(Status::PS_NEGATIVE));
+
+        // Set the carry flag
+        cpu.set_flag(Status::PS_CARRY);
+        assert!(cpu.get_flag(Status::PS_CARRY));
+        assert!(!cpu.get_flag(Status::PS_ZERO));
+        assert!(!cpu.get_flag(Status::PS_NEGATIVE));
+
+        // Set the zero flag
+        cpu.set_flag(Status::PS_ZERO);
+        assert!(cpu.get_flag(Status::PS_CARRY));
+        assert!(cpu.get_flag(Status::PS_ZERO));
+        assert!(!cpu.get_flag(Status::PS_NEGATIVE));
+
+        // Set the negative flag
+        cpu.set_flag(Status::PS_NEGATIVE);
+        assert!(cpu.get_flag(Status::PS_CARRY));
+        assert!(cpu.get_flag(Status::PS_ZERO));
+        assert!(cpu.get_flag(Status::PS_NEGATIVE));
     }
 }
