@@ -133,16 +133,19 @@ impl Status {
 
 impl Default for Status {
     fn default() -> Self {
-        // TODO akeeton: Revisit these defaults.
+        // Safe emulator defaults chosen for reliability across all 6502 variants.
+        // Real hardware varies: NMOS has undefined decimal flag on reset, 65C02 clears it.
+        // We could implement variant-specific defaults, but given that the flags
+        // are randomly set on real hardware, it's fair to use a safe default.
         Status::new(StatusArgs {
-            negative: false,
-            overflow: false,
-            unused: true,
-            brk: false,
-            decimal_mode: false,
-            disable_interrupts: true,
-            zero: false,
-            carry: false,
+            negative: false,          // N: Negative result flag
+            overflow: false,          // V: Overflow flag, not set on reset
+            unused: true,             // -: Bit 5 typically set on all variants
+            brk: false,               // B: Not stored in register, only during stack operations
+            decimal_mode: false, // D: Matches 65C02 behavior, safe for NMOS (software uses CLD anyway)
+            disable_interrupts: true, // I: Interrupts disabled on reset for all variants
+            zero: false,         // Z: Flag for zero result
+            carry: false,        // C: Flag for carry
         })
     }
 }
@@ -185,13 +188,14 @@ impl Default for Registers {
 impl Registers {
     #[must_use]
     pub fn new() -> Registers {
-        // TODO akeeton: Revisit these defaults.
+        // Zero initialization for emulator predictability.
+        // Real hardware has undefined register states on power-on.
         Registers {
             accumulator: 0,
             index_x: 0,
             index_y: 0,
-            stack_pointer: StackPointer(0),
-            program_counter: 0,
+            stack_pointer: StackPointer(0), // Real hardware: random value on power-on
+            program_counter: 0,             // Set by reset vector in practice
             status: Status::default(),
         }
     }
