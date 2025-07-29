@@ -578,59 +578,82 @@ impl crate::Variant for Nmos6502 {
         }
     }
 
-    /// NMOS 6502 ADC implementation
+    /// NMOS 6502 ADC implementation in binary mode
     ///
-    /// - Supports decimal (BCD) mode when `decimal_mode` is true
-    /// - In decimal mode: N and Z flags are unreliable/undefined
-    /// - In decimal mode: V flag calculated from binary result (documented behavior)
-    /// - Standard binary arithmetic when `decimal_mode` is false
+    /// - Standard binary arithmetic
+    /// - All flags calculated from binary result
     ///
     /// # References
     ///
     /// - [6502.org ADC documentation](http://www.6502.org/tutorials/decimal_mode.html)
     /// - [NESdev 6502 reference](https://www.nesdev.org/obelisk-6502-guide/reference.html#ADC)
-    fn execute_adc(accumulator: u8, value: u8, carry_set: u8, decimal_mode: bool) -> AdcOutput {
-        // NMOS 6502 ADC implementation with documented behavior
+    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+        // Binary addition with carry detection
+        let result_16 = u16::from(accumulator) + u16::from(value) + u16::from(carry_set);
+        let did_carry = result_16 > 0xFF;
+        // Convert to 8-bit result.
+        // The cast from u16 to u8 is safe here due to the preceding carry check.
+        #[allow(clippy::cast_possible_truncation)]
+        let result = result_16 as u8;
 
-        // Perform binary addition first
+        // Calculate overflow from binary result
+        let overflow = (!(accumulator ^ value) & (accumulator ^ result)) & 0x80 != 0;
+
+        // Negative flag is set if the result's sign bit is set, which is the 8th bit.
+        let negative = (result & 0x80) != 0;
+
+        let zero = result == 0;
+
+        AdcOutput {
+            result,
+            did_carry,
+            overflow,
+            negative,
+            zero,
+        }
+    }
+
+    /// NMOS 6502 ADC implementation in decimal mode (BCD)
+    ///
+    /// - Binary Coded Decimal (BCD) arithmetic using 4-bit decimal digits
+    /// - Each nibble represents a digit from 0-9
+    /// - In decimal mode: N and Z flags are unreliable/undefined
+    /// - In decimal mode: V flag calculated from binary result (documented behavior)
+    ///
+    /// # References
+    ///
+    /// - [6502.org ADC documentation](http://www.6502.org/tutorials/decimal_mode.html)
+    /// - [NESdev 6502 reference](https://www.nesdev.org/obelisk-6502-guide/reference.html#ADC)
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+        // Perform binary addition first for overflow calculation
         let temp_result = accumulator.wrapping_add(value).wrapping_add(carry_set);
 
-        let (result, did_carry) = if decimal_mode {
-            // Decimal mode: treat each nibble as a decimal digit (0-9)
-            let mut low_nibble = (accumulator & 0x0f)
-                .wrapping_add(value & 0x0f)
-                .wrapping_add(carry_set);
+        // Decimal mode: treat each nibble as a decimal digit (0-9)
+        let mut low_nibble = (accumulator & 0x0f)
+            .wrapping_add(value & 0x0f)
+            .wrapping_add(carry_set);
 
-            let mut high_nibble = (accumulator >> 4).wrapping_add(value >> 4);
-            let mut carry_to_high = false;
+        let mut high_nibble = (accumulator >> 4).wrapping_add(value >> 4);
+        let mut carry_to_high = false;
 
-            // If low nibble is > 9, adjust it and carry to high nibble
-            if low_nibble > 9 {
-                low_nibble = low_nibble.wrapping_sub(10);
-                carry_to_high = true;
-            }
+        // If low nibble is > 9, adjust it and carry to high nibble
+        if low_nibble > 9 {
+            low_nibble = low_nibble.wrapping_sub(10);
+            carry_to_high = true;
+        }
 
-            high_nibble = high_nibble.wrapping_add(u8::from(carry_to_high));
+        high_nibble = high_nibble.wrapping_add(u8::from(carry_to_high));
 
-            // Adjust high nibble if it's > 9 and set final carry flag
-            let (adjusted_high, did_carry) = if high_nibble > 9 {
-                (high_nibble.wrapping_sub(10), true)
-            } else {
-                (high_nibble, false)
-            };
-
-            let result = (adjusted_high << 4) | (low_nibble & 0x0f);
-            (result, did_carry)
+        // Adjust high nibble if it's > 9 and set final carry flag
+        let (adjusted_high, did_carry) = if high_nibble > 9 {
+            (high_nibble.wrapping_sub(10), true)
         } else {
-            // Non-decimal mode: binary addition with carry detection
-            let result_16 = u16::from(accumulator) + u16::from(value) + u16::from(carry_set);
-            let did_carry = result_16 > 0xFF;
-            #[allow(clippy::cast_possible_truncation)]
-            (result_16 as u8, did_carry)
+            (high_nibble, false)
         };
 
+        let result = (adjusted_high << 4) | (low_nibble & 0x0f);
+
         // Calculate overflow from binary result (even in decimal mode)
-        // This matches NMOS 6502 hardware behavior
         let overflow = (!(accumulator ^ value) & (accumulator ^ temp_result)) & 0x80 != 0;
 
         // Calculate other flags from final result
@@ -666,27 +689,15 @@ impl crate::Variant for Ricoh2a03 {
         }
     }
 
-    /// `Ricoh2A03` (NES) ADC implementation
+    /// `Ricoh2A03` (NES) ADC implementation in binary mode
     ///
-    /// - **No decimal mode support** - decimal mode is disabled in hardware
-    /// - Always performs binary arithmetic regardless of `decimal_mode` flag
+    /// - Always performs binary arithmetic
     /// - All flags (N, Z, V, C) behave consistently like binary mode
     /// - Used in Nintendo Entertainment System (NES) and Famicom
     ///
-    /// # Difference from NMOS 6502
-    ///
-    /// The `Ricoh2A03` removed the decimal mode circuitry entirely to save cost,
-    /// so BCD operations are not supported even if the decimal flag is set.
-    ///
     /// # References
     /// - [NESdev Ricoh2A03 reference](https://www.nesdev.org/wiki/CPU)
-    fn execute_adc(
-        accumulator: u8,
-        value: u8,
-        carry_set: u8,
-        _decimal_mode: bool, // Always ignored for Ricoh2a03
-    ) -> AdcOutput {
-        // Ricoh2a03 (NES) has no decimal mode, so always use binary arithmetic
+    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
         let result_16 = u16::from(accumulator) + u16::from(value) + u16::from(carry_set);
         let did_carry = result_16 > 0xFF;
         #[allow(clippy::cast_possible_truncation)]
@@ -707,6 +718,17 @@ impl crate::Variant for Ricoh2a03 {
             zero,
         }
     }
+
+    /// `Ricoh2A03` (NES) ADC implementation - decimal mode not supported
+    ///
+    /// The `Ricoh2A03` removed the decimal mode circuitry entirely to save cost,
+    /// so BCD operations are not supported. This method calls `adc_binary` instead.
+    ///
+    /// # References
+    /// - [NESdev Ricoh2A03 reference](https://www.nesdev.org/wiki/CPU)
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+        Self::adc_binary(accumulator, value, carry_set)
+    }
 }
 
 /// Emulates some very early 6502s which have no ROR instruction. This one is used in very early
@@ -723,7 +745,20 @@ impl crate::Variant for RevisionA {
         }
     }
 
-    /// Revision A 6502 ADC implementation
+    /// Revision A 6502 ADC implementation in binary mode
+    ///
+    /// - Identical ADC behavior to NMOS 6502
+    /// - Found in very early 6502 processors (KIM-1, etc.)
+    ///
+    /// # References:
+    ///
+    /// - [Rev. A 6502 (Pre-June 1976) "ROR Bug"](https://www.masswerk.at/6502/6502_instruction_set.html#ror-bug)
+    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+        // RevisionA behaves the same as NMOS 6502 for ADC
+        Nmos6502::adc_binary(accumulator, value, carry_set)
+    }
+
+    /// Revision A 6502 ADC implementation in decimal mode (BCD)
     ///
     /// - Identical ADC behavior to NMOS 6502
     /// - Supports decimal (BCD) mode with same flag behavior as NMOS
@@ -737,9 +772,9 @@ impl crate::Variant for RevisionA {
     /// # References:
     ///
     /// - [Rev. A 6502 (Pre-June 1976) "ROR Bug"](https://www.masswerk.at/6502/6502_instruction_set.html#ror-bug)
-    fn execute_adc(accumulator: u8, value: u8, carry_set: u8, decimal_mode: bool) -> AdcOutput {
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
         // RevisionA behaves the same as NMOS 6502 for ADC
-        Nmos6502::execute_adc(accumulator, value, carry_set, decimal_mode)
+        Nmos6502::adc_decimal(accumulator, value, carry_set)
     }
 }
 
@@ -781,13 +816,44 @@ impl crate::Variant for Cmos6502 {
         }
     }
 
-    /// 65C02 (CMOS) ADC implementation
+    /// 65C02 (CMOS) ADC implementation in binary mode
+    ///
+    /// - Standard binary arithmetic
+    /// - All flags calculated from binary result
+    ///
+    /// # References
+    ///
+    /// - [65C02 Programming Manual](http://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
+    /// - [6502.org CMOS differences](http://www.6502.org/tutorials/65c02opcodes.html)
+    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+        // Binary addition with carry detection
+        let result_16 = u16::from(accumulator) + u16::from(value) + u16::from(carry_set);
+        let did_carry = result_16 > 0xFF;
+        #[allow(clippy::cast_possible_truncation)]
+        let result = result_16 as u8;
+
+        // Calculate overflow from binary result
+        let overflow = (!(accumulator ^ value) & (accumulator ^ result)) & 0x80 != 0;
+
+        // Calculate other flags
+        let negative = (result & 0x80) != 0;
+        let zero = result == 0;
+
+        AdcOutput {
+            result,
+            did_carry,
+            overflow,
+            negative,
+            zero,
+        }
+    }
+
+    /// 65C02 (CMOS) ADC implementation in decimal mode (BCD)
     ///
     /// - Supports decimal (BCD) mode with **corrected flag behavior**
     /// - In decimal mode: N and Z flags are **reliable** (calculated from BCD result)
     /// - In decimal mode: V flag behavior still undefined but calculated from binary result
     /// - In decimal mode: **Extra cycle** consumed (not implemented in this emulator yet)
-    /// - Standard binary arithmetic when `decimal_mode` is false
     ///
     /// # Difference from NMOS 6502
     ///
@@ -798,45 +864,34 @@ impl crate::Variant for Cmos6502 {
     ///
     /// - [65C02 Programming Manual](http://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
     /// - [6502.org CMOS differences](http://www.6502.org/tutorials/65c02opcodes.html)
-    fn execute_adc(accumulator: u8, value: u8, carry_set: u8, decimal_mode: bool) -> AdcOutput {
-        // 65C02 ADC implementation with corrected decimal mode flag behavior
-
-        // Perform binary addition first
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+        // Perform binary addition first for overflow calculation
         let temp_result = accumulator.wrapping_add(value).wrapping_add(carry_set);
 
-        let (result, did_carry) = if decimal_mode {
-            // Decimal mode: treat each nibble as a decimal digit (0-9)
-            let mut low_nibble = (accumulator & 0x0f)
-                .wrapping_add(value & 0x0f)
-                .wrapping_add(carry_set);
+        // Decimal mode: treat each nibble as a decimal digit (0-9)
+        let mut low_nibble = (accumulator & 0x0f)
+            .wrapping_add(value & 0x0f)
+            .wrapping_add(carry_set);
 
-            let mut high_nibble = (accumulator >> 4).wrapping_add(value >> 4);
-            let mut carry_to_high = false;
+        let mut high_nibble = (accumulator >> 4).wrapping_add(value >> 4);
+        let mut carry_to_high = false;
 
-            // If low nibble is > 9, adjust it and carry to high nibble
-            if low_nibble > 9 {
-                low_nibble = low_nibble.wrapping_sub(10);
-                carry_to_high = true;
-            }
+        // If low nibble is > 9, adjust it and carry to high nibble
+        if low_nibble > 9 {
+            low_nibble = low_nibble.wrapping_sub(10);
+            carry_to_high = true;
+        }
 
-            high_nibble = high_nibble.wrapping_add(u8::from(carry_to_high));
+        high_nibble = high_nibble.wrapping_add(u8::from(carry_to_high));
 
-            // Adjust high nibble if it's > 9 and set final carry flag
-            let (adjusted_high, did_carry) = if high_nibble > 9 {
-                (high_nibble.wrapping_sub(10), true)
-            } else {
-                (high_nibble, false)
-            };
-
-            let result = (adjusted_high << 4) | (low_nibble & 0x0f);
-            (result, did_carry)
+        // Adjust high nibble if it's > 9 and set final carry flag
+        let (adjusted_high, did_carry) = if high_nibble > 9 {
+            (high_nibble.wrapping_sub(10), true)
         } else {
-            // Non-decimal mode: binary addition with carry detection
-            let result_16 = u16::from(accumulator) + u16::from(value) + u16::from(carry_set);
-            let did_carry = result_16 > 0xFF;
-            #[allow(clippy::cast_possible_truncation)]
-            (result_16 as u8, did_carry)
+            (high_nibble, false)
         };
+
+        let result = (adjusted_high << 4) | (low_nibble & 0x0f);
 
         // Calculate overflow from binary result (even in decimal mode)
         let overflow = (!(accumulator ^ value) & (accumulator ^ temp_result)) & 0x80 != 0;

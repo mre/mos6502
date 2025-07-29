@@ -75,15 +75,25 @@ pub trait Variant {
         crate::instruction::AddressingMode,
     )>;
 
-    /// Execute Add with Carry (ADC) with variant-specific behavior
+    /// Execute Add with Carry (ADC) in binary mode
     ///
     /// # Arguments
     /// * `accumulator` - Current accumulator value
     /// * `value` - Value to add  
     /// * `carry_set` - Carry flag set at the time of execution (0 or 1)
-    /// * `decimal_mode` - Whether decimal mode is enabled
     ///
     /// # Returns
     /// Tuple of (result, `carry_out`, overflow, negative, zero)
-    fn execute_adc(accumulator: u8, value: u8, carry_set: u8, decimal_mode: bool) -> AdcOutput;
+    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput;
+
+    /// Execute Add with Carry (ADC) in decimal mode (BCD)
+    ///
+    /// # Arguments
+    /// * `accumulator` - Current accumulator value
+    /// * `value` - Value to add  
+    /// * `carry_set` - Carry flag set at the time of execution (0 or 1)
+    ///
+    /// # Returns
+    /// Tuple of (result, `carry_out`, overflow, negative, zero)
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput;
 }

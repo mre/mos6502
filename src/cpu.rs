@@ -930,7 +930,11 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         let decimal_mode = self.flag_set(Status::PS_DECIMAL_MODE);
 
         // Use variant-specific ADC implementation
-        let output = V::execute_adc(self.registers.accumulator, value, carry_set, decimal_mode);
+        let output = if decimal_mode {
+            V::adc_decimal(self.registers.accumulator, value, carry_set)
+        } else {
+            V::adc_binary(self.registers.accumulator, value, carry_set)
+        };
 
         // Update processor status flags
         self.registers.status.set_with_mask(
@@ -949,35 +953,25 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     }
 
     fn add_with_no_decimal(&mut self, value: u8) {
-        let a_before: u8 = self.registers.accumulator;
-        let c_before: u8 = u8::from(self.flag_set(Status::PS_CARRY));
-        let a_after: u8 = a_before.wrapping_add(c_before).wrapping_add(value);
+        let carry_set = u8::from(self.flag_set(Status::PS_CARRY));
 
-        debug_assert_eq!(a_after, a_before.wrapping_add(c_before).wrapping_add(value));
+        // Use variant-specific binary ADC implementation
+        let output = V::adc_binary(self.registers.accumulator, value, carry_set);
 
-        let result = a_after;
-
-        let did_carry = (result) < (a_before)
-            || (a_after == 0 && c_before == 0x01)
-            || (value == 0xff && c_before == 0x01);
-
-        let did_overflow = (a_before > 127 && value > 127 && a_after < 128)
-            || (a_before < 128 && value < 128 && a_after > 127);
-
-        let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
-
+        // Update processor status flags
         self.registers.status.set_with_mask(
-            mask,
+            Status::PS_CARRY | Status::PS_OVERFLOW | Status::PS_ZERO | Status::PS_NEGATIVE,
             Status::new(StatusArgs {
-                carry: did_carry,
-                overflow: did_overflow,
+                carry: output.did_carry,
+                overflow: output.overflow,
+                zero: output.zero,
+                negative: output.negative,
                 ..StatusArgs::none()
             }),
         );
 
-        self.load_accumulator(result);
-
-        log::debug!("accumulator: {}", self.registers.accumulator);
+        // Update accumulator
+        self.registers.accumulator = output.result;
     }
 
     fn and(&mut self, value: u8) {
