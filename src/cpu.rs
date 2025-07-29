@@ -236,21 +236,21 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     pub fn execute_instruction(&mut self, decoded_instr: DecodedInstr) {
         match decoded_instr {
             (Instruction::ADC, OpInput::UseImmediate(val)) => {
-                log::debug!("add with carry immediate: {}", val);
+                log::debug!("add with carry immediate: {val}");
                 self.add_with_carry(val);
             }
             (Instruction::ADC, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
-                log::debug!("add with carry. address: {:?}. value: {}", addr, val);
+                log::debug!("add with carry. address: {addr:?}. value: {val}");
                 self.add_with_carry(val);
             }
             (Instruction::ADCnd, OpInput::UseImmediate(val)) => {
-                log::debug!("add with carry immediate: {}", val);
+                log::debug!("add with carry immediate: {val}");
                 self.add_with_no_decimal(val);
             }
             (Instruction::ADCnd, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
-                log::debug!("add with carry. address: {:?}. value: {}", addr, val);
+                log::debug!("add with carry. address: {addr:?}. value: {val}");
                 self.add_with_no_decimal(val);
             }
 
@@ -331,7 +331,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
             (Instruction::BMI, OpInput::UseRelative(rel)) => {
                 let addr = self.registers.program_counter.wrapping_add(rel);
-                log::debug!("branch if minus relative. address: {:?}", addr);
+                log::debug!("branch if minus relative. address: {addr:?}");
                 self.branch_if_minus(addr);
             }
 
@@ -459,32 +459,32 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
 
             (Instruction::LDA, OpInput::UseImmediate(val)) => {
-                log::debug!("load A immediate: {}", val);
+                log::debug!("load A immediate: {val}");
                 self.load_accumulator(val);
             }
             (Instruction::LDA, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
-                log::debug!("load A. address: {:?}. value: {}", addr, val);
+                log::debug!("load A. address: {addr:?}. value: {val}");
                 self.load_accumulator(val);
             }
 
             (Instruction::LDX, OpInput::UseImmediate(val)) => {
-                log::debug!("load X immediate: {}", val);
+                log::debug!("load X immediate: {val}");
                 self.load_x_register(val);
             }
             (Instruction::LDX, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
-                log::debug!("load X. address: {:?}. value: {}", addr, val);
+                log::debug!("load X. address: {addr:?}. value: {val}");
                 self.load_x_register(val);
             }
 
             (Instruction::LDY, OpInput::UseImmediate(val)) => {
-                log::debug!("load Y immediate: {}", val);
+                log::debug!("load Y immediate: {val}");
                 self.load_y_register(val);
             }
             (Instruction::LDY, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
-                log::debug!("load Y. address: {:?}. value: {}", addr, val);
+                log::debug!("load Y. address: {addr:?}. value: {val}");
                 self.load_y_register(val);
             }
 
@@ -621,22 +621,22 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
 
             (Instruction::SBC, OpInput::UseImmediate(val)) => {
-                log::debug!("subtract with carry immediate: {}", val);
+                log::debug!("subtract with carry immediate: {val}");
                 self.subtract_with_carry(val);
             }
             (Instruction::SBC, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
-                log::debug!("subtract with carry. address: {:?}. value: {}", addr, val);
+                log::debug!("subtract with carry. address: {addr:?}. value: {val}");
                 self.subtract_with_carry(val);
             }
 
             (Instruction::SBCnd, OpInput::UseImmediate(val)) => {
-                log::debug!("subtract with carry immediate: {}", val);
+                log::debug!("subtract with carry immediate: {val}");
                 self.subtract_with_no_decimal(val);
             }
             (Instruction::SBCnd, OpInput::UseAddress(addr)) => {
                 let val = self.memory.get_byte(addr);
-                log::debug!("subtract with carry. address: {:?}. value: {}", addr, val);
+                log::debug!("subtract with carry. address: {addr:?}. value: {val}");
                 self.subtract_with_no_decimal(val);
             }
 
