@@ -1991,22 +1991,22 @@ mod tests {
     #[test]
     fn reset_sequence_behavior() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
-        
+
         // Set up reset vector in memory: $1234
         cpu.memory.set_byte(0xFFFC, 0x34); // Low byte
         cpu.memory.set_byte(0xFFFD, 0x12); // High byte
-        
+
         // Initialize SP to some value to see it change
         cpu.registers.stack_pointer = StackPointer(0xFF);
-        
+
         cpu.reset();
-        
+
         // Check that PC was set from reset vector
         assert_eq!(cpu.registers.program_counter, 0x1234);
-        
+
         // Check that SP was decremented 3 times (0xFF - 3 = 0xFC)
         assert_eq!(cpu.registers.stack_pointer.0, 0xFC);
-        
+
         // Check that interrupt disable flag is set
         assert!(cpu.registers.status.contains(Status::PS_DISABLE_INTERRUPTS));
     }
