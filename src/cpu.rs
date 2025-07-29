@@ -2206,23 +2206,29 @@ mod tests {
 
         // Test basic binary addition: 5 + 3 = 8
         let result = Nmos6502::adc_binary(5, 3, 0);
-        assert_eq!(result, AdcOutput {
-            result: 8,
-            did_carry: false,
-            overflow: false,
-            negative: false,
-            zero: false,
-        });
+        assert_eq!(
+            result,
+            AdcOutput {
+                result: 8,
+                did_carry: false,
+                overflow: false,
+                negative: false,
+                zero: false,
+            }
+        );
 
         // Test with carry: 5 + 3 + 1 = 9
         let result = Nmos6502::adc_binary(5, 3, 1);
-        assert_eq!(result, AdcOutput {
-            result: 9,
-            did_carry: false,
-            overflow: false,
-            negative: false,
-            zero: false,
-        });
+        assert_eq!(
+            result,
+            AdcOutput {
+                result: 9,
+                did_carry: false,
+                overflow: false,
+                negative: false,
+                zero: false,
+            }
+        );
     }
 
     #[test]
@@ -2232,13 +2238,16 @@ mod tests {
 
         // Test signed overflow: 127 + 1 = -128 (0x80)
         let result = Nmos6502::adc_binary(0x7F, 1, 0);
-        assert_eq!(result, AdcOutput {
-            result: 0x80,
-            did_carry: false,
-            overflow: true,  // V flag set for signed overflow
-            negative: true,  // N flag set because result has bit 7 set
-            zero: false,
-        });
+        assert_eq!(
+            result,
+            AdcOutput {
+                result: 0x80,
+                did_carry: false,
+                overflow: true, // V flag set for signed overflow
+                negative: true, // N flag set because result has bit 7 set
+                zero: false,
+            }
+        );
     }
 
     #[test]
@@ -2248,13 +2257,16 @@ mod tests {
 
         // Test carry: 255 + 1 = 0 with carry
         let result = Nmos6502::adc_binary(255, 1, 0);
-        assert_eq!(result, AdcOutput {
-            result: 0,
-            did_carry: true,  // C flag set for unsigned overflow
-            overflow: false,
-            negative: false,
-            zero: true,       // Z flag set because result is 0
-        });
+        assert_eq!(
+            result,
+            AdcOutput {
+                result: 0,
+                did_carry: true, // C flag set for unsigned overflow
+                overflow: false,
+                negative: false,
+                zero: true, // Z flag set because result is 0
+            }
+        );
     }
 
     #[cfg(feature = "decimal_mode")]
@@ -2265,13 +2277,16 @@ mod tests {
 
         // Test BCD addition: 09 + 01 = 10 (0x10 in BCD)
         let result = Nmos6502::adc_decimal(0x09, 0x01, 0);
-        assert_eq!(result, AdcOutput {
-            result: 0x10,    // BCD result
-            did_carry: false,
-            overflow: false,  // V calculated from binary operation
-            negative: false,
-            zero: false,
-        });
+        assert_eq!(
+            result,
+            AdcOutput {
+                result: 0x10, // BCD result
+                did_carry: false,
+                overflow: false, // V calculated from binary operation
+                negative: false,
+                zero: false,
+            }
+        );
     }
 
     #[test]
