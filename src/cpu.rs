@@ -1095,103 +1095,30 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     /// - **65C02**: N and Z flags are valid, V flag still undocumented
     /// - **RP2A03** (NES): Decimal mode completely disabled in hardware
     fn subtract_with_carry(&mut self, value: u8) {
-        // First, convert the carry flag to a 0 or 1
-        let carry: u8 = u8::from(self.registers.status.contains(Status::PS_CARRY));
-        let accumulator_before = self.registers.accumulator;
+        let carry_set = u8::from(self.get_flag(Status::PS_CARRY));
+        let decimal_mode = self.get_flag(Status::PS_DECIMAL_MODE);
 
-        // Calculate a temporary result using wrapping subtraction to handle potential underflow.
-        let temp_result = accumulator_before
-            .wrapping_sub(value)
-            .wrapping_sub(1 - carry);
-
-        // Branch on whether we're in decimal mode
-        let (final_result, did_borrow) = if self.registers.status.contains(Status::PS_DECIMAL_MODE)
-        {
-            // In decimal mode, each byte is treated as two 4-bit BCD digits (nibbles).
-            //
-            // The algorithm for BCD subtraction is as follows:
-            //
-            // 1. Separate the lower and upper nibbles (4 bits each) of both
-            //    the accumulator and the value to subtract.
-            // 2. Perform subtraction on each nibble separately, considering the initial carry.
-            // 3. If a nibble subtraction results in a negative value
-            //    (indicated by bit 4 being set), add 10 to correct it and set a borrow flag.
-            // 4. Propagate the borrow from the low nibble to the high nibble.
-            // 5. Combine the corrected nibbles to form the final result.
-
-            let mut low_nibble = (accumulator_before & 0x0f)
-                .wrapping_sub(value & 0x0f)
-                .wrapping_sub(1 - carry);
-            let mut high_nibble = (accumulator_before >> 4).wrapping_sub(value >> 4);
-            let mut borrow = false;
-
-            if (low_nibble & 0x10) != 0 {
-                low_nibble = (low_nibble.wrapping_add(10)) & 0x0f;
-                borrow = true;
-            }
-
-            high_nibble = high_nibble.wrapping_sub(u8::from(borrow));
-
-            if (high_nibble & 0x10) != 0 {
-                high_nibble = (high_nibble.wrapping_add(10)) & 0x0f;
-                borrow = true;
-            } else {
-                borrow = false;
-            }
-
-            let result = (high_nibble << 4) | low_nibble;
-            (result, borrow)
+        // Use variant-specific SBC implementation
+        let output = if decimal_mode {
+            V::sbc_decimal(self.registers.accumulator, value, carry_set)
         } else {
-            // In non-decimal mode, use the temporary result calculated earlier
-            // and determine if a borrow occurred (which is the case if the
-            // result is greater than the initial accumulator value due to
-            // unsigned underflow).
-            (temp_result, temp_result > accumulator_before)
+            V::sbc_binary(self.registers.accumulator, value, carry_set)
         };
 
-        // Carry flag is the inverse of borrow
-        let did_carry = !did_borrow;
-
-        // Overflow flag: Set if the sign of the result is different from the sign of A
-        // and the sign of the result is different from the sign of the negation of M
-        let did_overflow = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
-            // Overflow flag is not affected in decimal mode
-            false
-        } else {
-            // In non-decimal mode, the overflow flag is set if the subtraction
-            // caused a sign change that shouldn't have occurred
-            // (i.e., pos - neg = neg, or neg - pos = pos).
-            //
-            // Overflow occurs in subtraction when:
-            //
-            // A positive number minus a negative number results in a negative number, or
-            // A negative number minus a positive number results in a positive number
-            //
-            // In two's complement representation, the sign of a number is
-            // determined by its most significant bit (MSB). For 8-bit numbers,
-            // this is bit 7 (0x80 in hexadecimal).
-            //
-            // The following expression is true if
-            // (A and M have different signs) AND (A and result have different signs)
-            (accumulator_before ^ value) & (accumulator_before ^ final_result) & 0x80 != 0
-        };
-
-        // Update Status Register and Accumulator
-        let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
-
-        // Update the carry and overflow flags in the status register.
+        // Update processor status flags
         self.registers.status.set_with_mask(
-            mask,
+            Status::PS_CARRY | Status::PS_OVERFLOW | Status::PS_ZERO | Status::PS_NEGATIVE,
             Status::new(StatusArgs {
-                carry: did_carry,
-                overflow: did_overflow,
+                carry: output.did_carry,
+                overflow: output.overflow,
+                zero: output.zero,
+                negative: output.negative,
                 ..StatusArgs::none()
             }),
         );
 
-        // Load the final result into the accumulator, which will also update
-        // the zero and negative flags.
-        self.load_accumulator(final_result);
+        // Update accumulator
+        self.registers.accumulator = output.result;
     }
 
     fn increment(val: &mut u8, flags: &mut Status) {
