@@ -40,8 +40,8 @@ edition = "2021"
 name = "mos6502"
 
 [dependencies]
-bitflags = "2.5.0"
-log = "0.4.21"
+bitflags = "2.9.1"
+log = "0.4.27"
 
 [features]
 decimal_mode = []
