@@ -80,8 +80,39 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         }
     }
 
-    pub const fn reset(&mut self) {
-        //TODO: should read some bytes from the stack and also get the PC from the reset vector
+    /// Perform the 6502 reset sequence
+    ///
+    /// The reset sequence on a 6502 is an 8-cycle process that simulates the same sequence
+    /// as BRK/IRQ/NMI but with reads instead of writes for the stack operations:
+    ///
+    /// 1. Cycle 0-2: Initial cycles with IR=0
+    /// 2. Cycle 3-5: Three "fake" stack pushes (reads instead of writes):
+    ///    - Read from $0100 + SP (would be PC high byte)
+    ///    - Read from $01FF + SP (would be PC low byte)  
+    ///    - Read from $01FE + SP (would be status register)
+    ///    - SP decrements 3 times to 0xFD
+    /// 3. Cycle 6: Read reset vector low byte from $FFFC
+    /// 4. Cycle 7: Read reset vector high byte from $FFFD
+    /// 5. Cycle 8: First instruction fetch from new PC
+    ///
+    /// The interrupt disable flag is set, and on 65C02 the decimal flag is cleared.
+    ///
+    /// For detailed cycle-by-cycle analysis, see: <https://www.pagetable.com/?p=410>
+    pub fn reset(&mut self) {
+        // Simulate the 3 fake stack operations that decrement SP from 0x00 to 0xFD
+        // Real hardware performs reads from $0100, $01FF, $01FE but discards the results
+        // This matches cycles 3-5 of the reset sequence described at pagetable.com
+        self.registers.stack_pointer.decrement();
+        self.registers.stack_pointer.decrement();
+        self.registers.stack_pointer.decrement();
+
+        // Set interrupt disable flag (all variants)
+        self.registers.status.insert(Status::PS_DISABLE_INTERRUPTS);
+
+        // Read reset vector: low byte at $FFFC, high byte at $FFFD
+        let reset_vector_low = self.memory.get_byte(0xFFFC);
+        let reset_vector_high = self.memory.get_byte(0xFFFD);
+        self.registers.program_counter = u16::from_le_bytes([reset_vector_low, reset_vector_high]);
     }
 
     /// Get the next byte from memory and decode it into an instruction and addressing mode.
@@ -2295,5 +2326,28 @@ mod tests {
         let binary_result = Ricoh2a03::adc_binary(0x09, 0x01, 0);
         let decimal_result = Ricoh2a03::adc_decimal(0x09, 0x01, 0);
         assert_eq!(binary_result, decimal_result);
+    }
+
+    #[test]
+    fn reset_sequence_behavior() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        // Set up reset vector in memory: $1234
+        cpu.memory.set_byte(0xFFFC, 0x34); // Low byte
+        cpu.memory.set_byte(0xFFFD, 0x12); // High byte
+
+        // Initialize SP to some value to see it change
+        cpu.registers.stack_pointer = StackPointer(0xFF);
+
+        cpu.reset();
+
+        // Check that PC was set from reset vector
+        assert_eq!(cpu.registers.program_counter, 0x1234);
+
+        // Check that SP was decremented 3 times (0xFF - 3 = 0xFC)
+        assert_eq!(cpu.registers.stack_pointer.0, 0xFC);
+
+        // Check that interrupt disable flag is set
+        assert!(cpu.registers.status.contains(Status::PS_DISABLE_INTERRUPTS));
     }
 }
