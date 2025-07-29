@@ -55,6 +55,7 @@ pub mod registers;
 
 /// Output of the ADC instruction
 #[derive(Copy, Clone, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct AdcOutput {
     result: u8,
     did_carry: bool,

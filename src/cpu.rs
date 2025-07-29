@@ -914,14 +914,25 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     /// - [NESdev Wiki 6502 Decimal Mode](https://www.nesdev.org/wiki/Visual6502wiki/6502DecimalMode)
     /// - Bruce Clark's comprehensive decimal mode test programs
     ///
+    // Flag shorthand methods for cleaner code
+    #[inline]
+    const fn carry_flag(&self) -> bool {
+        self.registers.status.contains(Status::PS_CARRY)
+    }
+    
+    #[inline]
+    const fn decimal_mode(&self) -> bool {
+        self.registers.status.contains(Status::PS_DECIMAL_MODE)
+    }
+
     /// ## Variant Differences
     ///
     /// - **NMOS 6502**: Only carry flag is reliable in decimal mode
     /// - **65C02**: N and Z flags are valid, V flag still undocumented, +1 cycle in decimal mode
     /// - **RP2A03** (NES): Decimal mode completely disabled in hardware
     fn add_with_carry(&mut self, value: u8) {
-        let carry_set = u8::from(self.registers.status.contains(Status::PS_CARRY));
-        let decimal_mode = self.registers.status.contains(Status::PS_DECIMAL_MODE);
+        let carry_set = u8::from(self.carry_flag());
+        let decimal_mode = self.decimal_mode();
 
         // Use variant-specific ADC implementation
         let output = V::execute_adc(self.registers.accumulator, value, carry_set, decimal_mode);
@@ -944,7 +955,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
     fn add_with_no_decimal(&mut self, value: u8) {
         let a_before: u8 = self.registers.accumulator;
-        let c_before: u8 = u8::from(self.registers.status.contains(Status::PS_CARRY));
+        let c_before: u8 = u8::from(self.carry_flag());
         let a_after: u8 = a_before.wrapping_add(c_before).wrapping_add(value);
 
         debug_assert_eq!(a_after, a_before.wrapping_add(c_before).wrapping_add(value));
@@ -2044,46 +2055,64 @@ mod tests {
     }
 
     #[test]
-    fn variant_specific_adc_behavior() {
-        use crate::instruction::{Cmos6502, RevisionA, Ricoh2a03};
+    fn nmos6502_adc_decimal_mode() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+        cpu.registers.accumulator = 0x09;
+        cpu.registers.status.insert(Status::PS_DECIMAL_MODE);
+        cpu.registers.status.remove(Status::PS_CARRY);
+        
+        cpu.add_with_carry(0x01);
+        
+        // Should produce BCD result: 09 + 01 = 10 (decimal)
+        assert_eq!(cpu.registers.accumulator, 0x10);
+        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
+    }
 
-        // Test Ricoh2a03 (NES): decimal mode should be ignored
-        let mut ricoh_cpu = CPU::new(Ram::new(), Ricoh2a03);
-        ricoh_cpu.registers.accumulator = 0x09;
-        ricoh_cpu.registers.status.insert(Status::PS_DECIMAL_MODE);
-        ricoh_cpu.registers.status.remove(Status::PS_CARRY);
-        ricoh_cpu.add_with_carry(0x01);
-        // Should be 0x0A (binary), not 0x10 (decimal)
-        assert_eq!(ricoh_cpu.registers.accumulator, 0x0A);
+    #[test]
+    fn ricoh2a03_ignores_decimal_mode() {
+        use crate::instruction::Ricoh2a03;
+        
+        let mut cpu = CPU::new(Ram::new(), Ricoh2a03);
+        cpu.registers.accumulator = 0x09;
+        cpu.registers.status.insert(Status::PS_DECIMAL_MODE);
+        cpu.registers.status.remove(Status::PS_CARRY);
+        
+        cpu.add_with_carry(0x01);
+        
+        // Should be binary arithmetic: 0x09 + 0x01 = 0x0A (not 0x10)
+        assert_eq!(cpu.registers.accumulator, 0x0A);
+        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
+    }
 
-        // Test NMOS 6502: standard decimal mode behavior
-        let mut nmos_cpu = CPU::new(Ram::new(), Nmos6502);
-        nmos_cpu.registers.accumulator = 0x09;
-        nmos_cpu.registers.status.insert(Status::PS_DECIMAL_MODE);
-        nmos_cpu.registers.status.remove(Status::PS_CARRY);
-        nmos_cpu.add_with_carry(0x01);
-        // Should be 0x10 (decimal BCD result)
-        assert_eq!(nmos_cpu.registers.accumulator, 0x10);
+    #[test]
+    fn cmos6502_adc_decimal_mode() {
+        use crate::instruction::Cmos6502;
+        
+        let mut cpu = CPU::new(Ram::new(), Cmos6502);
+        cpu.registers.accumulator = 0x09;
+        cpu.registers.status.insert(Status::PS_DECIMAL_MODE);
+        cpu.registers.status.remove(Status::PS_CARRY);
+        
+        cpu.add_with_carry(0x01);
+        
+        // Should produce BCD result like NMOS: 09 + 01 = 10 (decimal)  
+        assert_eq!(cpu.registers.accumulator, 0x10);
+        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
+    }
 
-        // Test 65C02: should behave the same as NMOS for ADC
-        let mut cmos_cpu = CPU::new(Ram::new(), Cmos6502);
-        cmos_cpu.registers.accumulator = 0x09;
-        cmos_cpu.registers.status.insert(Status::PS_DECIMAL_MODE);
-        cmos_cpu.registers.status.remove(Status::PS_CARRY);
-        cmos_cpu.add_with_carry(0x01);
-        // Should be 0x10 (decimal BCD result)
-        assert_eq!(cmos_cpu.registers.accumulator, 0x10);
-
-        // Test RevisionA: should behave the same as NMOS for ADC
-        let mut revision_a_cpu = CPU::new(Ram::new(), RevisionA);
-        revision_a_cpu.registers.accumulator = 0x09;
-        revision_a_cpu
-            .registers
-            .status
-            .insert(Status::PS_DECIMAL_MODE);
-        revision_a_cpu.registers.status.remove(Status::PS_CARRY);
-        revision_a_cpu.add_with_carry(0x01);
-        // Should be 0x10 (decimal BCD result)
-        assert_eq!(revision_a_cpu.registers.accumulator, 0x10);
+    #[test]
+    fn revision_a_adc_same_as_nmos() {
+        use crate::instruction::RevisionA;
+        
+        let mut cpu = CPU::new(Ram::new(), RevisionA);
+        cpu.registers.accumulator = 0x09;
+        cpu.registers.status.insert(Status::PS_DECIMAL_MODE);
+        cpu.registers.status.remove(Status::PS_CARRY);
+        
+        cpu.add_with_carry(0x01);
+        
+        // Should behave identically to NMOS 6502
+        assert_eq!(cpu.registers.accumulator, 0x10);
+        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
     }
 }

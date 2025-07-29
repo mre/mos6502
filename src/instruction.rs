@@ -631,8 +631,7 @@ impl crate::Variant for Nmos6502 {
 
         // Calculate overflow from binary result (even in decimal mode)
         // This matches NMOS 6502 hardware behavior
-        let calculated_overflow =
-            (!(accumulator ^ value) & (accumulator ^ temp_result)) & 0x80 != 0;
+        let overflow = (!(accumulator ^ value) & (accumulator ^ temp_result)) & 0x80 != 0;
 
         // Calculate other flags from final result
         let negative = (result & 0x80) != 0;
@@ -641,8 +640,8 @@ impl crate::Variant for Nmos6502 {
         AdcOutput {
             result,
             did_carry,
-            overflow: calculated_overflow,
-            negative: negative,
+            overflow,
+            negative,
             zero,
         }
     }
@@ -667,7 +666,7 @@ impl crate::Variant for Ricoh2a03 {
         }
     }
 
-    /// Ricoh2A03 (NES) ADC implementation
+    /// `Ricoh2A03` (NES) ADC implementation
     ///
     /// - **No decimal mode support** - decimal mode is disabled in hardware
     /// - Always performs binary arithmetic regardless of `decimal_mode` flag
@@ -676,7 +675,7 @@ impl crate::Variant for Ricoh2a03 {
     ///
     /// # Difference from NMOS 6502
     ///
-    /// The Ricoh2A03 removed the decimal mode circuitry entirely to save cost,
+    /// The `Ricoh2A03` removed the decimal mode circuitry entirely to save cost,
     /// so BCD operations are not supported even if the decimal flag is set.
     ///
     /// # References
@@ -732,7 +731,7 @@ impl crate::Variant for RevisionA {
     ///
     /// # Difference from NMOS 6502
     ///
-    /// RevisionA lacks the ROR (Rotate Right) instruction entirely, but ADC
+    /// `RevisionA` lacks the ROR (Rotate Right) instruction entirely, but ADC
     /// behavior is identical to the standard NMOS 6502.
     ///
     /// # References:
