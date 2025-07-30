@@ -25,7 +25,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use crate::AdcOutput;
+use crate::ArithmeticOutput;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Instruction {
@@ -587,7 +587,7 @@ impl crate::Variant for Nmos6502 {
     ///
     /// - [6502.org ADC documentation](http://www.6502.org/tutorials/decimal_mode.html)
     /// - [NESdev 6502 reference](https://www.nesdev.org/obelisk-6502-guide/reference.html#ADC)
-    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // Binary addition with carry detection
         let result_16 = u16::from(accumulator) + u16::from(value) + u16::from(carry_set);
         let did_carry = result_16 > 0xFF;
@@ -602,7 +602,7 @@ impl crate::Variant for Nmos6502 {
 
         let zero = result == 0;
 
-        AdcOutput {
+        ArithmeticOutput {
             result,
             did_carry,
             overflow,
@@ -622,7 +622,7 @@ impl crate::Variant for Nmos6502 {
     ///
     /// - [6502.org ADC documentation](http://www.6502.org/tutorials/decimal_mode.html)
     /// - [NESdev 6502 reference](https://www.nesdev.org/obelisk-6502-guide/reference.html#ADC)
-    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // Perform binary addition first for overflow calculation
         let temp_result = accumulator.wrapping_add(value).wrapping_add(carry_set);
 
@@ -658,7 +658,7 @@ impl crate::Variant for Nmos6502 {
         let negative = (result & 0x80) != 0;
         let zero = result == 0;
 
-        AdcOutput {
+        ArithmeticOutput {
             result,
             did_carry,
             overflow,
@@ -676,7 +676,7 @@ impl crate::Variant for Nmos6502 {
     ///
     /// - [6502.org SBC documentation](http://www.6502.org/tutorials/decimal_mode.html)
     /// - [NESdev 6502 reference](https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC)
-    fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // SBC performs: A = A - M - (1 - C)
         // Which is equivalent to: A = A + (~M) + C (using two's complement)
         let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry_set);
@@ -693,7 +693,7 @@ impl crate::Variant for Nmos6502 {
         let negative = (temp_result & 0x80) != 0;
         let zero = temp_result == 0;
 
-        AdcOutput {
+        ArithmeticOutput {
             result: temp_result,
             did_carry,
             overflow,
@@ -713,7 +713,7 @@ impl crate::Variant for Nmos6502 {
     ///
     /// - [6502.org SBC documentation](http://www.6502.org/tutorials/decimal_mode.html)
     /// - [NESdev 6502 reference](https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC)
-    fn sbc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn sbc_decimal(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // Perform binary subtraction first for overflow calculation
         let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry_set);
 
@@ -751,7 +751,7 @@ impl crate::Variant for Nmos6502 {
         let negative = (result & 0x80) != 0;
         let zero = result == 0;
 
-        AdcOutput {
+        ArithmeticOutput {
             result,
             did_carry,
             overflow,
@@ -788,7 +788,7 @@ impl crate::Variant for Ricoh2a03 {
     ///
     /// # References
     /// - [NESdev Ricoh2A03 reference](https://www.nesdev.org/wiki/CPU)
-    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         let result_16 = u16::from(accumulator) + u16::from(value) + u16::from(carry_set);
         let did_carry = result_16 > 0xFF;
         #[allow(clippy::cast_possible_truncation)]
@@ -801,7 +801,7 @@ impl crate::Variant for Ricoh2a03 {
         let negative = (result & 0x80) != 0;
         let zero = result == 0;
 
-        AdcOutput {
+        ArithmeticOutput {
             result,
             did_carry,
             overflow,
@@ -817,7 +817,7 @@ impl crate::Variant for Ricoh2a03 {
     ///
     /// # References
     /// - [NESdev Ricoh2A03 reference](https://www.nesdev.org/wiki/CPU)
-    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         Self::adc_binary(accumulator, value, carry_set)
     }
 
@@ -829,7 +829,7 @@ impl crate::Variant for Ricoh2a03 {
     ///
     /// # References
     /// - [NESdev Ricoh2A03 reference](https://www.nesdev.org/wiki/CPU)
-    fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // Ricoh2a03 (NES) always uses binary arithmetic
         let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry_set);
 
@@ -844,7 +844,7 @@ impl crate::Variant for Ricoh2a03 {
         let negative = (temp_result & 0x80) != 0;
         let zero = temp_result == 0;
 
-        AdcOutput {
+        ArithmeticOutput {
             result: temp_result,
             did_carry,
             overflow,
@@ -860,7 +860,7 @@ impl crate::Variant for Ricoh2a03 {
     ///
     /// # References
     /// - [NESdev Ricoh2A03 reference](https://www.nesdev.org/wiki/CPU)
-    fn sbc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn sbc_decimal(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // Ricoh2a03 (NES) has no decimal mode, so always use binary arithmetic
         Self::sbc_binary(accumulator, value, carry_set)
     }
@@ -888,7 +888,7 @@ impl crate::Variant for RevisionA {
     /// # References:
     ///
     /// - [Rev. A 6502 (Pre-June 1976) "ROR Bug"](https://www.masswerk.at/6502/6502_instruction_set.html#ror-bug)
-    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // RevisionA behaves the same as NMOS 6502 for ADC
         Nmos6502::adc_binary(accumulator, value, carry_set)
     }
@@ -907,7 +907,7 @@ impl crate::Variant for RevisionA {
     /// # References:
     ///
     /// - [Rev. A 6502 (Pre-June 1976) "ROR Bug"](https://www.masswerk.at/6502/6502_instruction_set.html#ror-bug)
-    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // RevisionA behaves the same as NMOS 6502 for ADC
         Nmos6502::adc_decimal(accumulator, value, carry_set)
     }
@@ -920,7 +920,7 @@ impl crate::Variant for RevisionA {
     /// # References:
     ///
     /// - [Rev. A 6502 (Pre-June 1976) "ROR Bug"](https://www.masswerk.at/6502/6502_instruction_set.html#ror-bug)
-    fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // RevisionA behaves the same as NMOS 6502 for SBC
         Nmos6502::sbc_binary(accumulator, value, carry_set)
     }
@@ -939,7 +939,7 @@ impl crate::Variant for RevisionA {
     /// # References:
     ///
     /// - [Rev. A 6502 (Pre-June 1976) "ROR Bug"](https://www.masswerk.at/6502/6502_instruction_set.html#ror-bug)
-    fn sbc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn sbc_decimal(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // RevisionA behaves the same as NMOS 6502 for SBC
         Nmos6502::sbc_decimal(accumulator, value, carry_set)
     }
@@ -992,7 +992,7 @@ impl crate::Variant for Cmos6502 {
     ///
     /// - [65C02 Programming Manual](http://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
     /// - [6502.org CMOS differences](http://www.6502.org/tutorials/65c02opcodes.html)
-    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // Binary addition with carry detection
         let result_16 = u16::from(accumulator) + u16::from(value) + u16::from(carry_set);
         let did_carry = result_16 > 0xFF;
@@ -1006,7 +1006,7 @@ impl crate::Variant for Cmos6502 {
         let negative = (result & 0x80) != 0;
         let zero = result == 0;
 
-        AdcOutput {
+        ArithmeticOutput {
             result,
             did_carry,
             overflow,
@@ -1031,7 +1031,7 @@ impl crate::Variant for Cmos6502 {
     ///
     /// - [65C02 Programming Manual](http://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
     /// - [6502.org CMOS differences](http://www.6502.org/tutorials/65c02opcodes.html)
-    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // Perform binary addition first for overflow calculation
         let temp_result = accumulator.wrapping_add(value).wrapping_add(carry_set);
 
@@ -1068,7 +1068,7 @@ impl crate::Variant for Cmos6502 {
         let negative = (result & 0x80) != 0;
         let zero = result == 0;
 
-        AdcOutput {
+        ArithmeticOutput {
             result,
             did_carry,
             overflow,
@@ -1086,7 +1086,7 @@ impl crate::Variant for Cmos6502 {
     ///
     /// - [65C02 Programming Manual](http://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
     /// - [6502.org CMOS differences](http://www.6502.org/tutorials/65c02opcodes.html)
-    fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // Binary subtraction with borrow handling
         let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry_set);
 
@@ -1101,7 +1101,7 @@ impl crate::Variant for Cmos6502 {
         let negative = (temp_result & 0x80) != 0;
         let zero = temp_result == 0;
 
-        AdcOutput {
+        ArithmeticOutput {
             result: temp_result,
             did_carry,
             overflow,
@@ -1126,7 +1126,7 @@ impl crate::Variant for Cmos6502 {
     ///
     /// - [65C02 Programming Manual](http://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
     /// - [6502.org CMOS differences](http://www.6502.org/tutorials/65c02opcodes.html)
-    fn sbc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn sbc_decimal(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // Perform binary subtraction first for overflow calculation
         let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry_set);
 
@@ -1165,7 +1165,7 @@ impl crate::Variant for Cmos6502 {
         let negative = (result & 0x80) != 0;
         let zero = result == 0;
 
-        AdcOutput {
+        ArithmeticOutput {
             result,
             did_carry,
             overflow,

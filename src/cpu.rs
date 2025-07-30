@@ -2158,13 +2158,13 @@ mod tests {
     #[test]
     fn adc_function_nmos6502_binary_basic() {
         use crate::instruction::Nmos6502;
-        use crate::{AdcOutput, Variant};
+        use crate::{ArithmeticOutput, Variant};
 
         // Test basic binary addition: 5 + 3 = 8
         let result = Nmos6502::adc_binary(5, 3, 0);
         assert_eq!(
             result,
-            AdcOutput {
+            ArithmeticOutput {
                 result: 8,
                 did_carry: false,
                 overflow: false,
@@ -2177,7 +2177,7 @@ mod tests {
         let result = Nmos6502::adc_binary(5, 3, 1);
         assert_eq!(
             result,
-            AdcOutput {
+            ArithmeticOutput {
                 result: 9,
                 did_carry: false,
                 overflow: false,
@@ -2190,13 +2190,13 @@ mod tests {
     #[test]
     fn adc_function_nmos6502_binary_overflow() {
         use crate::instruction::Nmos6502;
-        use crate::{AdcOutput, Variant};
+        use crate::{ArithmeticOutput, Variant};
 
         // Test signed overflow: 127 + 1 = -128 (0x80)
         let result = Nmos6502::adc_binary(0x7F, 1, 0);
         assert_eq!(
             result,
-            AdcOutput {
+            ArithmeticOutput {
                 result: 0x80,
                 did_carry: false,
                 overflow: true, // V flag set for signed overflow
@@ -2209,13 +2209,13 @@ mod tests {
     #[test]
     fn adc_function_nmos6502_binary_carry() {
         use crate::instruction::Nmos6502;
-        use crate::{AdcOutput, Variant};
+        use crate::{ArithmeticOutput, Variant};
 
         // Test carry: 255 + 1 = 0 with carry
         let result = Nmos6502::adc_binary(255, 1, 0);
         assert_eq!(
             result,
-            AdcOutput {
+            ArithmeticOutput {
                 result: 0,
                 did_carry: true, // C flag set for unsigned overflow
                 overflow: false,
@@ -2228,13 +2228,13 @@ mod tests {
     #[test]
     fn adc_function_nmos6502_decimal_basic() {
         use crate::instruction::Nmos6502;
-        use crate::{AdcOutput, Variant};
+        use crate::{ArithmeticOutput, Variant};
 
         // Test BCD addition: 09 + 01 = 10 (0x10 in BCD)
         let result = Nmos6502::adc_decimal(0x09, 0x01, 0);
         assert_eq!(
             result,
-            AdcOutput {
+            ArithmeticOutput {
                 result: 0x10, // BCD result
                 did_carry: false,
                 overflow: false, // V calculated from binary operation

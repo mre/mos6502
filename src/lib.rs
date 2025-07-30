@@ -53,10 +53,10 @@ pub mod instruction;
 pub mod memory;
 pub mod registers;
 
-/// Output of the ADC instruction
+/// Output of arithmetic instructions (ADC/SBC)
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
-pub struct AdcOutput {
+pub struct ArithmeticOutput {
     result: u8,
     did_carry: bool,
     overflow: bool,
@@ -84,7 +84,7 @@ pub trait Variant {
     ///
     /// # Returns
     /// Tuple of (result, `carry_out`, overflow, negative, zero)
-    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput;
+    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput;
 
     /// Execute Add with Carry (ADC) in decimal mode (BCD)
     ///
@@ -95,7 +95,7 @@ pub trait Variant {
     ///
     /// # Returns
     /// Tuple of (result, `carry_out`, overflow, negative, zero)
-    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput;
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput;
 
     /// Execute Subtract with Carry (SBC) in binary mode
     ///
@@ -106,7 +106,7 @@ pub trait Variant {
     ///
     /// # Returns
     /// Tuple of (result, `carry_out`, overflow, negative, zero)
-    fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput;
+    fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput;
 
     /// Execute Subtract with Carry (SBC) in decimal mode (BCD)
     ///
@@ -117,5 +117,5 @@ pub trait Variant {
     ///
     /// # Returns
     /// Tuple of (result, `carry_out`, overflow, negative, zero)
-    fn sbc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput;
+    fn sbc_decimal(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput;
 }
