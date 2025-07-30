@@ -678,11 +678,11 @@ impl crate::Variant for Nmos6502 {
     /// - [NESdev 6502 reference](https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC)
     fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // SBC performs: A = A - M - (1 - C)
-        // Which is equivalent to: A = A + (~M) + C (using two's complement)
         let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry_set);
 
         // Check for borrow (unsigned underflow)
-        let did_borrow = temp_result > accumulator;
+        // Borrow occurs when we need to "borrow" from a higher bit
+        let did_borrow = (accumulator as u16) < (value as u16 + (1 - carry_set) as u16);
         let did_carry = !did_borrow; // Carry is inverse of borrow in SBC
 
         // Calculate overflow: occurs when signs of A and M are different,
@@ -834,7 +834,7 @@ impl crate::Variant for Ricoh2a03 {
         let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry_set);
 
         // Check for borrow (unsigned underflow)
-        let did_borrow = temp_result > accumulator;
+        let did_borrow = (accumulator as u16) < (value as u16 + (1 - carry_set) as u16);
         let did_carry = !did_borrow; // Carry is inverse of borrow in SBC
 
         // Calculate overflow
@@ -916,10 +916,6 @@ impl crate::Variant for RevisionA {
     ///
     /// - Identical SBC behavior to NMOS 6502
     /// - Found in very early 6502 processors (KIM-1, etc.)
-    ///
-    /// # References:
-    ///
-    /// - [Rev. A 6502 (Pre-June 1976) "ROR Bug"](https://www.masswerk.at/6502/6502_instruction_set.html#ror-bug)
     fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // RevisionA behaves the same as NMOS 6502 for SBC
         Nmos6502::sbc_binary(accumulator, value, carry_set)
@@ -930,15 +926,6 @@ impl crate::Variant for RevisionA {
     /// - Identical SBC behavior to NMOS 6502
     /// - Supports decimal (BCD) mode with same flag behavior as NMOS
     /// - Found in very early 6502 processors (KIM-1, etc.)
-    ///
-    /// # Difference from NMOS 6502
-    ///
-    /// `RevisionA` lacks the ROR (Rotate Right) instruction entirely, but SBC
-    /// behavior is identical to the standard NMOS 6502.
-    ///
-    /// # References:
-    ///
-    /// - [Rev. A 6502 (Pre-June 1976) "ROR Bug"](https://www.masswerk.at/6502/6502_instruction_set.html#ror-bug)
     fn sbc_decimal(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // RevisionA behaves the same as NMOS 6502 for SBC
         Nmos6502::sbc_decimal(accumulator, value, carry_set)
@@ -1091,7 +1078,7 @@ impl crate::Variant for Cmos6502 {
         let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry_set);
 
         // Check for borrow (unsigned underflow)
-        let did_borrow = temp_result > accumulator;
+        let did_borrow = (accumulator as u16) < (value as u16 + (1 - carry_set) as u16);
         let did_carry = !did_borrow; // Carry is inverse of borrow in SBC
 
         // Calculate overflow
