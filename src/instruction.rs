@@ -680,7 +680,7 @@ impl crate::Variant for Nmos6502 {
         // SBC performs: A = A - M - (1 - C)
         // Which is equivalent to: A = A + (~M) + C (using two's complement)
         let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry_set);
-        
+
         // Check for borrow (unsigned underflow)
         let did_borrow = temp_result > accumulator;
         let did_carry = !did_borrow; // Carry is inverse of borrow in SBC
@@ -832,7 +832,7 @@ impl crate::Variant for Ricoh2a03 {
     fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
         // Ricoh2a03 (NES) always uses binary arithmetic
         let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry_set);
-        
+
         // Check for borrow (unsigned underflow)
         let did_borrow = temp_result > accumulator;
         let did_carry = !did_borrow; // Carry is inverse of borrow in SBC
@@ -1089,7 +1089,7 @@ impl crate::Variant for Cmos6502 {
     fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
         // Binary subtraction with borrow handling
         let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry_set);
-        
+
         // Check for borrow (unsigned underflow)
         let did_borrow = temp_result > accumulator;
         let did_carry = !did_borrow; // Carry is inverse of borrow in SBC
