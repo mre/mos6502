@@ -33,7 +33,7 @@ license = "BSD-3-Clause"
 version = "0.6.2"
 authors = ["The 6502-rs Developers"]
 exclude = ["examples/**"]
-edition = "2021"
+edition = "2024"
 
 [lib]
 # This will look in src/lib.rs
