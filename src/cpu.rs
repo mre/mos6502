@@ -2319,8 +2319,8 @@ mod tests {
 
     #[test]
     fn adc_function_ricoh2a03_decimal_calls_binary() {
-        use crate::instruction::Ricoh2a03;
         use crate::Variant;
+        use crate::instruction::Ricoh2a03;
 
         // Ricoh2A03 has no decimal mode, so decimal should match binary
         let binary_result = Ricoh2a03::adc_binary(0x09, 0x01, 0);
