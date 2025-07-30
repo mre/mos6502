@@ -46,9 +46,9 @@
 //!
 //! For other 6502 variants (65C02, RP2A03), see variant-specific instruction handling.
 
+use crate::Variant;
 use crate::instruction::{AddressingMode, DecodedInstr, Instruction, OpInput};
 use crate::memory::Bus;
-use crate::Variant;
 
 use crate::registers::{Registers, StackPointer, Status, StatusArgs};
 

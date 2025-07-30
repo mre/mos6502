@@ -33,13 +33,13 @@ license = "BSD-3-Clause"
 version = "0.6.2"
 authors = ["The 6502-rs Developers"]
 exclude = ["examples/**"]
-edition = "2021"
+edition = "2024"
 
 [lib]
 # This will look in src/lib.rs
 name = "mos6502"
 
 [dependencies]
-bitflags = "2.5.0"
-log = "0.4.21"
+bitflags = "2.9.1"
+log = "0.4.27"
 
