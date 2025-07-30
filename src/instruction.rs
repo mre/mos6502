@@ -682,7 +682,7 @@ impl crate::Variant for Nmos6502 {
 
         // Check for borrow (unsigned underflow)
         // Borrow occurs when we need to "borrow" from a higher bit
-        let did_borrow = (accumulator as u16) < (value as u16 + (1 - carry_set) as u16);
+        let did_borrow = u16::from(accumulator) < (u16::from(value) + u16::from(1 - carry_set));
         let did_carry = !did_borrow; // Carry is inverse of borrow in SBC
 
         // Calculate overflow: occurs when signs of A and M are different,
@@ -834,7 +834,7 @@ impl crate::Variant for Ricoh2a03 {
         let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry_set);
 
         // Check for borrow (unsigned underflow)
-        let did_borrow = (accumulator as u16) < (value as u16 + (1 - carry_set) as u16);
+        let did_borrow = u16::from(accumulator) < (u16::from(value) + u16::from(1 - carry_set));
         let did_carry = !did_borrow; // Carry is inverse of borrow in SBC
 
         // Calculate overflow
@@ -1078,7 +1078,7 @@ impl crate::Variant for Cmos6502 {
         let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry_set);
 
         // Check for borrow (unsigned underflow)
-        let did_borrow = (accumulator as u16) < (value as u16 + (1 - carry_set) as u16);
+        let did_borrow = u16::from(accumulator) < (u16::from(value) + u16::from(1 - carry_set));
         let did_carry = !did_borrow; // Carry is inverse of borrow in SBC
 
         // Calculate overflow
