@@ -591,10 +591,8 @@ impl crate::Variant for Nmos6502 {
         // Binary addition with carry detection
         let result_16 = u16::from(accumulator) + u16::from(value) + u16::from(carry_set);
         let did_carry = result_16 > 0xFF;
-        // Convert to 8-bit result.
-        // The cast from u16 to u8 is safe here due to the preceding carry check.
-        #[allow(clippy::cast_possible_truncation)]
-        let result = result_16 as u8;
+        // Convert to 8-bit result using little-endian byte conversion
+        let result = result_16.to_le_bytes()[0];
 
         // Calculate overflow from binary result
         let overflow = (!(accumulator ^ value) & (accumulator ^ result)) & 0x80 != 0;
