@@ -64,9 +64,24 @@ pub struct ArithmeticOutput {
     zero: bool,
 }
 
-/// Trait for 6502 variant. This is the mechanism allowing the different 6502-like CPUs to be
-/// emulated. It allows a struct to decode an opcode into its instruction and addressing mode,
-/// and implements variant-specific instruction behavior.
+/// Trait for different 6502 CPU variants with their historical differences.
+/// 
+/// The 6502 family evolved over decades with various manufacturers creating
+/// specialized versions for different applications:
+///
+/// - **NMOS 6502** (1975): Original MOS Technology processor used in Apple II,
+///   Commodore 64, Atari 2600. Has unreliable decimal mode flags but full BCD support.
+/// 
+/// - **65C02** (1982): WDC's CMOS version with bug fixes, additional instructions,
+///   and reliable decimal mode flags. Used in Apple IIc/IIe.
+/// 
+/// - **Ricoh 2A03** (1983): Nintendo's cost-reduced variant for NES/Famicom.
+///   Removed decimal mode entirely and added sound generation circuitry.
+/// 
+/// - **Revision A** (1976): Very early 6502 variant missing the ROR instruction
+///   or having a buggy implementation. Found in early KIM-1 systems.
+///
+/// Choose the variant that matches your target system for accurate emulation.
 pub trait Variant {
     fn decode(
         opcode: u8,
