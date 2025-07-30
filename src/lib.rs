@@ -53,8 +53,20 @@ pub mod instruction;
 pub mod memory;
 pub mod registers;
 
+/// Output of the ADC instruction
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct AdcOutput {
+    result: u8,
+    did_carry: bool,
+    overflow: bool,
+    negative: bool,
+    zero: bool,
+}
+
 /// Trait for 6502 variant. This is the mechanism allowing the different 6502-like CPUs to be
-/// emulated. It allows a struct to decode an opcode into its instruction and addressing mode.
+/// emulated. It allows a struct to decode an opcode into its instruction and addressing mode,
+/// and implements variant-specific instruction behavior.
 pub trait Variant {
     fn decode(
         opcode: u8,
@@ -62,4 +74,26 @@ pub trait Variant {
         crate::instruction::Instruction,
         crate::instruction::AddressingMode,
     )>;
+
+    /// Execute Add with Carry (ADC) in binary mode
+    ///
+    /// # Arguments
+    /// * `accumulator` - Current accumulator value
+    /// * `value` - Value to add  
+    /// * `carry_set` - Carry flag set at the time of execution (0 or 1)
+    ///
+    /// # Returns
+    /// Tuple of (result, `carry_out`, overflow, negative, zero)
+    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput;
+
+    /// Execute Add with Carry (ADC) in decimal mode (BCD)
+    ///
+    /// # Arguments
+    /// * `accumulator` - Current accumulator value
+    /// * `value` - Value to add  
+    /// * `carry_set` - Carry flag set at the time of execution (0 or 1)
+    ///
+    /// # Returns
+    /// Tuple of (result, `carry_out`, overflow, negative, zero)
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput;
 }

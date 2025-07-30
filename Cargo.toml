@@ -43,6 +43,3 @@ name = "mos6502"
 bitflags = "2.9.1"
 log = "0.4.27"
 
-[features]
-decimal_mode = []
-default = ["decimal_mode"]

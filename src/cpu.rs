@@ -25,6 +25,27 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+//! ## Decimal Mode Implementation Notes
+//!
+//! This emulator implements decimal mode (BCD arithmetic) for ADC and SBC instructions
+//! following the documented behavior of the original NMOS 6502 processor.
+//!
+//! ### Key Implementation Details:
+//!
+//! - **Target Processor**: NMOS 6502 (as used in Commodore 64, Apple II, etc.)
+//! - **Flag Behavior**: Only the Carry flag is reliable in decimal mode; N, V, Z flags
+//!   are set but may not correspond to expected decimal arithmetic results
+//! - **Invalid BCD**: Values A-F in nibbles produce undefined but deterministic results
+//! - **Overflow Flag**: Calculated from binary addition result, not BCD result
+//!
+//! ### Authoritative References:
+//!
+//! - [6502.org Decimal Mode Tutorial](http://www.6502.org/tutorials/decimal_mode.html)
+//! - [NESdev Wiki 6502 Decimal Mode](https://www.nesdev.org/wiki/Visual6502wiki/6502DecimalMode)
+//! - Bruce Clark's comprehensive decimal mode test suite
+//!
+//! For other 6502 variants (65C02, RP2A03), see variant-specific instruction handling.
+
 use crate::Variant;
 use crate::instruction::{AddressingMode, DecodedInstr, Instruction, OpInput};
 use crate::memory::Bus;
@@ -384,7 +405,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 let pcl = self.memory.get_byte(0xfffe);
                 let pch = self.memory.get_byte(0xffff);
                 self.jump((u16::from(pch) << 8) | u16::from(pcl));
-                self.registers.status.or(Status::PS_DISABLE_INTERRUPTS);
+                self.set_flag(Status::PS_DISABLE_INTERRUPTS);
             }
 
             (Instruction::BRKcld, OpInput::UseImplied) => {
@@ -395,8 +416,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 let pcl = self.memory.get_byte(0xfffe);
                 let pch = self.memory.get_byte(0xffff);
                 self.jump((u16::from(pch) << 8) | u16::from(pcl));
-                self.registers.status.or(Status::PS_DISABLE_INTERRUPTS);
-                self.registers.status.and(!Status::PS_DECIMAL_MODE);
+                self.set_flag(Status::PS_DISABLE_INTERRUPTS);
+                self.unset_flag(Status::PS_DECIMAL_MODE);
             }
 
             (Instruction::BVC, OpInput::UseRelative(rel)) => {
@@ -410,16 +431,16 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
 
             (Instruction::CLC, OpInput::UseImplied) => {
-                self.registers.status.and(!Status::PS_CARRY);
+                self.unset_flag(Status::PS_CARRY);
             }
             (Instruction::CLD, OpInput::UseImplied) => {
-                self.registers.status.and(!Status::PS_DECIMAL_MODE);
+                self.unset_flag(Status::PS_DECIMAL_MODE);
             }
             (Instruction::CLI, OpInput::UseImplied) => {
-                self.registers.status.and(!Status::PS_DISABLE_INTERRUPTS);
+                self.unset_flag(Status::PS_DISABLE_INTERRUPTS);
             }
             (Instruction::CLV, OpInput::UseImplied) => {
-                self.registers.status.and(!Status::PS_OVERFLOW);
+                self.unset_flag(Status::PS_OVERFLOW);
             }
 
             (Instruction::CMP, OpInput::UseImmediate(val)) => {
@@ -672,13 +693,13 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
 
             (Instruction::SEC, OpInput::UseImplied) => {
-                self.registers.status.or(Status::PS_CARRY);
+                self.set_flag(Status::PS_CARRY);
             }
             (Instruction::SED, OpInput::UseImplied) => {
-                self.registers.status.or(Status::PS_DECIMAL_MODE);
+                self.set_flag(Status::PS_DECIMAL_MODE);
             }
             (Instruction::SEI, OpInput::UseImplied) => {
-                self.registers.status.or(Status::PS_DISABLE_INTERRUPTS);
+                self.set_flag(Status::PS_DISABLE_INTERRUPTS);
             }
 
             (Instruction::STA, OpInput::UseAddress(addr)) => {
@@ -896,84 +917,104 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         );
     }
 
+    /// Shorthand for checking if a specific flag is set in the status register
+    #[inline]
+    const fn get_flag(&self, flag: Status) -> bool {
+        self.registers.status.contains(flag)
+    }
+
+    /// Shorthand for setting a specific flag in the status register
+    #[inline]
+    fn set_flag(&mut self, flag: Status) {
+        self.registers.status.or(flag);
+    }
+
+    /// Shorthand for clearing a specific flag in the status register
+    #[inline]
+    fn unset_flag(&mut self, flag: Status) {
+        self.registers.status.and(!flag);
+    }
+
+    /// Executes the following calculation: A + M + C (Add with Carry)
+    ///
+    /// This implementation follows the NMOS 6502 behavior as documented in authoritative sources.
+    ///
+    /// ## Decimal Mode Behavior (NMOS 6502)
+    ///
+    /// In decimal mode, this instruction performs Binary Coded Decimal (BCD) arithmetic
+    /// where each nibble represents a decimal digit (0-9). However, flag behavior differs
+    /// significantly from binary mode:
+    ///
+    /// - **Carry Flag (C)**: Correctly set when BCD addition overflows (> 99)
+    /// - **Overflow Flag (V)**: Calculated from the binary addition result, not the BCD result.
+    ///   The meaning is effectively undocumented in decimal mode since BCD is unsigned arithmetic.
+    /// - **Negative Flag (N)**: Set from the BCD result but may not match expected 10's complement behavior
+    /// - **Zero Flag (Z)**: Set from the BCD result but may not always be correct on NMOS 6502
+    ///
+    /// ## Invalid BCD Values
+    ///
+    /// When either nibble contains values A-F (invalid BCD), the NMOS 6502 behavior is
+    /// undefined. This implementation treats them as valid binary values, which produces
+    /// deterministic results but may not match all real hardware variants.
+    ///
+    /// ## References
+    ///
+    /// - [6502.org Decimal Mode Tutorial](http://www.6502.org/tutorials/decimal_mode.html)
+    /// - [NESdev Wiki 6502 Decimal Mode](https://www.nesdev.org/wiki/Visual6502wiki/6502DecimalMode)
+    /// - Bruce Clark's comprehensive decimal mode test programs
+    ///
+    /// ## Variant Differences
+    ///
+    /// - **NMOS 6502**: Only carry flag is reliable in decimal mode
+    /// - **65C02**: N and Z flags are valid, V flag still undocumented, +1 cycle in decimal mode
+    /// - **RP2A03** (NES): Decimal mode completely disabled in hardware
     fn add_with_carry(&mut self, value: u8) {
-        const fn decimal_adjust(result: u8) -> u8 {
-            let bcd1: u8 = if (result & 0x0f) > 0x09 { 0x06 } else { 0x00 };
+        let carry_set = u8::from(self.get_flag(Status::PS_CARRY));
+        let decimal_mode = self.get_flag(Status::PS_DECIMAL_MODE);
 
-            let bcd2: u8 = if (result.wrapping_add(bcd1) & 0xf0) > 0x90 {
-                0x60
-            } else {
-                0x00
-            };
-
-            result.wrapping_add(bcd1).wrapping_add(bcd2)
-        }
-
-        let a_before: u8 = self.registers.accumulator;
-        let c_before: u8 = u8::from(self.registers.status.contains(Status::PS_CARRY));
-        let a_after: u8 = a_before.wrapping_add(c_before).wrapping_add(value);
-
-        debug_assert_eq!(a_after, a_before.wrapping_add(c_before).wrapping_add(value));
-
-        let result: u8 = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
-            decimal_adjust(a_after)
+        // Use variant-specific ADC implementation
+        let output = if decimal_mode {
+            V::adc_decimal(self.registers.accumulator, value, carry_set)
         } else {
-            a_after
+            V::adc_binary(self.registers.accumulator, value, carry_set)
         };
 
-        let did_carry = (result) < (a_before)
-            || (a_after == 0 && c_before == 0x01)
-            || (value == 0xff && c_before == 0x01);
-
-        let did_overflow = (a_before > 127 && value > 127 && a_after < 128)
-            || (a_before < 128 && value < 128 && a_after > 127);
-
-        let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
-
+        // Update processor status flags
         self.registers.status.set_with_mask(
-            mask,
+            Status::PS_CARRY | Status::PS_OVERFLOW | Status::PS_ZERO | Status::PS_NEGATIVE,
             Status::new(StatusArgs {
-                carry: did_carry,
-                overflow: did_overflow,
+                carry: output.did_carry,
+                overflow: output.overflow,
+                zero: output.zero,
+                negative: output.negative,
                 ..StatusArgs::none()
             }),
         );
 
-        self.load_accumulator(result);
-
-        log::debug!("accumulator: {}", self.registers.accumulator);
+        // Update accumulator
+        self.registers.accumulator = output.result;
     }
 
     fn add_with_no_decimal(&mut self, value: u8) {
-        let a_before: u8 = self.registers.accumulator;
-        let c_before: u8 = u8::from(self.registers.status.contains(Status::PS_CARRY));
-        let a_after: u8 = a_before.wrapping_add(c_before).wrapping_add(value);
+        let carry_set = u8::from(self.get_flag(Status::PS_CARRY));
 
-        debug_assert_eq!(a_after, a_before.wrapping_add(c_before).wrapping_add(value));
+        // Use variant-specific binary ADC implementation
+        let output = V::adc_binary(self.registers.accumulator, value, carry_set);
 
-        let result = a_after;
-
-        let did_carry = (result) < (a_before)
-            || (a_after == 0 && c_before == 0x01)
-            || (value == 0xff && c_before == 0x01);
-
-        let did_overflow = (a_before > 127 && value > 127 && a_after < 128)
-            || (a_before < 128 && value < 128 && a_after > 127);
-
-        let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
-
+        // Update processor status flags
         self.registers.status.set_with_mask(
-            mask,
+            Status::PS_CARRY | Status::PS_OVERFLOW | Status::PS_ZERO | Status::PS_NEGATIVE,
             Status::new(StatusArgs {
-                carry: did_carry,
-                overflow: did_overflow,
+                carry: output.did_carry,
+                overflow: output.overflow,
+                zero: output.zero,
+                negative: output.negative,
                 ..StatusArgs::none()
             }),
         );
 
-        self.load_accumulator(result);
-
-        log::debug!("accumulator: {}", self.registers.accumulator);
+        // Update accumulator
+        self.registers.accumulator = output.result;
     }
 
     fn and(&mut self, value: u8) {
@@ -1023,11 +1064,36 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         self.load_accumulator(result);
     }
 
-    /// Executes the following calculation: A - M - (1 - C)
+    /// Executes the following calculation: A - M - (1 - C) (Subtract with Carry)
     ///
-    /// This algorithm ensures correct behavior for the SBC operation in both
-    /// decimal and non-decimal modes, handling all the intricacies of the 6502
-    /// processor's implementation.
+    /// This implementation follows the NMOS 6502 behavior as documented in authoritative sources.
+    ///
+    /// ## Decimal Mode Behavior (NMOS 6502)
+    ///
+    /// In decimal mode, this instruction performs Binary Coded Decimal (BCD) arithmetic
+    /// where each nibble represents a decimal digit (0-9). Flag behavior matches ADC:
+    ///
+    /// - **Carry Flag (C)**: Correctly set (inverse of borrow) for BCD subtraction
+    /// - **Overflow Flag (V)**: Disabled in decimal mode (always false) to match real hardware
+    /// - **Negative Flag (N)**: Set from the BCD result but behavior is undocumented
+    /// - **Zero Flag (Z)**: Set from the BCD result but may not always be correct on NMOS 6502
+    ///
+    /// ## Invalid BCD Values
+    ///
+    /// When either nibble contains values A-F (invalid BCD), the NMOS 6502 behavior is
+    /// undefined. This implementation handles them deterministically but results may vary
+    /// from real hardware.
+    ///
+    /// ## References
+    ///
+    /// - [6502.org Decimal Mode Tutorial](http://www.6502.org/tutorials/decimal_mode.html)
+    /// - [NESdev Wiki 6502 Decimal Mode](https://www.nesdev.org/wiki/Visual6502wiki/6502DecimalMode)
+    ///
+    /// ## Variant Differences
+    ///
+    /// - **NMOS 6502**: Only carry flag is reliable in decimal mode
+    /// - **65C02**: N and Z flags are valid, V flag still undocumented
+    /// - **RP2A03** (NES): Decimal mode completely disabled in hardware
     fn subtract_with_carry(&mut self, value: u8) {
         // First, convert the carry flag to a 0 or 1
         let carry: u8 = u8::from(self.registers.status.contains(Status::PS_CARRY));
@@ -1334,16 +1400,17 @@ mod tests {
         assert_eq!(cpu.registers.accumulator, 0);
     }
 
-    #[cfg_attr(feature = "decimal_mode", test)]
+    #[test]
     fn decimal_add_test() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
-        cpu.registers.status.or(Status::PS_DECIMAL_MODE);
+        cpu.registers.status.insert(Status::PS_DECIMAL_MODE);
 
         cpu.add_with_carry(0x09);
         assert_eq!(cpu.registers.accumulator, 0x09);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+        // Overflow flag is calculated from binary result
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
         cpu.add_with_carry(0x43);
@@ -1351,6 +1418,7 @@ mod tests {
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+        // No overflow: 0x09 + 0x43 = 0x4C (binary), both positive, result positive
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
         cpu.add_with_carry(0x48);
@@ -1358,10 +1426,11 @@ mod tests {
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
         assert!(cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+        // Overflow: 0x52 + 0x48 = 0x9A (binary), both positive, result negative
         assert!(cpu.registers.status.contains(Status::PS_OVERFLOW));
     }
 
-    #[cfg_attr(feature = "decimal_mode", test)]
+    #[test]
     fn decimal_subtract_test() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.registers
@@ -1390,20 +1459,22 @@ mod tests {
     fn add_with_carry_test() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
-        cpu.add_with_carry(1);
-        assert_eq!(cpu.registers.accumulator, 1);
-        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
-        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
-        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
-        assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
+        // Non-decimal mode tests
+        cpu.registers.status.remove(Status::PS_DECIMAL_MODE);
 
-        cpu.add_with_carry(0xff);
+        // Test case 1: 0 + 0 with carry clear
+        cpu.registers.accumulator = 0;
+        cpu.registers.status.remove(Status::PS_CARRY);
+        cpu.add_with_carry(0);
         assert_eq!(cpu.registers.accumulator, 0);
-        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
+        // Test case 2: 0 + 1 with carry set
+        cpu.registers.accumulator = 0;
+        cpu.registers.status.insert(Status::PS_CARRY);
         cpu.add_with_carry(1);
         assert_eq!(cpu.registers.accumulator, 2);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
@@ -1411,61 +1482,78 @@ mod tests {
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        let mut cpu = CPU::new(Ram::new(), Nmos6502);
-
-        assert_eq!(cpu.registers.accumulator, 0);
-        cpu.add_with_carry(127);
-        assert_eq!(cpu.registers.accumulator, 127);
-        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
-        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
-        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
-        assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
-
-        // Allow casting from i8 to u8; -127i8 wraps to 129u8, as intended for
-        // two's complement arithmetic.
-        cpu.add_with_carry(-127i8 as u8);
-        assert_eq!(cpu.registers.accumulator, 0);
-        assert!(cpu.registers.status.contains(Status::PS_CARRY));
-        assert!(cpu.registers.status.contains(Status::PS_ZERO));
-        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
-        assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
-
+        // Test case 3: 0x7F + 0x01 (overflow case)
+        cpu.registers.accumulator = 0x7F;
         cpu.registers.status.remove(Status::PS_CARRY);
-        cpu.add_with_carry(0x80);
-        assert_eq!(cpu.registers.accumulator, 0x80);
-        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
-        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
-        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
-        assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
-
-        cpu.add_with_carry(127);
-        assert_eq!(cpu.registers.accumulator, 0xff);
-        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
-        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
-        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
-        assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
-
-        let mut cpu = CPU::new(Ram::new(), Nmos6502);
-
-        cpu.add_with_carry(127);
-        assert_eq!(cpu.registers.accumulator, 127);
-        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
-        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
-        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
-        assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
-
-        cpu.add_with_carry(1);
+        cpu.add_with_carry(0x01);
         assert_eq!(cpu.registers.accumulator, 0x80);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        let mut cpu = CPU::new(Ram::new(), Nmos6502);
-        cpu.registers.status.or(Status::PS_CARRY);
-        cpu.add_with_carry(0xff);
-        assert_eq!(cpu.registers.accumulator, 0);
+        // Decimal mode tests
+        cpu.registers.status.insert(Status::PS_DECIMAL_MODE);
+
+        // Test case 4: 09 + 01 with carry clear (decimal)
+        cpu.registers.accumulator = 0x09;
+        cpu.registers.status.remove(Status::PS_CARRY);
+        cpu.add_with_carry(0x01);
+        assert_eq!(cpu.registers.accumulator, 0x10);
+        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+
+        // Test case 5: 50 + 50 with carry clear (decimal)
+        cpu.registers.accumulator = 0x50;
+        cpu.registers.status.remove(Status::PS_CARRY);
+        cpu.add_with_carry(0x50);
+        assert_eq!(cpu.registers.accumulator, 0x00);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
+        assert!(cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+
+        // Test case 6: 99 + 01 with carry set (decimal)
+        cpu.registers.accumulator = 0x99;
+        cpu.registers.status.insert(Status::PS_CARRY);
+        cpu.add_with_carry(0x01);
+        assert_eq!(cpu.registers.accumulator, 0x01);
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+
+        // Additional test cases for comprehensive verification
+
+        // Non-decimal mode: Test carry flag with 0xFF + 0x01
+        cpu.registers.status.remove(Status::PS_DECIMAL_MODE);
+        cpu.registers.accumulator = 0xFF;
+        cpu.registers.status.remove(Status::PS_CARRY);
+        cpu.add_with_carry(0x01);
+        assert_eq!(cpu.registers.accumulator, 0x00);
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+        assert!(cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+        assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
+
+        // Non-decimal mode: Test carry flag with 0xFF + 0x01 + carry
+        cpu.registers.accumulator = 0xFF;
+        cpu.registers.status.insert(Status::PS_CARRY);
+        cpu.add_with_carry(0x01);
+        assert_eq!(cpu.registers.accumulator, 0x01);
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+        assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
+
+        // Non-decimal mode: Test negative overflow (0x80 + 0x80)
+        cpu.registers.accumulator = 0x80;
+        cpu.registers.status.remove(Status::PS_CARRY);
+        cpu.add_with_carry(0x80);
+        assert_eq!(cpu.registers.accumulator, 0x00);
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+        assert!(cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+        assert!(cpu.registers.status.contains(Status::PS_OVERFLOW));
     }
 
     #[test]
@@ -1780,7 +1868,7 @@ mod tests {
         cpu.branch_if_equal(0xABCD);
         assert_eq!(cpu.registers.program_counter, (0));
 
-        cpu.registers.status.or(Status::PS_ZERO);
+        cpu.set_flag(Status::PS_ZERO);
         cpu.branch_if_equal(0xABCD);
         assert_eq!(cpu.registers.program_counter, (0xABCD));
     }
@@ -1799,7 +1887,7 @@ mod tests {
         {
             let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
-            cpu.registers.status.or(Status::PS_NEGATIVE);
+            cpu.set_flag(Status::PS_NEGATIVE);
             let registers_before = cpu.registers;
 
             cpu.branch_if_minus(0xABCD);
@@ -1996,6 +2084,248 @@ mod tests {
     fn stack_underflow() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
         let _val: u8 = cpu.pull_from_stack();
+    }
+
+    #[test]
+    fn nmos6502_adc_decimal_mode() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+        cpu.registers.accumulator = 0x09;
+        cpu.registers.status.insert(Status::PS_DECIMAL_MODE);
+        cpu.registers.status.remove(Status::PS_CARRY);
+
+        cpu.add_with_carry(0x01);
+
+        // Should produce BCD result: 09 + 01 = 10 (decimal)
+        assert_eq!(cpu.registers.accumulator, 0x10);
+        assert!(!cpu.get_flag(Status::PS_CARRY));
+    }
+
+    #[test]
+    fn ricoh2a03_ignores_decimal_mode() {
+        use crate::instruction::Ricoh2a03;
+
+        let mut cpu = CPU::new(Ram::new(), Ricoh2a03);
+        cpu.registers.accumulator = 0x09;
+        cpu.registers.status.insert(Status::PS_DECIMAL_MODE);
+        cpu.registers.status.remove(Status::PS_CARRY);
+
+        cpu.add_with_carry(0x01);
+
+        // Should be binary arithmetic: 0x09 + 0x01 = 0x0A (not 0x10)
+        assert_eq!(cpu.registers.accumulator, 0x0A);
+        assert!(!cpu.get_flag(Status::PS_CARRY));
+    }
+
+    #[test]
+    fn cmos6502_adc_decimal_mode() {
+        use crate::instruction::Cmos6502;
+
+        let mut cpu = CPU::new(Ram::new(), Cmos6502);
+        cpu.registers.accumulator = 0x09;
+        cpu.registers.status.insert(Status::PS_DECIMAL_MODE);
+        cpu.registers.status.remove(Status::PS_CARRY);
+
+        cpu.add_with_carry(0x01);
+
+        // Should produce BCD result like NMOS: 09 + 01 = 10 (decimal)
+        assert_eq!(cpu.registers.accumulator, 0x10);
+        assert!(!cpu.get_flag(Status::PS_CARRY));
+    }
+
+    #[test]
+    fn revision_a_adc_same_as_nmos() {
+        use crate::instruction::RevisionA;
+
+        let mut cpu = CPU::new(Ram::new(), RevisionA);
+        cpu.registers.accumulator = 0x09;
+        cpu.registers.status.insert(Status::PS_DECIMAL_MODE);
+        cpu.registers.status.remove(Status::PS_CARRY);
+
+        cpu.add_with_carry(0x01);
+
+        // Should behave identically to NMOS 6502
+        assert_eq!(cpu.registers.accumulator, 0x10);
+        assert!(!cpu.get_flag(Status::PS_CARRY));
+    }
+
+    #[test]
+    fn get_flag() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        // Demonstrate checking multiple flags
+        assert!(!cpu.get_flag(Status::PS_CARRY));
+        assert!(!cpu.get_flag(Status::PS_ZERO));
+        assert!(!cpu.get_flag(Status::PS_NEGATIVE));
+        assert!(!cpu.get_flag(Status::PS_OVERFLOW));
+        assert!(!cpu.get_flag(Status::PS_DECIMAL_MODE));
+
+        // Set some flags and check them
+        cpu.registers
+            .status
+            .insert(Status::PS_CARRY | Status::PS_ZERO);
+        assert!(cpu.get_flag(Status::PS_CARRY));
+        assert!(cpu.get_flag(Status::PS_ZERO));
+        assert!(!cpu.get_flag(Status::PS_NEGATIVE));
+    }
+
+    #[test]
+    fn set_flag() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        // Initially, no flags are set
+        assert!(!cpu.get_flag(Status::PS_CARRY));
+        assert!(!cpu.get_flag(Status::PS_ZERO));
+        assert!(!cpu.get_flag(Status::PS_NEGATIVE));
+
+        // Set the carry flag
+        cpu.set_flag(Status::PS_CARRY);
+        assert!(cpu.get_flag(Status::PS_CARRY));
+        assert!(!cpu.get_flag(Status::PS_ZERO));
+        assert!(!cpu.get_flag(Status::PS_NEGATIVE));
+
+        // Set the zero flag
+        cpu.set_flag(Status::PS_ZERO);
+        assert!(cpu.get_flag(Status::PS_CARRY));
+        assert!(cpu.get_flag(Status::PS_ZERO));
+        assert!(!cpu.get_flag(Status::PS_NEGATIVE));
+
+        // Set the negative flag
+        cpu.set_flag(Status::PS_NEGATIVE);
+        assert!(cpu.get_flag(Status::PS_CARRY));
+        assert!(cpu.get_flag(Status::PS_ZERO));
+        assert!(cpu.get_flag(Status::PS_NEGATIVE));
+    }
+
+    #[test]
+    fn unset_flag() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        // Set all flags first
+        cpu.set_flag(Status::PS_CARRY);
+        cpu.set_flag(Status::PS_ZERO);
+        cpu.set_flag(Status::PS_NEGATIVE);
+        assert!(cpu.get_flag(Status::PS_CARRY));
+        assert!(cpu.get_flag(Status::PS_ZERO));
+        assert!(cpu.get_flag(Status::PS_NEGATIVE));
+
+        // Clear the carry flag
+        cpu.unset_flag(Status::PS_CARRY);
+        assert!(!cpu.get_flag(Status::PS_CARRY));
+        assert!(cpu.get_flag(Status::PS_ZERO));
+        assert!(cpu.get_flag(Status::PS_NEGATIVE));
+
+        // Clear the zero flag
+        cpu.unset_flag(Status::PS_ZERO);
+        assert!(!cpu.get_flag(Status::PS_CARRY));
+        assert!(!cpu.get_flag(Status::PS_ZERO));
+        assert!(cpu.get_flag(Status::PS_NEGATIVE));
+
+        // Clear the negative flag
+        cpu.unset_flag(Status::PS_NEGATIVE);
+        assert!(!cpu.get_flag(Status::PS_CARRY));
+        assert!(!cpu.get_flag(Status::PS_ZERO));
+        assert!(!cpu.get_flag(Status::PS_NEGATIVE));
+    }
+
+    // ADC function-level tests - test the pure ADC logic without CPU state
+    #[test]
+    fn adc_function_nmos6502_binary_basic() {
+        use crate::instruction::Nmos6502;
+        use crate::{AdcOutput, Variant};
+
+        // Test basic binary addition: 5 + 3 = 8
+        let result = Nmos6502::adc_binary(5, 3, 0);
+        assert_eq!(
+            result,
+            AdcOutput {
+                result: 8,
+                did_carry: false,
+                overflow: false,
+                negative: false,
+                zero: false,
+            }
+        );
+
+        // Test with carry: 5 + 3 + 1 = 9
+        let result = Nmos6502::adc_binary(5, 3, 1);
+        assert_eq!(
+            result,
+            AdcOutput {
+                result: 9,
+                did_carry: false,
+                overflow: false,
+                negative: false,
+                zero: false,
+            }
+        );
+    }
+
+    #[test]
+    fn adc_function_nmos6502_binary_overflow() {
+        use crate::instruction::Nmos6502;
+        use crate::{AdcOutput, Variant};
+
+        // Test signed overflow: 127 + 1 = -128 (0x80)
+        let result = Nmos6502::adc_binary(0x7F, 1, 0);
+        assert_eq!(
+            result,
+            AdcOutput {
+                result: 0x80,
+                did_carry: false,
+                overflow: true, // V flag set for signed overflow
+                negative: true, // N flag set because result has bit 7 set
+                zero: false,
+            }
+        );
+    }
+
+    #[test]
+    fn adc_function_nmos6502_binary_carry() {
+        use crate::instruction::Nmos6502;
+        use crate::{AdcOutput, Variant};
+
+        // Test carry: 255 + 1 = 0 with carry
+        let result = Nmos6502::adc_binary(255, 1, 0);
+        assert_eq!(
+            result,
+            AdcOutput {
+                result: 0,
+                did_carry: true, // C flag set for unsigned overflow
+                overflow: false,
+                negative: false,
+                zero: true, // Z flag set because result is 0
+            }
+        );
+    }
+
+    #[test]
+    fn adc_function_nmos6502_decimal_basic() {
+        use crate::instruction::Nmos6502;
+        use crate::{AdcOutput, Variant};
+
+        // Test BCD addition: 09 + 01 = 10 (0x10 in BCD)
+        let result = Nmos6502::adc_decimal(0x09, 0x01, 0);
+        assert_eq!(
+            result,
+            AdcOutput {
+                result: 0x10, // BCD result
+                did_carry: false,
+                overflow: false, // V calculated from binary operation
+                negative: false,
+                zero: false,
+            }
+        );
+    }
+
+    #[test]
+    fn adc_function_ricoh2a03_decimal_calls_binary() {
+        use crate::Variant;
+        use crate::instruction::Ricoh2a03;
+
+        // Ricoh2A03 has no decimal mode, so decimal should match binary
+        let binary_result = Ricoh2a03::adc_binary(0x09, 0x01, 0);
+        let decimal_result = Ricoh2a03::adc_decimal(0x09, 0x01, 0);
+        assert_eq!(binary_result, decimal_result);
     }
 
     #[test]
