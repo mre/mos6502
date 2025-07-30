@@ -65,19 +65,19 @@ pub struct ArithmeticOutput {
 }
 
 /// Trait for different 6502 CPU variants with their historical differences.
-/// 
+///
 /// The 6502 family evolved over decades with various manufacturers creating
 /// specialized versions for different applications:
 ///
 /// - **NMOS 6502** (1975): Original MOS Technology processor used in Apple II,
 ///   Commodore 64, Atari 2600. Has unreliable decimal mode flags but full BCD support.
-/// 
+///
 /// - **65C02** (1982): WDC's CMOS version with bug fixes, additional instructions,
 ///   and reliable decimal mode flags. Used in Apple IIc/IIe.
-/// 
+///
 /// - **Ricoh 2A03** (1983): Nintendo's cost-reduced variant for NES/Famicom.
 ///   Removed decimal mode entirely and added sound generation circuitry.
-/// 
+///
 /// - **Revision A** (1976): Very early 6502 variant missing the ROR instruction
 ///   or having a buggy implementation. Found in early KIM-1 systems.
 ///
