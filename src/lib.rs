@@ -25,6 +25,42 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+//! In 1975, a small team of engineers led by [Chuck Peddle] at MOS Technology
+//! created what would become one of the most influential microprocessors in
+//! history. The 6502 was revolutionary not just for its elegant design, but for
+//! its price: at $25, it cost a fraction of competing processors like the Intel
+//! 8080 ($179) and Motorola 6800 ($175).
+//!
+//! This dramatic cost reduction democratized computing, making it possible for
+//! hobbyists and small companies to build affordable computers. The result was
+//! an explosion of innovation that gave birth to the personal computer industry.
+//!
+//! ## What People Built With It
+//!
+//! **Apple II (1977)** - Steve Wozniak chose the 6502 for its low cost and
+//! elegant instruction set. The Apple II's success helped establish Apple as a
+//! major computer company.
+//!
+//! **Atari 2600 (1977)** - The 6507, a cost-reduced 6502 with fewer address
+//! pins, became the heart of the most successful game console of its era.
+//!
+//! **Commodore 64 (1982)** - Became the best-selling home computer of all time,
+//! powered by a 6510 (6502 variant with built-in I/O port).
+//!
+//! **Nintendo Entertainment System (1983)** - Used a custom Ricoh 2A03, a 6502
+//! with the decimal mode removed to avoid patent issues and costs, plus
+//! integrated sound hardware.
+//!
+//! ## Variants and Their Engineering Trade-offs
+//!
+//! Each variant tells a story of engineering decisions driven by cost, patents,
+//! and innovation. This emulator aims to capture these differences faithfully.
+//! Pick one of the supported [variants] to emulate the specific behavior of
+//! the 6502 family you are interested in.
+//!
+//! [Chuck Peddle]: https://en.wikipedia.org/wiki/Chuck_Peddle
+//! [variants]: crate::Variant
+
 #![warn(clippy::all, clippy::pedantic)]
 #![warn(
     absolute_paths_not_starting_with_crate,
