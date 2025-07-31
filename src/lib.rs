@@ -69,19 +69,27 @@ pub struct ArithmeticOutput {
 /// The 6502 family evolved over decades with various manufacturers creating
 /// specialized versions for different applications:
 ///
-/// - **NMOS 6502** (1975): Original MOS Technology processor used in Apple II,
-///   Commodore 64, Atari 2600. Has unreliable decimal mode flags but full BCD support.
+/// - **Revision A (1975)**: Very early 6502 variant missing the ROR instruction
+///   entirely. Found in early KIM-1 systems and some Apple-1 computers. The ROR
+///   instruction was intentionally unimplemented due to design constraints, not
+///   a "bug" as commonly believed. Production ended around June 1976.
 ///
-/// - **65C02** (1982): WDC's CMOS version with bug fixes, additional instructions,
-///   and reliable decimal mode flags. Used in Apple IIc/IIe.
+/// - **NMOS 6502 (1976)**: Complete MOS Technology processor with working ROR
+///   instruction, used in Apple II, Commodore 64, Atari 2600. Has unreliable
+///   decimal mode flags but full BCD support. This became the standard reference
+///   implementation.
 ///
-/// - **Ricoh 2A03** (1983): Nintendo's cost-reduced variant for NES/Famicom.
-///   Removed decimal mode entirely and added sound generation circuitry.
+/// - **65C02 (1983)**: WDC's CMOS version with bug fixes, additional instructions,
+///   and reliable decimal mode flags. Development began in 1981 with samples
+///   released in early 1983. Used in Apple IIc/IIe and many embedded systems.
 ///
-/// - **Revision A** (1976): Very early 6502 variant missing the ROR instruction
-///   or having a buggy implementation. Found in early KIM-1 systems.
+/// - **Ricoh 2A03 (1983)**: Nintendo's cost-reduced variant for NES/Famicom
+///   (released July 15, 1983). Removed decimal mode entirely to avoid patent
+///   issues and added integrated 5-channel sound generation circuitry (APU).
 ///
 /// Choose the variant that matches your target system for accurate emulation.
+/// Note that software written for later variants may not run on earlier ones
+/// due to missing instructions (particularly ROR on Revision A).
 pub trait Variant {
     fn decode(
         opcode: u8,
