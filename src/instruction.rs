@@ -817,11 +817,14 @@ impl crate::Variant for Ricoh2a03 {
     ///
     /// # References
     /// - [NESdev Ricoh2A03 reference](https://www.nesdev.org/wiki/CPU)
+    #[inline]
     fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         Self::adc_binary(accumulator, value, carry_set)
     }
 
     /// `Ricoh2A03` (NES) SBC implementation in binary mode
+    ///
+    /// Same as NMOS 6502 SBC for binary.
     ///
     /// - Always performs binary subtraction
     /// - All flags (N, Z, V, C) behave consistently like binary mode
@@ -829,28 +832,10 @@ impl crate::Variant for Ricoh2a03 {
     ///
     /// # References
     /// - [NESdev Ricoh2A03 reference](https://www.nesdev.org/wiki/CPU)
+    #[inline]
     fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
-        // Ricoh2a03 (NES) always uses binary arithmetic
-        let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry_set);
-
-        // Check for borrow (unsigned underflow)
-        let did_borrow = u16::from(accumulator) < (u16::from(value) + u16::from(1 - carry_set));
-        let did_carry = !did_borrow; // Carry is inverse of borrow in SBC
-
-        // Calculate overflow
-        let overflow = (accumulator ^ value) & (accumulator ^ temp_result) & 0x80 != 0;
-
-        // Calculate other flags
-        let negative = (temp_result & 0x80) != 0;
-        let zero = temp_result == 0;
-
-        ArithmeticOutput {
-            result: temp_result,
-            did_carry,
-            overflow,
-            negative,
-            zero,
-        }
+        // Ricoh2a03 behaves the same as NMOS 6502 for SBC
+        Nmos6502::sbc_binary(accumulator, value, carry_set)
     }
 
     /// `Ricoh2A03` (NES) SBC implementation - decimal mode not supported
@@ -860,6 +845,7 @@ impl crate::Variant for Ricoh2a03 {
     ///
     /// # References
     /// - [NESdev Ricoh2A03 reference](https://www.nesdev.org/wiki/CPU)
+    #[inline]
     fn sbc_decimal(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // Ricoh2a03 (NES) has no decimal mode, so always use binary arithmetic
         Self::sbc_binary(accumulator, value, carry_set)
@@ -888,6 +874,7 @@ impl crate::Variant for RevisionA {
     /// # References:
     ///
     /// - [Rev. A 6502 (Pre-June 1976) "ROR Bug"](https://www.masswerk.at/6502/6502_instruction_set.html#ror-bug)
+    #[inline]
     fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // RevisionA behaves the same as NMOS 6502 for ADC
         Nmos6502::adc_binary(accumulator, value, carry_set)
@@ -907,6 +894,7 @@ impl crate::Variant for RevisionA {
     /// # References:
     ///
     /// - [Rev. A 6502 (Pre-June 1976) "ROR Bug"](https://www.masswerk.at/6502/6502_instruction_set.html#ror-bug)
+    #[inline]
     fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // RevisionA behaves the same as NMOS 6502 for ADC
         Nmos6502::adc_decimal(accumulator, value, carry_set)
@@ -916,6 +904,7 @@ impl crate::Variant for RevisionA {
     ///
     /// - Identical SBC behavior to NMOS 6502
     /// - Found in very early 6502 processors (KIM-1, etc.)
+    #[inline]
     fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // RevisionA behaves the same as NMOS 6502 for SBC
         Nmos6502::sbc_binary(accumulator, value, carry_set)
@@ -926,6 +915,7 @@ impl crate::Variant for RevisionA {
     /// - Identical SBC behavior to NMOS 6502
     /// - Supports decimal (BCD) mode with same flag behavior as NMOS
     /// - Found in very early 6502 processors (KIM-1, etc.)
+    #[inline]
     fn sbc_decimal(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput {
         // RevisionA behaves the same as NMOS 6502 for SBC
         Nmos6502::sbc_decimal(accumulator, value, carry_set)
