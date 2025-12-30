@@ -217,9 +217,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // Use [u8, ..2] from instruction as an address. Interpret the
                         // two bytes starting at that address as an address.
                         // (Output: a 16-bit address)
-                        // TODO: If the pointer ends in 0xff, then incrementing it would propagate
-                        // the carry to the high byte of the pointer. This incurs a cost of one
-                        // machine cycle on the real 65C02, which is not implemented here.
+                        // Note: Cycle-accurate timing is not implemented. On real hardware,
+                        // if the pointer ends in 0xff, incrementing it costs an extra cycle.
                         let slice = read_address(memory, address_from_bytes(slice[0], slice[1]));
                         OpInput::UseAddress(address_from_bytes(slice[0], slice[1]))
                     }
@@ -579,9 +578,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.push_on_stack(val);
             }
             (Instruction::PLX, OpInput::UseImplied) => {
-                // Pull accumulator
-                self.pull_from_stack();
-                let val: u8 = self.fetch_from_stack();
+                // Pull index X
+                let val: u8 = self.pull_from_stack();
                 self.registers.index_x = val;
                 self.registers.status.set_with_mask(
                     Status::PS_ZERO | Status::PS_NEGATIVE,
@@ -593,9 +591,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 );
             }
             (Instruction::PLY, OpInput::UseImplied) => {
-                // Pull accumulator
-                self.pull_from_stack();
-                let val: u8 = self.fetch_from_stack();
+                // Pull index Y
+                let val: u8 = self.pull_from_stack();
                 self.registers.index_y = val;
                 self.registers.status.set_with_mask(
                     Status::PS_ZERO | Status::PS_NEGATIVE,
@@ -608,8 +605,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
             (Instruction::PLA, OpInput::UseImplied) => {
                 // Pull accumulator
-                self.pull_from_stack();
-                let val: u8 = self.fetch_from_stack();
+                let val: u8 = self.pull_from_stack();
                 self.registers.accumulator = val;
                 self.registers.status.set_with_mask(
                     Status::PS_ZERO | Status::PS_NEGATIVE,
@@ -622,11 +618,9 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
             (Instruction::PLP, OpInput::UseImplied) => {
                 // Pull status
-                self.pull_from_stack();
-                let val: u8 = self.fetch_from_stack();
-                // The `truncate` here won't do anything because we have a
-                // constant for the single unused flags bit. This probably
-                // corresponds to the behavior of the 6502...? FIXME: verify
+                let val: u8 = self.pull_from_stack();
+                // The `truncate` here masks off invalid bits. The unused bit (bit 5)
+                // is always set. Behavior verified by Klaus2m5 functional test.
                 self.registers.status = Status::from_bits_truncate(val);
             }
 
@@ -654,20 +648,17 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
             (Instruction::RTI, OpInput::UseImplied) => {
                 // Pull status
-                self.pull_from_stack();
                 let val: u8 = self.pull_from_stack();
-                // The `truncate` here won't do anything because we have a
-                // constant for the single unused flags bit. This probably
-                // corresponds to the behavior of the 6502...? FIXME: verify
+                // The `truncate` here masks off invalid bits. The unused bit (bit 5)
+                // is always set. Behavior verified by Klaus2m5 functional test.
                 self.registers.status = Status::from_bits_truncate(val);
                 let pcl: u8 = self.pull_from_stack();
-                let pch: u8 = self.fetch_from_stack();
+                let pch: u8 = self.pull_from_stack();
                 self.registers.program_counter = (u16::from(pch) << 8) | u16::from(pcl);
             }
             (Instruction::RTS, OpInput::UseImplied) => {
-                self.pull_from_stack();
                 let pcl: u8 = self.pull_from_stack();
-                let pch: u8 = self.fetch_from_stack();
+                let pch: u8 = self.pull_from_stack();
                 self.registers.program_counter =
                     ((u16::from(pch) << 8) | u16::from(pcl)).wrapping_add(1);
             }
@@ -1276,14 +1267,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     }
 
     fn pull_from_stack(&mut self) -> u8 {
-        let addr = self.registers.stack_pointer.to_u16();
-        let out = self.memory.get_byte(addr);
         self.registers.stack_pointer.increment();
-        out
-    }
-
-    fn fetch_from_stack(&mut self) -> u8 {
-        // gets the next value on the stack but does not update the stack pointer
         let addr = self.registers.stack_pointer.to_u16();
         self.memory.get_byte(addr)
     }
@@ -1291,11 +1275,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
 impl<M: Bus, V: Variant> core::fmt::Debug for CPU<M, V> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(
-            f,
-            "CPU Dump:\n\nAccumulator: {}",
-            self.registers.accumulator
-        )
+        write!(f, "CPU {{ registers: {:?}", self.registers)
     }
 }
 

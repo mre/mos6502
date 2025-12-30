@@ -27,6 +27,8 @@
 
 use crate::ArithmeticOutput;
 
+use core::fmt::{Display, Error, Formatter};
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Instruction {
     // ADd with Carry
@@ -237,6 +239,17 @@ pub enum OpInput {
     UseImmediate(u8),
     UseRelative(u16),
     UseAddress(u16),
+}
+
+impl Display for OpInput {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        match self {
+            OpInput::UseImplied => write!(f, ""),
+            OpInput::UseImmediate(v) => write!(f, "#${v:02X}"),
+            OpInput::UseRelative(v) => write!(f, "${v:04X}"),
+            OpInput::UseAddress(v) => write!(f, "${v:04X}"),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
