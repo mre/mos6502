@@ -10,9 +10,9 @@ It builds on stable Rust and supports `#[no_std]` targets.
 
 ## Testing & Validation
 
-This emulator passes the [Klaus2m5 functional test suite](https://github.com/Klaus2m5/6502_65C02_functional_tests), which tests all documented 6502 opcodes with all addressing modes in both binary and decimal modes (~30 million instructions).
+This emulator passes [Klaus Dormann's functional test suite](https://github.com/Klaus2m5/6502_65C02_functional_tests), which tests all documented 6502 opcodes with all addressing modes in both binary and decimal modes (~30 million instructions).
 
-It is also tested with [solid65](https://github.com/omarandlorraine/solid65).
+It is also tested with [solid65](https://github.com/omarandlorraine/solid65), which compares the output of different 6502 emulators against each other to find discrepancies.
 
 ## What is the MOS 6502?
 
