@@ -9,6 +9,12 @@ test: ## Run tests
 .PHONY: clean
 clean: ## Clean up
 	cargo clean
+	
+.PHONY: fmt format
+fmt: ## Format code
+	cargo fmt
+
+format: fmt
 
 .PHONY: lint
 lint: ## Run linter
