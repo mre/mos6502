@@ -148,7 +148,10 @@ section. Its influence is still felt today.
 instruction set. The Apple II's success helped establish Apple as a major
 computer company.
 
-> The 6502 was pin-for-pin compatible with the Motorola 6800 I had drafted my design around. That meant I could just pop it in without any redesigning at all. And the best part is they cost half ($20) of what the Motorola chip would have cost me.
+> The 6502 was pin-for-pin compatible with the Motorola 6800 I had drafted my
+> design around. That meant I could just pop it in without any redesigning at
+> all. And the best part is they cost half ($20) of what the Motorola chip would
+> have cost me.
 >
 > — Steve Wozniak, [*iWoz*](https://wwnorton.com/books/iWoz/)
 
@@ -172,20 +175,23 @@ Each variant tells a story of engineering decisions driven by cost, patents, and
 innovation:
 
 - **NMOS 6502** (1975): Original MOS Technology processor used in Apple II,
-  Commodore 64, Atari 2600. Has unreliable decimal mode flags but full BCD
-  support.
+  Commodore 64, Atari 2600. (The name comes from ["N-type
+  metal–oxide–semiconductor"](https://en.wikipedia.org/wiki/NMOS_logic),
+  which is the technology used to build the chip.)
+  Has unreliable decimal mode flags but full BCD (Binary-Coded Decimal) support.
 
-- **Revision A** (1976): Very early 6502 variant missing the ROR instruction or
-  having a buggy implementation. Found in early KIM-1 systems.
+- **Revision A** (1976): Very early 6502 variant missing the ROR (Rotate Right)
+  instruction or having a buggy implementation. Found in early KIM-1 systems.
 
-- **65C02** (1982): WDC's CMOS version with bug fixes, additional instructions,
-  and reliable decimal mode flags. Used in Apple IIc/IIe and many embedded
-  systems due to lower power consumption.
+- **65C02** (1982): [Western Design
+  Center](https://en.wikipedia.org/wiki/Western_Design_Center)'s version with
+  bug fixes, additional instructions, and reliable decimal mode flags. Used in
+  Apple IIc/IIe and many embedded systems due to lower power consumption.
 
 - **Ricoh 2A03** (1983): Nintendo's cost-reduced variant for NES/Famicom.
   Removed decimal mode entirely to avoid patent issues and reduce costs. Used as
-  the core of their custom ASIC which also included sound generation and other
-  features.
+  the core of their custom ASIC (Application-specific integrated circuit) which
+  also included sound generation and other features.
 
 ### Further Reading
 
