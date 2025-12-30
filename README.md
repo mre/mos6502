@@ -2,8 +2,8 @@
 
 ![MOS6502](assets/6502.jpg)
 
-![](https://github.com/mre/mos6502/workflows/test/badge.svg)
 [![docs.rs](https://docs.rs/mos6502/badge.svg)](https://docs.rs/mos6502)
+[![CI tests](https://github.com/mre/mos6502/actions/workflows/ci.yml/badge.svg)](https://github.com/mre/mos6502/actions/workflows/ci.yml)
 
 An emulator for the [MOS 6502 CPU](https://en.wikipedia.org/wiki/MOS_Technology_6502) written in Rust.\
 It builds on stable Rust and supports `#[no_std]` targets.
