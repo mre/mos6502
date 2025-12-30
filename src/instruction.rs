@@ -327,34 +327,7 @@ pub struct DecodedInstr(pub Instruction, pub OpInput);
 
 impl Display for DecodedInstr {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        // get addressing mode from instruction (if it exists)
-        let am: Option<AddressingMode> = OPCODES.get(self.0 as usize).and_then(|x| x.map(|x| x.1));
-
-        match self.1 {
-            OpInput::UseImplied => write!(f, "{:?}", self.0),
-            OpInput::UseImmediate(imm) => write!(f, "{:?} #${:02X}", self.0, imm),
-            OpInput::UseRelative(rel) => write!(f, "{:?} ${:04X}", self.0, rel),
-            OpInput::UseAddress(addr) => match am {
-                Some(AddressingMode::Accumulator) => write!(f, "{:?} A", self.0),
-                Some(AddressingMode::Implied) => write!(f, "{:?}", self.0),
-                Some(AddressingMode::Immediate) => write!(f, "{:?} #${:02X}", self.0, addr),
-                Some(AddressingMode::ZeroPage) => write!(f, "{:?} :?${:02X}", self.0, addr),
-                Some(AddressingMode::ZeroPageX) => write!(f, "{:?} :?${:02X},X", self.0, addr),
-                Some(AddressingMode::ZeroPageY) => write!(f, "{:?} :?${:02X},Y", self.0, addr),
-                Some(AddressingMode::Relative) => write!(f, "{:?} ${:04X}", self.0, addr),
-                Some(AddressingMode::Absolute) => write!(f, "{:?} ${:04X}", self.0, addr),
-                Some(AddressingMode::AbsoluteX) => write!(f, "{:?} ${:04X},X", self.0, addr),
-                Some(AddressingMode::AbsoluteY) => write!(f, "{:?} ${:04X},Y", self.0, addr),
-                Some(AddressingMode::Indirect) => write!(f, "{:?} (${:04X})", self.0, addr),
-                Some(AddressingMode::IndexedIndirectX) => {
-                    write!(f, "{:?} (${:04X},X)", self.0, addr)
-                }
-                Some(AddressingMode::IndirectIndexedY) => {
-                    write!(f, "{:?} (${:04X}),Y", self.0, addr)
-                }
-                None => write!(f, "{:?} {}", self.0, self.1),
-            },
-        }
+        write!(f, "{:?} {}", self.0, self.1)
     }
 }
 

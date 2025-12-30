@@ -580,9 +580,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.push_on_stack(val);
             }
             (Instruction::PLX, OpInput::UseImplied) => {
-                // Pull accumulator
-                self.pull_from_stack();
-                let val: u8 = self.fetch_from_stack();
+                // Pull index X
+                let val: u8 = self.pull_from_stack();
                 self.registers.index_x = val;
                 self.registers.status.set_with_mask(
                     Status::PS_ZERO | Status::PS_NEGATIVE,
@@ -594,9 +593,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 );
             }
             (Instruction::PLY, OpInput::UseImplied) => {
-                // Pull accumulator
-                self.pull_from_stack();
-                let val: u8 = self.fetch_from_stack();
+                // Pull index Y
+                let val: u8 = self.pull_from_stack();
                 self.registers.index_y = val;
                 self.registers.status.set_with_mask(
                     Status::PS_ZERO | Status::PS_NEGATIVE,
@@ -609,8 +607,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
             (Instruction::PLA, OpInput::UseImplied) => {
                 // Pull accumulator
-                self.pull_from_stack();
-                let val: u8 = self.fetch_from_stack();
+                let val: u8 = self.pull_from_stack();
                 self.registers.accumulator = val;
                 self.registers.status.set_with_mask(
                     Status::PS_ZERO | Status::PS_NEGATIVE,
@@ -623,8 +620,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
             (Instruction::PLP, OpInput::UseImplied) => {
                 // Pull status
-                self.pull_from_stack();
-                let val: u8 = self.fetch_from_stack();
+                let val: u8 = self.pull_from_stack();
                 // The `truncate` here won't do anything because we have a
                 // constant for the single unused flags bit. This probably
                 // corresponds to the behavior of the 6502...? FIXME: verify
@@ -655,20 +651,18 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
             (Instruction::RTI, OpInput::UseImplied) => {
                 // Pull status
-                self.pull_from_stack();
                 let val: u8 = self.pull_from_stack();
                 // The `truncate` here won't do anything because we have a
                 // constant for the single unused flags bit. This probably
                 // corresponds to the behavior of the 6502...? FIXME: verify
                 self.registers.status = Status::from_bits_truncate(val);
                 let pcl: u8 = self.pull_from_stack();
-                let pch: u8 = self.fetch_from_stack();
+                let pch: u8 = self.pull_from_stack();
                 self.registers.program_counter = (u16::from(pch) << 8) | u16::from(pcl);
             }
             (Instruction::RTS, OpInput::UseImplied) => {
-                self.pull_from_stack();
                 let pcl: u8 = self.pull_from_stack();
-                let pch: u8 = self.fetch_from_stack();
+                let pch: u8 = self.pull_from_stack();
                 self.registers.program_counter =
                     ((u16::from(pch) << 8) | u16::from(pcl)).wrapping_add(1);
             }
@@ -1277,10 +1271,9 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     }
 
     fn pull_from_stack(&mut self) -> u8 {
-        let addr = self.registers.stack_pointer.to_u16();
-        let out = self.memory.get_byte(addr);
         self.registers.stack_pointer.increment();
-        out
+        let addr = self.registers.stack_pointer.to_u16();
+        self.memory.get_byte(addr)
     }
 
     fn fetch_from_stack(&mut self) -> u8 {
