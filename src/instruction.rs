@@ -245,9 +245,9 @@ impl Display for OpInput {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         match self {
             OpInput::UseImplied => write!(f, ""),
-            OpInput::UseImmediate(v) => write!(f, "#${:02X}", v),
-            OpInput::UseRelative(v) => write!(f, "${:04X}", v),
-            OpInput::UseAddress(v) => write!(f, "${:04X}", v),
+            OpInput::UseImmediate(v) => write!(f, "#${v:02X}"),
+            OpInput::UseRelative(v) => write!(f, "${v:04X}"),
+            OpInput::UseAddress(v) => write!(f, "${v:04X}"),
         }
     }
 }
@@ -323,6 +323,7 @@ impl AddressingMode {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
 pub struct DecodedInstr(pub Instruction, pub OpInput);
 
 impl Display for DecodedInstr {

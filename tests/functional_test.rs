@@ -64,7 +64,7 @@ fn klaus2m5_functional_test() {
         instr_count += 1;
 
         // Print progress periodically (to stderr so it doesn't interfere with test output)
-        if instr_count % PROGRESS_INTERVAL == 0 {
+        if instr_count.is_multiple_of(PROGRESS_INTERVAL) {
             eprintln!(
                 "Progress: {} instructions at PC ${:04X}",
                 instr_count, current_pc

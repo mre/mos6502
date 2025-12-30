@@ -1275,12 +1275,6 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         let addr = self.registers.stack_pointer.to_u16();
         self.memory.get_byte(addr)
     }
-
-    fn fetch_from_stack(&mut self) -> u8 {
-        // gets the next value on the stack but does not update the stack pointer
-        let addr = self.registers.stack_pointer.to_u16();
-        self.memory.get_byte(addr)
-    }
 }
 
 impl<M: Bus, V: Variant> core::fmt::Debug for CPU<M, V> {
