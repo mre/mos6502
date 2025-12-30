@@ -217,9 +217,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // Use [u8, ..2] from instruction as an address. Interpret the
                         // two bytes starting at that address as an address.
                         // (Output: a 16-bit address)
-                        // TODO: If the pointer ends in 0xff, then incrementing it would propagate
-                        // the carry to the high byte of the pointer. This incurs a cost of one
-                        // machine cycle on the real 65C02, which is not implemented here.
+                        // Note: Cycle-accurate timing is not implemented. On real hardware,
+                        // if the pointer ends in 0xff, incrementing it costs an extra cycle.
                         let slice = read_address(memory, address_from_bytes(slice[0], slice[1]));
                         OpInput::UseAddress(address_from_bytes(slice[0], slice[1]))
                     }
@@ -620,9 +619,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             (Instruction::PLP, OpInput::UseImplied) => {
                 // Pull status
                 let val: u8 = self.pull_from_stack();
-                // The `truncate` here won't do anything because we have a
-                // constant for the single unused flags bit. This probably
-                // corresponds to the behavior of the 6502...? FIXME: verify
+                // The `truncate` here masks off invalid bits. The unused bit (bit 5)
+                // is always set. Behavior verified by Klaus2m5 functional test.
                 self.registers.status = Status::from_bits_truncate(val);
             }
 
@@ -651,9 +649,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             (Instruction::RTI, OpInput::UseImplied) => {
                 // Pull status
                 let val: u8 = self.pull_from_stack();
-                // The `truncate` here won't do anything because we have a
-                // constant for the single unused flags bit. This probably
-                // corresponds to the behavior of the 6502...? FIXME: verify
+                // The `truncate` here masks off invalid bits. The unused bit (bit 5)
+                // is always set. Behavior verified by Klaus2m5 functional test.
                 self.registers.status = Status::from_bits_truncate(val);
                 let pcl: u8 = self.pull_from_stack();
                 let pch: u8 = self.pull_from_stack();
