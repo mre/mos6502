@@ -11,10 +11,10 @@ use std::fs::read;
 const TEST_BINARY_PATH: &str = "tests/assets/6502_functional_test.bin";
 const PROGRAM_LOAD_ADDR: u16 = 0x0000;
 const PROGRAM_START_ADDR: u16 = 0x0400;
-const SUCCESS_ADDR: u16 = 0x331C;  // Address of the "jmp *" success trap
+const SUCCESS_ADDR: u16 = 0x331C; // Address of the "jmp *" success trap
 
 // Safety limit to prevent infinite loops in case of emulator bugs
-const MAX_INSTRUCTIONS: u64 = 100_000_000;  // Klaus2m5 test needs ~30 million instructions
+const MAX_INSTRUCTIONS: u64 = 100_000_000; // Klaus2m5 test needs ~30 million instructions
 
 #[test]
 fn klaus2m5_functional_test() {
