@@ -969,7 +969,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     /// - **65C02**: N and Z flags are valid, V flag still undocumented, +1 cycle in decimal mode
     /// - **RP2A03** (NES): Decimal mode completely disabled in hardware
     fn add_with_carry(&mut self, value: u8) {
-        let carry_set = u8::from(self.get_flag(Status::PS_CARRY));
+        let carry_set = self.get_flag(Status::PS_CARRY);
         let decimal_mode = self.get_flag(Status::PS_DECIMAL_MODE);
 
         // Use variant-specific ADC implementation
@@ -996,7 +996,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     }
 
     fn add_with_no_decimal(&mut self, value: u8) {
-        let carry_set = u8::from(self.get_flag(Status::PS_CARRY));
+        let carry_set = self.get_flag(Status::PS_CARRY);
 
         // Use variant-specific binary ADC implementation
         let output = V::adc_binary(self.registers.accumulator, value, carry_set);
@@ -1095,7 +1095,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     /// - **65C02**: N and Z flags are valid, V flag still undocumented
     /// - **RP2A03** (NES): Decimal mode completely disabled in hardware
     fn subtract_with_carry(&mut self, value: u8) {
-        let carry_set = u8::from(self.get_flag(Status::PS_CARRY));
+        let carry_set = self.get_flag(Status::PS_CARRY);
         let decimal_mode = self.get_flag(Status::PS_DECIMAL_MODE);
 
         // Use variant-specific SBC implementation
@@ -2161,7 +2161,7 @@ mod tests {
         use crate::{ArithmeticOutput, Variant};
 
         // Test basic binary addition: 5 + 3 = 8
-        let result = Nmos6502::adc_binary(5, 3, 0);
+        let result = Nmos6502::adc_binary(5, 3, false);
         assert_eq!(
             result,
             ArithmeticOutput {
@@ -2174,7 +2174,7 @@ mod tests {
         );
 
         // Test with carry: 5 + 3 + 1 = 9
-        let result = Nmos6502::adc_binary(5, 3, 1);
+        let result = Nmos6502::adc_binary(5, 3, true);
         assert_eq!(
             result,
             ArithmeticOutput {
@@ -2193,7 +2193,7 @@ mod tests {
         use crate::{ArithmeticOutput, Variant};
 
         // Test signed overflow: 127 + 1 = -128 (0x80)
-        let result = Nmos6502::adc_binary(0x7F, 1, 0);
+        let result = Nmos6502::adc_binary(0x7F, 1, false);
         assert_eq!(
             result,
             ArithmeticOutput {
@@ -2212,7 +2212,7 @@ mod tests {
         use crate::{ArithmeticOutput, Variant};
 
         // Test carry: 255 + 1 = 0 with carry
-        let result = Nmos6502::adc_binary(255, 1, 0);
+        let result = Nmos6502::adc_binary(255, 1, false);
         assert_eq!(
             result,
             ArithmeticOutput {
@@ -2231,7 +2231,7 @@ mod tests {
         use crate::{ArithmeticOutput, Variant};
 
         // Test BCD addition: 09 + 01 = 10 (0x10 in BCD)
-        let result = Nmos6502::adc_decimal(0x09, 0x01, 0);
+        let result = Nmos6502::adc_decimal(0x09, 0x01, false);
         assert_eq!(
             result,
             ArithmeticOutput {
@@ -2250,8 +2250,8 @@ mod tests {
         use crate::instruction::Ricoh2a03;
 
         // Ricoh2A03 has no decimal mode, so decimal should match binary
-        let binary_result = Ricoh2a03::adc_binary(0x09, 0x01, 0);
-        let decimal_result = Ricoh2a03::adc_decimal(0x09, 0x01, 0);
+        let binary_result = Ricoh2a03::adc_binary(0x09, 0x01, false);
+        let decimal_result = Ricoh2a03::adc_decimal(0x09, 0x01, false);
         assert_eq!(binary_result, decimal_result);
     }
 

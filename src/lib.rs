@@ -102,43 +102,43 @@ pub trait Variant {
     ///
     /// # Arguments
     /// * `accumulator` - Current accumulator value
-    /// * `value` - Value to add  
-    /// * `carry_set` - Carry flag set at the time of execution (0 or 1)
+    /// * `value` - Value to add
+    /// * `carry_set` - Carry flag set at the time of execution
     ///
     /// # Returns
     /// Tuple of (result, `carry_out`, overflow, negative, zero)
-    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput;
+    fn adc_binary(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput;
 
     /// Execute Add with Carry (ADC) in decimal mode (BCD)
     ///
     /// # Arguments
     /// * `accumulator` - Current accumulator value
-    /// * `value` - Value to add  
-    /// * `carry_set` - Carry flag set at the time of execution (0 or 1)
+    /// * `value` - Value to add
+    /// * `carry_set` - Carry flag set at the time of execution
     ///
     /// # Returns
     /// Tuple of (result, `carry_out`, overflow, negative, zero)
-    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput;
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput;
 
     /// Execute Subtract with Carry (SBC) in binary mode
     ///
     /// # Arguments
     /// * `accumulator` - Current accumulator value
-    /// * `value` - Value to subtract  
-    /// * `carry_set` - Carry flag set at the time of execution (0 or 1)
+    /// * `value` - Value to subtract
+    /// * `carry_set` - Carry flag set at the time of execution
     ///
     /// # Returns
     /// Tuple of (result, `carry_out`, overflow, negative, zero)
-    fn sbc_binary(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput;
+    fn sbc_binary(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput;
 
     /// Execute Subtract with Carry (SBC) in decimal mode (BCD)
     ///
     /// # Arguments
     /// * `accumulator` - Current accumulator value
-    /// * `value` - Value to subtract  
-    /// * `carry_set` - Carry flag set at the time of execution (0 or 1)
+    /// * `value` - Value to subtract
+    /// * `carry_set` - Carry flag set at the time of execution
     ///
     /// # Returns
     /// Tuple of (result, `carry_out`, overflow, negative, zero)
-    fn sbc_decimal(accumulator: u8, value: u8, carry_set: u8) -> ArithmeticOutput;
+    fn sbc_decimal(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput;
 }
