@@ -10,13 +10,9 @@ It builds on stable Rust and supports `#[no_std]` targets.
 
 ## Testing & Validation
 
-This emulator has been extensively tested and validated:
+This emulator passes the [Klaus2m5 functional test suite](https://github.com/Klaus2m5/6502_65C02_functional_tests), which tests all documented 6502 opcodes with all addressing modes in both binary and decimal modes (~30 million instructions).
 
-- ✅ **[Klaus2m5 Functional Test](https://github.com/Klaus2m5/6502_65C02_functional_tests)** - Passes the comprehensive 6502 functional test suite, which validates all documented opcodes, addressing modes, and status flag behavior through ~30 million instruction execution cycles.
-
-- ✅ **[solid65](https://github.com/omarandlorraine/solid65)** - Validated through property-based testing using solid65.
-
-The Klaus2m5 test is particularly significant as it's one of the most rigorous test suites available for 6502 emulators. It systematically tests every documented instruction with all addressing modes, edge cases, and flag combinations in both binary and decimal modes. Passing this test provides high confidence in the correctness of the emulation.
+It is also tested with [solid65](https://github.com/omarandlorraine/solid65).
 
 ## What is the MOS 6502?
 
