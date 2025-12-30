@@ -53,10 +53,10 @@ pub mod instruction;
 pub mod memory;
 pub mod registers;
 
-/// Output of the ADC instruction
+/// Output of arithmetic instructions (ADC/SBC)
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
-pub struct AdcOutput {
+pub struct ArithmeticOutput {
     result: u8,
     did_carry: bool,
     overflow: bool,
@@ -64,9 +64,32 @@ pub struct AdcOutput {
     zero: bool,
 }
 
-/// Trait for 6502 variant. This is the mechanism allowing the different 6502-like CPUs to be
-/// emulated. It allows a struct to decode an opcode into its instruction and addressing mode,
-/// and implements variant-specific instruction behavior.
+/// Trait for different 6502 CPU variants with their historical differences.
+///
+/// The 6502 family evolved over decades with various manufacturers creating
+/// specialized versions for different applications:
+///
+/// - **Revision A (1975)**: Very early 6502 variant missing the ROR instruction
+///   entirely. Found in early KIM-1 systems and some Apple-1 computers. The ROR
+///   instruction was intentionally unimplemented due to design constraints, not
+///   a "bug" as commonly believed. Production ended around June 1976.
+///
+/// - **NMOS 6502 (1976)**: Complete MOS Technology processor with working ROR
+///   instruction, used in Apple II, Commodore 64, Atari 2600. Has unreliable
+///   decimal mode flags but full BCD support. This became the standard reference
+///   implementation.
+///
+/// - **65C02 (1983)**: WDC's CMOS version with bug fixes, additional instructions,
+///   and reliable decimal mode flags. Development began in 1981 with samples
+///   released in early 1983. Used in Apple IIc/IIe and many embedded systems.
+///
+/// - **Ricoh 2A03 (1983)**: Nintendo's cost-reduced variant for NES/Famicom
+///   (released July 15, 1983). Removed decimal mode entirely to avoid patent
+///   issues and added integrated 5-channel sound generation circuitry (APU).
+///
+/// Choose the variant that matches your target system for accurate emulation.
+/// Note that software written for later variants may not run on earlier ones
+/// due to missing instructions (particularly ROR on Revision A).
 pub trait Variant {
     fn decode(
         opcode: u8,
@@ -79,21 +102,43 @@ pub trait Variant {
     ///
     /// # Arguments
     /// * `accumulator` - Current accumulator value
-    /// * `value` - Value to add  
-    /// * `carry_set` - Carry flag set at the time of execution (0 or 1)
+    /// * `value` - Value to add
+    /// * `carry_set` - Carry flag set at the time of execution
     ///
     /// # Returns
     /// Tuple of (result, `carry_out`, overflow, negative, zero)
-    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput;
+    fn adc_binary(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput;
 
     /// Execute Add with Carry (ADC) in decimal mode (BCD)
     ///
     /// # Arguments
     /// * `accumulator` - Current accumulator value
-    /// * `value` - Value to add  
-    /// * `carry_set` - Carry flag set at the time of execution (0 or 1)
+    /// * `value` - Value to add
+    /// * `carry_set` - Carry flag set at the time of execution
     ///
     /// # Returns
     /// Tuple of (result, `carry_out`, overflow, negative, zero)
-    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput;
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput;
+
+    /// Execute Subtract with Carry (SBC) in binary mode
+    ///
+    /// # Arguments
+    /// * `accumulator` - Current accumulator value
+    /// * `value` - Value to subtract
+    /// * `carry_set` - Carry flag set at the time of execution
+    ///
+    /// # Returns
+    /// Tuple of (result, `carry_out`, overflow, negative, zero)
+    fn sbc_binary(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput;
+
+    /// Execute Subtract with Carry (SBC) in decimal mode (BCD)
+    ///
+    /// # Arguments
+    /// * `accumulator` - Current accumulator value
+    /// * `value` - Value to subtract
+    /// * `carry_set` - Carry flag set at the time of execution
+    ///
+    /// # Returns
+    /// Tuple of (result, `carry_out`, overflow, negative, zero)
+    fn sbc_decimal(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput;
 }

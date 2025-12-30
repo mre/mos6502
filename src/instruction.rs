@@ -25,7 +25,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-use crate::AdcOutput;
+use crate::ArithmeticOutput;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Instruction {
@@ -587,9 +587,10 @@ impl crate::Variant for Nmos6502 {
     ///
     /// - [6502.org ADC documentation](http://www.6502.org/tutorials/decimal_mode.html)
     /// - [NESdev 6502 reference](https://www.nesdev.org/obelisk-6502-guide/reference.html#ADC)
-    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn adc_binary(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
         // Binary addition with carry detection
-        let result_16 = u16::from(accumulator) + u16::from(value) + u16::from(carry_set);
+        let carry = u8::from(carry_set);
+        let result_16 = u16::from(accumulator) + u16::from(value) + u16::from(carry);
         let did_carry = result_16 > 0xFF;
         // Convert to 8-bit result using little-endian byte conversion
         let result = result_16.to_le_bytes()[0];
@@ -602,7 +603,7 @@ impl crate::Variant for Nmos6502 {
 
         let zero = result == 0;
 
-        AdcOutput {
+        ArithmeticOutput {
             result,
             did_carry,
             overflow,
@@ -622,14 +623,15 @@ impl crate::Variant for Nmos6502 {
     ///
     /// - [6502.org ADC documentation](http://www.6502.org/tutorials/decimal_mode.html)
     /// - [NESdev 6502 reference](https://www.nesdev.org/obelisk-6502-guide/reference.html#ADC)
-    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
         // Perform binary addition first for overflow calculation
-        let temp_result = accumulator.wrapping_add(value).wrapping_add(carry_set);
+        let carry = u8::from(carry_set);
+        let temp_result = accumulator.wrapping_add(value).wrapping_add(carry);
 
         // Decimal mode: treat each nibble as a decimal digit (0-9)
         let mut low_nibble = (accumulator & 0x0f)
             .wrapping_add(value & 0x0f)
-            .wrapping_add(carry_set);
+            .wrapping_add(carry);
 
         let mut high_nibble = (accumulator >> 4).wrapping_add(value >> 4);
         let mut carry_to_high = false;
@@ -658,7 +660,102 @@ impl crate::Variant for Nmos6502 {
         let negative = (result & 0x80) != 0;
         let zero = result == 0;
 
-        AdcOutput {
+        ArithmeticOutput {
+            result,
+            did_carry,
+            overflow,
+            negative,
+            zero,
+        }
+    }
+
+    /// NMOS 6502 SBC (Subtract with Carry) implementation in binary mode
+    ///
+    /// - Standard binary subtraction with borrow handling
+    /// - All flags calculated from binary result
+    ///
+    /// # References
+    ///
+    /// - [6502.org SBC documentation](http://www.6502.org/tutorials/decimal_mode.html)
+    /// - [NESdev 6502 reference](https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC)
+    fn sbc_binary(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
+        // SBC performs: A = A - M - (1 - C)
+        let carry = u8::from(carry_set);
+        let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry);
+
+        // Check for borrow (unsigned underflow)
+        // Borrow occurs when we need to "borrow" from a higher bit
+        let did_borrow = u16::from(accumulator) < (u16::from(value) + u16::from(1 - carry));
+        let did_carry = !did_borrow; // Carry is inverse of borrow in SBC
+
+        // Calculate overflow: occurs when signs of A and M are different,
+        // and the result has a different sign than A
+        let overflow = (accumulator ^ value) & (accumulator ^ temp_result) & 0x80 != 0;
+
+        // Calculate other flags
+        let negative = (temp_result & 0x80) != 0;
+        let zero = temp_result == 0;
+
+        ArithmeticOutput {
+            result: temp_result,
+            did_carry,
+            overflow,
+            negative,
+            zero,
+        }
+    }
+
+    /// NMOS 6502 SBC implementation in decimal mode (BCD)
+    ///
+    /// - Binary Coded Decimal (BCD) subtraction using 4-bit decimal digits
+    /// - Each nibble represents a digit from 0-9
+    /// - In decimal mode: N and Z flags are unreliable/undefined (NMOS behavior)
+    /// - V flag calculated from binary result (even in decimal mode)
+    ///
+    /// # References
+    ///
+    /// - [6502.org SBC documentation](http://www.6502.org/tutorials/decimal_mode.html)
+    /// - [NESdev 6502 reference](https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC)
+    fn sbc_decimal(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
+        // Perform binary subtraction first for overflow calculation
+        let carry = u8::from(carry_set);
+        let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry);
+
+        // Decimal mode: treat each nibble as a decimal digit (0-9)
+        let mut low_nibble = (accumulator & 0x0f)
+            .wrapping_sub(value & 0x0f)
+            .wrapping_sub(1 - carry);
+        let mut high_nibble = (accumulator >> 4).wrapping_sub(value >> 4);
+        let mut borrow = false;
+
+        // If low nibble underflowed (bit 4 set), correct it and set borrow
+        if (low_nibble & 0x10) != 0 {
+            low_nibble = (low_nibble.wrapping_add(10)) & 0x0f;
+            borrow = true;
+        }
+
+        // Subtract borrow from high nibble
+        high_nibble = high_nibble.wrapping_sub(u8::from(borrow));
+
+        // If high nibble underflowed, correct it and set final borrow
+        if (high_nibble & 0x10) != 0 {
+            high_nibble = (high_nibble.wrapping_add(10)) & 0x0f;
+            borrow = true;
+        } else {
+            borrow = false;
+        }
+
+        let result = (high_nibble << 4) | low_nibble;
+        let did_carry = !borrow; // Carry is inverse of borrow
+
+        // Calculate overflow from binary result (even in decimal mode)
+        let overflow = (accumulator ^ value) & (accumulator ^ temp_result) & 0x80 != 0;
+
+        // Calculate other flags from final result
+        let negative = (result & 0x80) != 0;
+        let zero = result == 0;
+
+        ArithmeticOutput {
             result,
             did_carry,
             overflow,
@@ -689,32 +786,18 @@ impl crate::Variant for Ricoh2a03 {
 
     /// `Ricoh2A03` (NES) ADC implementation in binary mode
     ///
+    /// Same as NMOS 6502 ADC for binary.
+    ///
     /// - Always performs binary arithmetic
     /// - All flags (N, Z, V, C) behave consistently like binary mode
     /// - Used in Nintendo Entertainment System (NES) and Famicom
     ///
     /// # References
     /// - [NESdev Ricoh2A03 reference](https://www.nesdev.org/wiki/CPU)
-    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
-        let result_16 = u16::from(accumulator) + u16::from(value) + u16::from(carry_set);
-        let did_carry = result_16 > 0xFF;
-        #[allow(clippy::cast_possible_truncation)]
-        let result = result_16 as u8;
-
-        // Calculate overflow from binary result
-        let overflow = (!(accumulator ^ value) & (accumulator ^ result)) & 0x80 != 0;
-
-        // Calculate other flags
-        let negative = (result & 0x80) != 0;
-        let zero = result == 0;
-
-        AdcOutput {
-            result,
-            did_carry,
-            overflow,
-            negative,
-            zero,
-        }
+    #[inline]
+    fn adc_binary(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
+        // Ricoh2a03 behaves the same as NMOS 6502 for ADC
+        Nmos6502::adc_binary(accumulator, value, carry_set)
     }
 
     /// `Ricoh2A03` (NES) ADC implementation - decimal mode not supported
@@ -724,8 +807,38 @@ impl crate::Variant for Ricoh2a03 {
     ///
     /// # References
     /// - [NESdev Ricoh2A03 reference](https://www.nesdev.org/wiki/CPU)
-    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    #[inline]
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
         Self::adc_binary(accumulator, value, carry_set)
+    }
+
+    /// `Ricoh2A03` (NES) SBC implementation in binary mode
+    ///
+    /// Same as NMOS 6502 SBC for binary.
+    ///
+    /// - Always performs binary subtraction
+    /// - All flags (N, Z, V, C) behave consistently like binary mode
+    /// - Used in Nintendo Entertainment System (NES) and Famicom
+    ///
+    /// # References
+    /// - [NESdev Ricoh2A03 reference](https://www.nesdev.org/wiki/CPU)
+    #[inline]
+    fn sbc_binary(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
+        // Ricoh2a03 behaves the same as NMOS 6502 for SBC
+        Nmos6502::sbc_binary(accumulator, value, carry_set)
+    }
+
+    /// `Ricoh2A03` (NES) SBC implementation - decimal mode not supported
+    ///
+    /// The `Ricoh2A03` removed the decimal mode circuitry entirely to save cost,
+    /// so BCD operations are not supported. This method calls `sbc_binary` instead.
+    ///
+    /// # References
+    /// - [NESdev Ricoh2A03 reference](https://www.nesdev.org/wiki/CPU)
+    #[inline]
+    fn sbc_decimal(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
+        // Ricoh2a03 (NES) has no decimal mode, so always use binary arithmetic
+        Self::sbc_binary(accumulator, value, carry_set)
     }
 }
 
@@ -751,7 +864,8 @@ impl crate::Variant for RevisionA {
     /// # References:
     ///
     /// - [Rev. A 6502 (Pre-June 1976) "ROR Bug"](https://www.masswerk.at/6502/6502_instruction_set.html#ror-bug)
-    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    #[inline]
+    fn adc_binary(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
         // RevisionA behaves the same as NMOS 6502 for ADC
         Nmos6502::adc_binary(accumulator, value, carry_set)
     }
@@ -770,9 +884,31 @@ impl crate::Variant for RevisionA {
     /// # References:
     ///
     /// - [Rev. A 6502 (Pre-June 1976) "ROR Bug"](https://www.masswerk.at/6502/6502_instruction_set.html#ror-bug)
-    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    #[inline]
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
         // RevisionA behaves the same as NMOS 6502 for ADC
         Nmos6502::adc_decimal(accumulator, value, carry_set)
+    }
+
+    /// Revision A 6502 SBC implementation in binary mode
+    ///
+    /// - Identical SBC behavior to NMOS 6502
+    /// - Found in very early 6502 processors (KIM-1, etc.)
+    #[inline]
+    fn sbc_binary(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
+        // RevisionA behaves the same as NMOS 6502 for SBC
+        Nmos6502::sbc_binary(accumulator, value, carry_set)
+    }
+
+    /// Revision A 6502 SBC implementation in decimal mode (BCD)
+    ///
+    /// - Identical SBC behavior to NMOS 6502
+    /// - Supports decimal (BCD) mode with same flag behavior as NMOS
+    /// - Found in very early 6502 processors (KIM-1, etc.)
+    #[inline]
+    fn sbc_decimal(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
+        // RevisionA behaves the same as NMOS 6502 for SBC
+        Nmos6502::sbc_decimal(accumulator, value, carry_set)
     }
 }
 
@@ -823,9 +959,10 @@ impl crate::Variant for Cmos6502 {
     ///
     /// - [65C02 Programming Manual](http://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
     /// - [6502.org CMOS differences](http://www.6502.org/tutorials/65c02opcodes.html)
-    fn adc_binary(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn adc_binary(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
         // Binary addition with carry detection
-        let result_16 = u16::from(accumulator) + u16::from(value) + u16::from(carry_set);
+        let carry = u8::from(carry_set);
+        let result_16 = u16::from(accumulator) + u16::from(value) + u16::from(carry);
         let did_carry = result_16 > 0xFF;
         #[allow(clippy::cast_possible_truncation)]
         let result = result_16 as u8;
@@ -837,7 +974,7 @@ impl crate::Variant for Cmos6502 {
         let negative = (result & 0x80) != 0;
         let zero = result == 0;
 
-        AdcOutput {
+        ArithmeticOutput {
             result,
             did_carry,
             overflow,
@@ -862,14 +999,15 @@ impl crate::Variant for Cmos6502 {
     ///
     /// - [65C02 Programming Manual](http://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
     /// - [6502.org CMOS differences](http://www.6502.org/tutorials/65c02opcodes.html)
-    fn adc_decimal(accumulator: u8, value: u8, carry_set: u8) -> AdcOutput {
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
         // Perform binary addition first for overflow calculation
-        let temp_result = accumulator.wrapping_add(value).wrapping_add(carry_set);
+        let carry = u8::from(carry_set);
+        let temp_result = accumulator.wrapping_add(value).wrapping_add(carry);
 
         // Decimal mode: treat each nibble as a decimal digit (0-9)
         let mut low_nibble = (accumulator & 0x0f)
             .wrapping_add(value & 0x0f)
-            .wrapping_add(carry_set);
+            .wrapping_add(carry);
 
         let mut high_nibble = (accumulator >> 4).wrapping_add(value >> 4);
         let mut carry_to_high = false;
@@ -899,7 +1037,106 @@ impl crate::Variant for Cmos6502 {
         let negative = (result & 0x80) != 0;
         let zero = result == 0;
 
-        AdcOutput {
+        ArithmeticOutput {
+            result,
+            did_carry,
+            overflow,
+            negative,
+            zero,
+        }
+    }
+
+    /// 65C02 (CMOS) SBC implementation in binary mode
+    ///
+    /// - Standard binary subtraction with borrow handling
+    /// - All flags calculated from binary result
+    ///
+    /// # References
+    ///
+    /// - [65C02 Programming Manual](http://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
+    /// - [6502.org CMOS differences](http://www.6502.org/tutorials/65c02opcodes.html)
+    fn sbc_binary(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
+        // Binary subtraction with borrow handling
+        let carry = u8::from(carry_set);
+        let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry);
+
+        // Check for borrow (unsigned underflow)
+        let did_borrow = u16::from(accumulator) < (u16::from(value) + u16::from(1 - carry));
+        let did_carry = !did_borrow; // Carry is inverse of borrow in SBC
+
+        // Calculate overflow
+        let overflow = (accumulator ^ value) & (accumulator ^ temp_result) & 0x80 != 0;
+
+        // Calculate other flags
+        let negative = (temp_result & 0x80) != 0;
+        let zero = temp_result == 0;
+
+        ArithmeticOutput {
+            result: temp_result,
+            did_carry,
+            overflow,
+            negative,
+            zero,
+        }
+    }
+
+    /// 65C02 (CMOS) SBC implementation in decimal mode (BCD)
+    ///
+    /// - Supports decimal (BCD) mode with **corrected flag behavior**
+    /// - In decimal mode: N and Z flags are **reliable** (calculated from BCD result)
+    /// - V flag calculated from binary result (even in decimal mode)
+    /// - In decimal mode: **Extra cycle** consumed (not implemented in this emulator yet)
+    ///
+    /// # Difference from NMOS 6502
+    ///
+    /// The 65C02 fixed the unreliable N and Z flags in decimal mode. These flags
+    /// now correctly reflect the BCD result, making decimal arithmetic more predictable.
+    ///
+    /// # References
+    ///
+    /// - [65C02 Programming Manual](http://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
+    /// - [6502.org CMOS differences](http://www.6502.org/tutorials/65c02opcodes.html)
+    fn sbc_decimal(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
+        // Perform binary subtraction first for overflow calculation
+        let carry = u8::from(carry_set);
+        let temp_result = accumulator.wrapping_sub(value).wrapping_sub(1 - carry);
+
+        // Decimal mode: treat each nibble as a decimal digit (0-9)
+        let mut low_nibble = (accumulator & 0x0f)
+            .wrapping_sub(value & 0x0f)
+            .wrapping_sub(1 - carry);
+        let mut high_nibble = (accumulator >> 4).wrapping_sub(value >> 4);
+        let mut borrow = false;
+
+        // If low nibble underflowed (bit 4 set), correct it and set borrow
+        if (low_nibble & 0x10) != 0 {
+            low_nibble = (low_nibble.wrapping_add(10)) & 0x0f;
+            borrow = true;
+        }
+
+        // Subtract borrow from high nibble
+        high_nibble = high_nibble.wrapping_sub(u8::from(borrow));
+
+        // If high nibble underflowed, correct it and set final borrow
+        if (high_nibble & 0x10) != 0 {
+            high_nibble = (high_nibble.wrapping_add(10)) & 0x0f;
+            borrow = true;
+        } else {
+            borrow = false;
+        }
+
+        let result = (high_nibble << 4) | low_nibble;
+        let did_carry = !borrow; // Carry is inverse of borrow
+
+        // Calculate overflow from binary result (even in decimal mode)
+        let overflow = (accumulator ^ value) & (accumulator ^ temp_result) & 0x80 != 0;
+
+        // On 65C02, N and Z flags are valid in decimal mode (calculated from BCD result)
+        // V flag behavior is still undocumented but calculated from binary result
+        let negative = (result & 0x80) != 0;
+        let zero = result == 0;
+
+        ArithmeticOutput {
             result,
             did_carry,
             overflow,

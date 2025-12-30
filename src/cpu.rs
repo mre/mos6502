@@ -969,7 +969,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     /// - **65C02**: N and Z flags are valid, V flag still undocumented, +1 cycle in decimal mode
     /// - **RP2A03** (NES): Decimal mode completely disabled in hardware
     fn add_with_carry(&mut self, value: u8) {
-        let carry_set = u8::from(self.get_flag(Status::PS_CARRY));
+        let carry_set = self.get_flag(Status::PS_CARRY);
         let decimal_mode = self.get_flag(Status::PS_DECIMAL_MODE);
 
         // Use variant-specific ADC implementation
@@ -996,7 +996,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     }
 
     fn add_with_no_decimal(&mut self, value: u8) {
-        let carry_set = u8::from(self.get_flag(Status::PS_CARRY));
+        let carry_set = self.get_flag(Status::PS_CARRY);
 
         // Use variant-specific binary ADC implementation
         let output = V::adc_binary(self.registers.accumulator, value, carry_set);
@@ -1095,103 +1095,30 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     /// - **65C02**: N and Z flags are valid, V flag still undocumented
     /// - **RP2A03** (NES): Decimal mode completely disabled in hardware
     fn subtract_with_carry(&mut self, value: u8) {
-        // First, convert the carry flag to a 0 or 1
-        let carry: u8 = u8::from(self.registers.status.contains(Status::PS_CARRY));
-        let accumulator_before = self.registers.accumulator;
+        let carry_set = self.get_flag(Status::PS_CARRY);
+        let decimal_mode = self.get_flag(Status::PS_DECIMAL_MODE);
 
-        // Calculate a temporary result using wrapping subtraction to handle potential underflow.
-        let temp_result = accumulator_before
-            .wrapping_sub(value)
-            .wrapping_sub(1 - carry);
-
-        // Branch on whether we're in decimal mode
-        let (final_result, did_borrow) = if self.registers.status.contains(Status::PS_DECIMAL_MODE)
-        {
-            // In decimal mode, each byte is treated as two 4-bit BCD digits (nibbles).
-            //
-            // The algorithm for BCD subtraction is as follows:
-            //
-            // 1. Separate the lower and upper nibbles (4 bits each) of both
-            //    the accumulator and the value to subtract.
-            // 2. Perform subtraction on each nibble separately, considering the initial carry.
-            // 3. If a nibble subtraction results in a negative value
-            //    (indicated by bit 4 being set), add 10 to correct it and set a borrow flag.
-            // 4. Propagate the borrow from the low nibble to the high nibble.
-            // 5. Combine the corrected nibbles to form the final result.
-
-            let mut low_nibble = (accumulator_before & 0x0f)
-                .wrapping_sub(value & 0x0f)
-                .wrapping_sub(1 - carry);
-            let mut high_nibble = (accumulator_before >> 4).wrapping_sub(value >> 4);
-            let mut borrow = false;
-
-            if (low_nibble & 0x10) != 0 {
-                low_nibble = (low_nibble.wrapping_add(10)) & 0x0f;
-                borrow = true;
-            }
-
-            high_nibble = high_nibble.wrapping_sub(u8::from(borrow));
-
-            if (high_nibble & 0x10) != 0 {
-                high_nibble = (high_nibble.wrapping_add(10)) & 0x0f;
-                borrow = true;
-            } else {
-                borrow = false;
-            }
-
-            let result = (high_nibble << 4) | low_nibble;
-            (result, borrow)
+        // Use variant-specific SBC implementation
+        let output = if decimal_mode {
+            V::sbc_decimal(self.registers.accumulator, value, carry_set)
         } else {
-            // In non-decimal mode, use the temporary result calculated earlier
-            // and determine if a borrow occurred (which is the case if the
-            // result is greater than the initial accumulator value due to
-            // unsigned underflow).
-            (temp_result, temp_result > accumulator_before)
+            V::sbc_binary(self.registers.accumulator, value, carry_set)
         };
 
-        // Carry flag is the inverse of borrow
-        let did_carry = !did_borrow;
-
-        // Overflow flag: Set if the sign of the result is different from the sign of A
-        // and the sign of the result is different from the sign of the negation of M
-        let did_overflow = if self.registers.status.contains(Status::PS_DECIMAL_MODE) {
-            // Overflow flag is not affected in decimal mode
-            false
-        } else {
-            // In non-decimal mode, the overflow flag is set if the subtraction
-            // caused a sign change that shouldn't have occurred
-            // (i.e., pos - neg = neg, or neg - pos = pos).
-            //
-            // Overflow occurs in subtraction when:
-            //
-            // A positive number minus a negative number results in a negative number, or
-            // A negative number minus a positive number results in a positive number
-            //
-            // In two's complement representation, the sign of a number is
-            // determined by its most significant bit (MSB). For 8-bit numbers,
-            // this is bit 7 (0x80 in hexadecimal).
-            //
-            // The following expression is true if
-            // (A and M have different signs) AND (A and result have different signs)
-            (accumulator_before ^ value) & (accumulator_before ^ final_result) & 0x80 != 0
-        };
-
-        // Update Status Register and Accumulator
-        let mask = Status::PS_CARRY | Status::PS_OVERFLOW;
-
-        // Update the carry and overflow flags in the status register.
+        // Update processor status flags
         self.registers.status.set_with_mask(
-            mask,
+            Status::PS_CARRY | Status::PS_OVERFLOW | Status::PS_ZERO | Status::PS_NEGATIVE,
             Status::new(StatusArgs {
-                carry: did_carry,
-                overflow: did_overflow,
+                carry: output.did_carry,
+                overflow: output.overflow,
+                zero: output.zero,
+                negative: output.negative,
                 ..StatusArgs::none()
             }),
         );
 
-        // Load the final result into the accumulator, which will also update
-        // the zero and negative flags.
-        self.load_accumulator(final_result);
+        // Update accumulator
+        self.registers.accumulator = output.result;
     }
 
     fn increment(val: &mut u8, flags: &mut Status) {
@@ -2231,13 +2158,13 @@ mod tests {
     #[test]
     fn adc_function_nmos6502_binary_basic() {
         use crate::instruction::Nmos6502;
-        use crate::{AdcOutput, Variant};
+        use crate::{ArithmeticOutput, Variant};
 
         // Test basic binary addition: 5 + 3 = 8
-        let result = Nmos6502::adc_binary(5, 3, 0);
+        let result = Nmos6502::adc_binary(5, 3, false);
         assert_eq!(
             result,
-            AdcOutput {
+            ArithmeticOutput {
                 result: 8,
                 did_carry: false,
                 overflow: false,
@@ -2247,10 +2174,10 @@ mod tests {
         );
 
         // Test with carry: 5 + 3 + 1 = 9
-        let result = Nmos6502::adc_binary(5, 3, 1);
+        let result = Nmos6502::adc_binary(5, 3, true);
         assert_eq!(
             result,
-            AdcOutput {
+            ArithmeticOutput {
                 result: 9,
                 did_carry: false,
                 overflow: false,
@@ -2263,13 +2190,13 @@ mod tests {
     #[test]
     fn adc_function_nmos6502_binary_overflow() {
         use crate::instruction::Nmos6502;
-        use crate::{AdcOutput, Variant};
+        use crate::{ArithmeticOutput, Variant};
 
         // Test signed overflow: 127 + 1 = -128 (0x80)
-        let result = Nmos6502::adc_binary(0x7F, 1, 0);
+        let result = Nmos6502::adc_binary(0x7F, 1, false);
         assert_eq!(
             result,
-            AdcOutput {
+            ArithmeticOutput {
                 result: 0x80,
                 did_carry: false,
                 overflow: true, // V flag set for signed overflow
@@ -2282,13 +2209,13 @@ mod tests {
     #[test]
     fn adc_function_nmos6502_binary_carry() {
         use crate::instruction::Nmos6502;
-        use crate::{AdcOutput, Variant};
+        use crate::{ArithmeticOutput, Variant};
 
         // Test carry: 255 + 1 = 0 with carry
-        let result = Nmos6502::adc_binary(255, 1, 0);
+        let result = Nmos6502::adc_binary(255, 1, false);
         assert_eq!(
             result,
-            AdcOutput {
+            ArithmeticOutput {
                 result: 0,
                 did_carry: true, // C flag set for unsigned overflow
                 overflow: false,
@@ -2301,13 +2228,13 @@ mod tests {
     #[test]
     fn adc_function_nmos6502_decimal_basic() {
         use crate::instruction::Nmos6502;
-        use crate::{AdcOutput, Variant};
+        use crate::{ArithmeticOutput, Variant};
 
         // Test BCD addition: 09 + 01 = 10 (0x10 in BCD)
-        let result = Nmos6502::adc_decimal(0x09, 0x01, 0);
+        let result = Nmos6502::adc_decimal(0x09, 0x01, false);
         assert_eq!(
             result,
-            AdcOutput {
+            ArithmeticOutput {
                 result: 0x10, // BCD result
                 did_carry: false,
                 overflow: false, // V calculated from binary operation
@@ -2323,8 +2250,8 @@ mod tests {
         use crate::instruction::Ricoh2a03;
 
         // Ricoh2A03 has no decimal mode, so decimal should match binary
-        let binary_result = Ricoh2a03::adc_binary(0x09, 0x01, 0);
-        let decimal_result = Ricoh2a03::adc_decimal(0x09, 0x01, 0);
+        let binary_result = Ricoh2a03::adc_binary(0x09, 0x01, false);
+        let decimal_result = Ricoh2a03::adc_decimal(0x09, 0x01, false);
         assert_eq!(binary_result, decimal_result);
     }
 
