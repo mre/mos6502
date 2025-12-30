@@ -323,20 +323,7 @@ impl AddressingMode {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct DecodedInstr(pub Instruction, pub OpInput);
-
-impl Display for DecodedInstr {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "{:?} {}", self.0, self.1)
-    }
-}
-
-impl From<(Instruction, OpInput)> for DecodedInstr {
-    fn from((instr, op): (Instruction, OpInput)) -> DecodedInstr {
-        DecodedInstr(instr, op)
-    }
-}
+pub type DecodedInstr = (Instruction, OpInput);
 
 /// The NMOS 6502 variant. This one is present in the Commodore 64, early Apple IIs, etc.
 #[derive(Copy, Clone, Debug, Default)]
