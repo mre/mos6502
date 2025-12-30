@@ -14,8 +14,8 @@ toolchain.
 make build
 ```
 
-This will create a `6502_functional_test.bin` file in the `build` directory,
-which the emulator will load.
+This will create a `6502_functional_test.bin` file, which the emulator will
+load.
 
 ## Running
 
