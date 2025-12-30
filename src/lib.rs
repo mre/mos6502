@@ -25,6 +25,25 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+//! An emulator for the MOS 6502 CPU and its variants.
+//!
+//! The 6502 was one of the most influential microprocessors in history, powering
+//! iconic systems like the Apple II, Commodore 64, Atari 2600, and Nintendo
+//! Entertainment System. Its low cost democratized computing and helped birth
+//! the personal computer industry.
+//!
+//! ## Variants
+//!
+//! This emulator supports multiple 6502 variants, each with subtle differences
+//! in behavior. Choose the [variant] that matches your target system:
+//!
+//! - **NMOS 6502**: Original MOS Technology processor
+//! - **65C02**: CMOS version with bug fixes and new instructions
+//! - **Ricoh 2A03**: Nintendo's NES variant without decimal mode
+//! - **Revision A**: Very early variant missing the ROR instruction
+//!
+//! [variant]: crate::Variant
+
 #![warn(clippy::all, clippy::pedantic)]
 #![warn(
     absolute_paths_not_starting_with_crate,
@@ -85,7 +104,8 @@ pub struct ArithmeticOutput {
 ///
 /// - **Ricoh 2A03 (1983)**: Nintendo's cost-reduced variant for NES/Famicom
 ///   (released July 15, 1983). Removed decimal mode entirely to avoid patent
-///   issues and added integrated 5-channel sound generation circuitry (APU).
+///   issues. Used as a core in their custom ASIC which also included sound
+///   generation and other features.
 ///
 /// Choose the variant that matches your target system for accurate emulation.
 /// Note that software written for later variants may not run on earlier ones
