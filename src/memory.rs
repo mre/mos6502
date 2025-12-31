@@ -41,6 +41,10 @@ pub const MEMORY_ADDRESS_LO: u16 = ADDR_LO_BARE;
 pub const MEMORY_ADDRESS_HI: u16 = ADDR_HI_BARE;
 pub const STACK_ADDRESS_LO: u16 = 0x0100;
 pub const STACK_ADDRESS_HI: u16 = 0x01FF;
+pub const NMI_INTERRUPT_VECTOR_LO: u16 = 0xFFFA;
+pub const NMI_INTERRUPT_VECTOR_HI: u16 = 0xFFFB;
+pub const RESET_VECTOR_LO: u16 = 0xFFFC;
+pub const RESET_VECTOR_HI: u16 = 0xFFFD;
 pub const IRQ_INTERRUPT_VECTOR_LO: u16 = 0xFFFE;
 pub const IRQ_INTERRUPT_VECTOR_HI: u16 = 0xFFFF;
 
@@ -94,6 +98,38 @@ pub trait Bus {
         for i in 0..values.len() as u16 {
             self.set_byte(start + i, values[i as usize]);
         }
+    }
+
+    /// Returns whether an NMI (Non-Maskable Interrupt) is pending.
+    ///
+    /// NMI is edge-triggered on the falling edge (high → low transition).
+    /// The CPU will detect the transition and service the interrupt.
+    ///
+    /// Implementations may use `&mut self` to acknowledge or clear the pending state.
+    ///
+    /// Default implementation returns `false` (no NMI pending).
+    ///
+    /// # References
+    ///
+    /// - [W65C02S Datasheet, Section 3.6 (NMIB)](https://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
+    fn nmi_pending(&mut self) -> bool {
+        false
+    }
+
+    /// Returns whether an IRQ (Interrupt Request) is pending.
+    ///
+    /// IRQ is level-triggered and can be masked by the I flag in the status register.
+    /// The interrupt will be serviced while pending and interrupts are enabled.
+    ///
+    /// Implementations may use `&mut self` to acknowledge or clear the pending state.
+    ///
+    /// Default implementation returns `false` (no IRQ pending).
+    ///
+    /// # References
+    ///
+    /// - [W65C02S Datasheet, Section 3.4 (IRQB)](https://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
+    fn irq_pending(&mut self) -> bool {
+        false
     }
 }
 

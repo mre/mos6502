@@ -48,12 +48,31 @@
 
 use crate::Variant;
 use crate::instruction::{AddressingMode, DecodedInstr, Instruction, OpInput};
-use crate::memory::Bus;
+use crate::memory::{
+    Bus, IRQ_INTERRUPT_VECTOR_LO, NMI_INTERRUPT_VECTOR_LO, RESET_VECTOR_HI, RESET_VECTOR_LO,
+};
 
 use crate::registers::{Registers, StackPointer, Status, StatusArgs};
 
 fn address_from_bytes(lo: u8, hi: u8) -> u16 {
     u16::from(lo) + (u16::from(hi) << 8usize)
+}
+
+/// CPU wait state for instructions like WAI and STP
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum WaitState {
+    /// Normal execution
+    Running,
+    /// Waiting for interrupt (WAI instruction) - resumes on IRQ or NMI
+    WaitingForInterrupt,
+    /// Waiting for reset (STP instruction) - resumes only on hardware reset
+    WaitingForReset,
+}
+
+impl Default for WaitState {
+    fn default() -> Self {
+        WaitState::Running
+    }
 }
 
 #[derive(Clone, Default)]
@@ -67,8 +86,10 @@ where
     pub registers: Registers,
     /// Memory bus that the CPU reads from and writes to
     pub memory: M,
-    /// Indicates if the CPU is halted (e.g., by STP instruction on 65C02)
-    halted: bool,
+    /// Current wait state (running, waiting for interrupt, or waiting for reset)
+    wait_state: WaitState,
+    /// Last seen state of the NMI line for edge detection (high -> low transition)
+    last_nmi_state: bool,
     /// Phantom data to track which CPU variant is being emulated
     /// (NMOS, CMOS, etc.)
     variant: core::marker::PhantomData<V>,
@@ -84,7 +105,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             registers: Registers::new(),
             memory,
             variant: core::marker::PhantomData::<V>,
-            halted: false,
+            wait_state: WaitState::Running,
+            last_nmi_state: false,
         }
     }
 
@@ -107,8 +129,11 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     ///
     /// For detailed cycle-by-cycle analysis, see: <https://www.pagetable.com/?p=410>
     pub fn reset(&mut self) {
-        // Clear halted state (hardware reset resumes a stopped processor)
-        self.halted = false;
+        // Clear wait state (hardware reset resumes from any wait state)
+        self.wait_state = WaitState::Running;
+
+        // Reset NMI edge detection
+        self.last_nmi_state = false;
 
         // Simulate the 3 fake stack operations that decrement SP from 0x00 to 0xFD
         // Real hardware performs reads from $0100, $01FF, $01FE but discards the results
@@ -121,8 +146,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         self.registers.status.insert(Status::PS_DISABLE_INTERRUPTS);
 
         // Read reset vector: low byte at $FFFC, high byte at $FFFD
-        let reset_vector_low = self.memory.get_byte(0xFFFC);
-        let reset_vector_high = self.memory.get_byte(0xFFFD);
+        let reset_vector_low = self.memory.get_byte(RESET_VECTOR_LO);
+        let reset_vector_high = self.memory.get_byte(RESET_VECTOR_HI);
         self.registers.program_counter = u16::from_le_bytes([reset_vector_low, reset_vector_high]);
     }
 
@@ -790,16 +815,16 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
             (Instruction::WAI, OpInput::UseImplied) => {
                 // Wait for Interrupt (65C02)
-                // In a real CPU, this halts until IRQ or NMI is received
-                // For this emulator, we treat it as a NOP
+                // Halts CPU until IRQ or NMI is received
                 log::debug!("WAI instruction - waiting for interrupt");
+                self.wait_state = WaitState::WaitingForInterrupt;
             }
 
             (Instruction::STP, OpInput::UseImplied) => {
                 // Stop processor (65C02)
                 // Halts execution until reset() is called
                 log::debug!("STP instruction - processor stopped");
-                self.halted = true;
+                self.wait_state = WaitState::WaitingForReset;
             }
 
             (Instruction::NOP, OpInput::UseImplied) => {
@@ -816,22 +841,37 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
     /// Execute a single instruction.
     ///
-    /// Returns `true` if an instruction was executed,
-    /// `false` if the CPU is halted or no instruction could be fetched.
+    /// Returns `true` if an instruction was executed, `false` if the CPU is waiting
+    /// (WAI/STP) or no instruction could be fetched.
+    ///
+    /// Note: Interrupt handling may occur during this call, but servicing an interrupt
+    /// does not count as executing an instruction for the return value.
     pub fn single_step(&mut self) -> bool {
-        if self.halted {
-            return false;
-        }
-        if let Some(decoded_instr) = self.fetch_next_and_decode() {
-            self.execute_instruction(decoded_instr);
-            true
-        } else {
-            false
+        match self.wait_state {
+            WaitState::Running => {
+                // Normal execution
+                if let Some(decoded_instr) = self.fetch_next_and_decode() {
+                    self.execute_instruction(decoded_instr);
+                    self.check_interrupts();
+                    true
+                } else {
+                    false
+                }
+            }
+            WaitState::WaitingForInterrupt => {
+                // WAI - check for interrupts but don't execute instructions
+                self.check_interrupts();
+                false
+            }
+            WaitState::WaitingForReset => {
+                // STP - waiting for reset, do nothing
+                false
+            }
         }
     }
 
     pub fn run(&mut self) {
-        while !self.halted
+        while self.wait_state != WaitState::WaitingForReset
             && let Some(decoded_instr) = self.fetch_next_and_decode()
         {
             self.execute_instruction(decoded_instr);
@@ -1319,6 +1359,86 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         let addr = self.registers.stack_pointer.to_u16();
         self.memory.get_byte(addr)
     }
+
+    /// Service an interrupt by pushing PC and status to stack, then jumping to the interrupt vector.
+    ///
+    /// This implements the standard 6502 interrupt sequence:
+    /// 1. Push PC high byte
+    /// 2. Push PC low byte
+    /// 3. Push status register (with B flag clear for hardware interrupts)
+    /// 4. Set I flag (disable further IRQs)
+    /// 5. Load PC from interrupt vector
+    ///
+    /// # Arguments
+    ///
+    /// * `vector_addr` - Address of the interrupt vector (e.g., [`NMI_INTERRUPT_VECTOR_LO`] for NMI, [`IRQ_INTERRUPT_VECTOR_LO`] for IRQ)
+    ///
+    /// # References
+    ///
+    /// - [W65C02S Datasheet, Section 3.4 (IRQB) and 3.6 (NMIB)](https://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
+    fn service_interrupt(&mut self, vector_addr: u16) {
+        // Push PC high byte, then low byte
+        let pc_bytes = self.registers.program_counter.to_be_bytes();
+        self.push_on_stack(pc_bytes[0]); // High byte
+        self.push_on_stack(pc_bytes[1]); // Low byte
+
+        // Push status register with B flag clear (hardware interrupt)
+        let mut status = self.registers.status;
+        status.remove(Status::PS_BRK);
+        self.push_on_stack(status.bits());
+
+        // Set interrupt disable flag
+        self.registers.status.insert(Status::PS_DISABLE_INTERRUPTS);
+
+        // Load PC from interrupt vector
+        let pcl = self.memory.get_byte(vector_addr);
+        let pch = self.memory.get_byte(vector_addr.wrapping_add(1));
+        self.registers.program_counter = u16::from_le_bytes([pcl, pch]);
+    }
+
+    /// Check for pending interrupts and service them if appropriate.
+    ///
+    /// Checks both NMI (edge-triggered) and IRQ (level-triggered) interrupts.
+    /// NMI has higher priority and cannot be masked.
+    /// IRQ can be masked by the I flag in the status register.
+    ///
+    /// If an interrupt is serviced while waiting (WAI instruction), this will
+    /// clear the waiting state and resume normal execution.
+    ///
+    /// Returns true if an interrupt was serviced.
+    ///
+    /// # References
+    ///
+    /// - [W65C02S Datasheet, Section 3.4 (IRQB) and 3.6 (NMIB)](https://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
+    fn check_interrupts(&mut self) -> bool {
+        // Check for NMI falling edge (high -> low transition)
+        let nmi_current = self.memory.nmi_pending();
+        let nmi_triggered = self.last_nmi_state && !nmi_current;
+        self.last_nmi_state = nmi_current;
+
+        if nmi_triggered {
+            log::debug!("NMI triggered");
+            self.wait_state = WaitState::Running; // Clear WAI state
+            self.service_interrupt(NMI_INTERRUPT_VECTOR_LO);
+            return true;
+        }
+
+        // Check for IRQ (level-triggered, maskable)
+        let irq_pending = self.memory.irq_pending();
+        let irq_enabled = !self
+            .registers
+            .status
+            .contains(Status::PS_DISABLE_INTERRUPTS);
+
+        if irq_pending && irq_enabled {
+            log::debug!("IRQ triggered");
+            self.wait_state = WaitState::Running; // Clear WAI state
+            self.service_interrupt(IRQ_INTERRUPT_VECTOR_LO);
+            return true;
+        }
+
+        false
+    }
 }
 
 impl<M: Bus, V: Variant> core::fmt::Debug for CPU<M, V> {
@@ -1337,7 +1457,10 @@ mod tests {
 
     use super::*;
     use crate::instruction::Nmos6502;
-    use crate::memory::Memory as Ram;
+    use crate::memory::{
+        IRQ_INTERRUPT_VECTOR_HI, IRQ_INTERRUPT_VECTOR_LO, Memory as Ram, NMI_INTERRUPT_VECTOR_HI,
+        NMI_INTERRUPT_VECTOR_LO, RESET_VECTOR_HI, RESET_VECTOR_LO,
+    };
 
     #[test]
     fn dont_panic_for_overflow() {
@@ -2288,8 +2411,8 @@ mod tests {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         // Set up reset vector in memory: $1234
-        cpu.memory.set_byte(0xFFFC, 0x34); // Low byte
-        cpu.memory.set_byte(0xFFFD, 0x12); // High byte
+        cpu.memory.set_byte(RESET_VECTOR_LO, 0x34); // Low byte
+        cpu.memory.set_byte(RESET_VECTOR_HI, 0x12); // High byte
 
         // Initialize SP to some value to see it change
         cpu.registers.stack_pointer = StackPointer(0xFF);
@@ -2390,25 +2513,139 @@ mod tests {
 
         // Execute STP - should halt the processor
         cpu.single_step();
-        assert!(cpu.halted);
+        assert_eq!(cpu.wait_state, WaitState::WaitingForReset);
 
         // Try to execute another step - should do nothing
         let pc_after_stp = cpu.registers.program_counter;
         cpu.single_step();
         assert_eq!(cpu.registers.program_counter, pc_after_stp);
 
-        // Reset should clear halted state
+        // Reset should clear wait state
         cpu.reset();
-        assert!(!cpu.halted);
+        assert_eq!(cpu.wait_state, WaitState::Running);
 
         // After reset, CPU should be able to execute instructions again
         // Set up LDA #$99 at the reset vector location
-        cpu.memory.set_byte(0xFFFC, 0x00); // Reset vector low byte
-        cpu.memory.set_byte(0xFFFD, 0x80); // Reset vector high byte
+        cpu.memory.set_byte(RESET_VECTOR_LO, 0x00); // Reset vector low byte
+        cpu.memory.set_byte(RESET_VECTOR_HI, 0x80); // Reset vector high byte
         cpu.memory.set_byte(0x8000, 0xA9); // LDA immediate at reset location
         cpu.memory.set_byte(0x8001, 0x99); // value
         cpu.reset(); // Reset again to jump to our new reset vector
         cpu.single_step(); // Execute LDA
         assert_eq!(cpu.registers.accumulator, 0x99);
+    }
+
+    // Test memory bus with controllable interrupt lines
+    struct TestMemory {
+        ram: Ram,
+        nmi: bool,
+        irq: bool,
+    }
+
+    impl TestMemory {
+        fn new() -> Self {
+            TestMemory {
+                ram: Ram::new(),
+                nmi: false,
+                irq: false,
+            }
+        }
+    }
+
+    impl Bus for TestMemory {
+        fn get_byte(&mut self, address: u16) -> u8 {
+            self.ram.get_byte(address)
+        }
+
+        fn set_byte(&mut self, address: u16, value: u8) {
+            self.ram.set_byte(address, value);
+        }
+
+        fn nmi_pending(&mut self) -> bool {
+            self.nmi
+        }
+
+        fn irq_pending(&mut self) -> bool {
+            self.irq
+        }
+    }
+
+    #[test]
+    fn test_irq_handling() {
+        use crate::instruction::Nmos6502;
+
+        let mut cpu = CPU::new(TestMemory::new(), Nmos6502);
+
+        // Set up IRQ vector to point to 0x8000
+        cpu.memory.set_byte(IRQ_INTERRUPT_VECTOR_LO, 0x00);
+        cpu.memory.set_byte(IRQ_INTERRUPT_VECTOR_HI, 0x80);
+
+        cpu.registers.program_counter = 0x0200;
+        let initial_sp = cpu.registers.stack_pointer.0;
+
+        // Enable interrupts
+        cpu.registers.status.remove(Status::PS_DISABLE_INTERRUPTS);
+
+        // Assert IRQ line
+        cpu.memory.irq = true;
+
+        // Execute a NOP, which should trigger IRQ after completion
+        cpu.memory.set_byte(0x0200, 0xEA); // NOP
+        cpu.single_step();
+
+        // Verify IRQ was serviced
+        assert_eq!(cpu.registers.program_counter, 0x8000);
+        assert!(cpu.registers.status.contains(Status::PS_DISABLE_INTERRUPTS));
+        assert_eq!(cpu.registers.stack_pointer.0, initial_sp.wrapping_sub(3));
+    }
+
+    #[test]
+    fn test_nmi_handling() {
+        use crate::instruction::Nmos6502;
+
+        let mut cpu = CPU::new(TestMemory::new(), Nmos6502);
+
+        // Set up NMI vector
+        cpu.memory.set_byte(NMI_INTERRUPT_VECTOR_LO, 0x00);
+        cpu.memory.set_byte(NMI_INTERRUPT_VECTOR_HI, 0x90);
+
+        // Trigger NMI falling edge
+        cpu.memory.nmi = true;
+        cpu.registers.program_counter = 0x0200;
+        cpu.memory.set_byte(0x0200, 0xEA);
+        cpu.single_step(); // Set last_nmi_state = true
+
+        cpu.memory.nmi = false;
+        cpu.memory.set_byte(0x0201, 0xEA);
+        cpu.single_step(); // Trigger NMI
+
+        // Verify NMI was serviced
+        assert_eq!(cpu.registers.program_counter, 0x9000);
+    }
+
+    #[test]
+    fn test_wai_waits_for_interrupt() {
+        use crate::instruction::{Cmos6502, Instruction, OpInput};
+
+        let mut cpu = CPU::new(TestMemory::new(), Cmos6502);
+
+        // Set up IRQ vector
+        cpu.memory.set_byte(IRQ_INTERRUPT_VECTOR_LO, 0x00);
+        cpu.memory.set_byte(IRQ_INTERRUPT_VECTOR_HI, 0x80);
+
+        // Enable interrupts
+        cpu.registers.status.remove(Status::PS_DISABLE_INTERRUPTS);
+
+        // Execute WAI instruction
+        cpu.execute_instruction((Instruction::WAI, OpInput::UseImplied));
+        assert_eq!(cpu.wait_state, WaitState::WaitingForInterrupt);
+
+        // Now assert IRQ
+        cpu.memory.irq = true;
+        cpu.single_step();
+
+        // Should have serviced interrupt and cleared waiting state
+        assert_eq!(cpu.wait_state, WaitState::Running);
+        assert_eq!(cpu.registers.program_counter, 0x8000);
     }
 }
