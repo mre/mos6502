@@ -814,12 +814,19 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         }
     }
 
-    pub fn single_step(&mut self) {
+    /// Execute a single instruction.
+    ///
+    /// Returns `true` if an instruction was executed,
+    /// `false` if the CPU is halted or no instruction could be fetched.
+    pub fn single_step(&mut self) -> bool {
         if self.halted {
-            return;
+            return false;
         }
         if let Some(decoded_instr) = self.fetch_next_and_decode() {
             self.execute_instruction(decoded_instr);
+            true
+        } else {
+            false
         }
     }
 
