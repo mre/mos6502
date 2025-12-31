@@ -1414,6 +1414,35 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         self.registers.program_counter = u16::from_le_bytes([pcl, pch]);
     }
 
+    /// Checks if an NMI interrupt is triggered (edge-detection).
+    ///
+    /// NMI is edge-triggered, meaning it only fires on the falling edge
+    /// (transition from inactive to active). This method tracks the NMI
+    /// state to detect this edge.
+    ///
+    /// Returns true if NMI should be serviced.
+    fn is_nmi_triggered(&mut self) -> bool {
+        let nmi_current = self.memory.nmi_pending();
+        let nmi_triggered = !self.last_nmi_state && nmi_current;
+        self.last_nmi_state = nmi_current;
+        nmi_triggered
+    }
+
+    /// Checks if an IRQ interrupt is triggered (level-triggered, maskable).
+    ///
+    /// IRQ is level-triggered and can be masked by the I flag in the status register.
+    /// This method checks both conditions.
+    ///
+    /// Returns true if IRQ should be serviced.
+    fn is_irq_triggered(&mut self) -> bool {
+        let irq_pending = self.memory.irq_pending();
+        let irq_enabled = !self
+            .registers
+            .status
+            .contains(Status::PS_DISABLE_INTERRUPTS);
+        irq_pending && irq_enabled
+    }
+
     /// Check for pending interrupts and service them if appropriate.
     ///
     /// Checks both NMI (edge-triggered) and IRQ (level-triggered) interrupts.
@@ -1429,26 +1458,14 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     ///
     /// - [W65C02S Datasheet, Section 3.4 (IRQB) and 3.6 (NMIB)](https://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
     fn check_interrupts(&mut self) -> bool {
-        // Check for NMI falling edge (inactive -> active transition)
-        let nmi_current = self.memory.nmi_pending();
-        let nmi_triggered = !self.last_nmi_state && nmi_current;
-        self.last_nmi_state = nmi_current;
-
-        if nmi_triggered {
+        if self.is_nmi_triggered() {
             log::debug!("NMI triggered");
             self.wait_state = WaitState::Running; // Clear WAI state
             self.service_interrupt(NMI_INTERRUPT_VECTOR_LO);
             return true;
         }
 
-        // Check for IRQ (level-triggered, maskable)
-        let irq_pending = self.memory.irq_pending();
-        let irq_enabled = !self
-            .registers
-            .status
-            .contains(Status::PS_DISABLE_INTERRUPTS);
-
-        if irq_pending && irq_enabled {
+        if self.is_irq_triggered() {
             log::debug!("IRQ triggered");
             self.wait_state = WaitState::Running; // Clear WAI state
             self.service_interrupt(IRQ_INTERRUPT_VECTOR_LO);
