@@ -59,20 +59,15 @@ fn address_from_bytes(lo: u8, hi: u8) -> u16 {
 }
 
 /// CPU wait state for instructions like WAI and STP
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 enum WaitState {
     /// Normal execution
+    #[default]
     Running,
     /// Waiting for interrupt (WAI instruction) - resumes on IRQ or NMI
     WaitingForInterrupt,
     /// Waiting for reset (STP instruction) - resumes only on hardware reset
     WaitingForReset,
-}
-
-impl Default for WaitState {
-    fn default() -> Self {
-        WaitState::Running
-    }
 }
 
 #[derive(Clone, Default)]

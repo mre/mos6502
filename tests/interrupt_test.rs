@@ -128,12 +128,14 @@ fn klaus2m5_interrupt_test() {
 
         // Track execution history (keep last 20 instructions for debugging)
         let opcode = cpu.memory.get_byte(current_pc);
-        let reg_state = format!("A:{:02X} X:{:02X} Y:{:02X} SP:{:02X} P:{:08b}",
-                                cpu.registers.accumulator,
-                                cpu.registers.index_x,
-                                cpu.registers.index_y,
-                                cpu.registers.stack_pointer.0,
-                                cpu.registers.status.bits());
+        let reg_state = format!(
+            "A:{:02X} X:{:02X} Y:{:02X} SP:{:02X} P:{:08b}",
+            cpu.registers.accumulator,
+            cpu.registers.index_x,
+            cpu.registers.index_y,
+            cpu.registers.stack_pointer.0,
+            cpu.registers.status.bits()
+        );
         pc_history.push((current_pc, opcode, reg_state));
         if pc_history.len() > 20 {
             pc_history.remove(0);
@@ -199,8 +201,12 @@ fn klaus2m5_interrupt_test() {
                          Feedback register: ${:02X}\n\
                          I_src (expected interrupts): ${:02X}\n\
                          Memory context: {}",
-                        current_pc, instr_count, cpu.registers, cpu.memory.feedback_register,
-                        i_src, context.join(" ")
+                        current_pc,
+                        instr_count,
+                        cpu.registers,
+                        cpu.memory.feedback_register,
+                        i_src,
+                        context.join(" ")
                     );
                 }
             } else if opcode == 0xF0 || opcode == 0xD0 {
@@ -224,8 +230,12 @@ fn klaus2m5_interrupt_test() {
                          Feedback register: ${:02X}\n\
                          I_src (expected interrupts): ${:02X}\n\
                          Memory context: {}",
-                        current_pc, instr_count, cpu.registers, cpu.memory.feedback_register,
-                        i_src, context.join(" ")
+                        current_pc,
+                        instr_count,
+                        cpu.registers,
+                        cpu.memory.feedback_register,
+                        i_src,
+                        context.join(" ")
                     );
                 }
             }
