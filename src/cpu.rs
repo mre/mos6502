@@ -1366,8 +1366,11 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     /// 1. Push PC high byte
     /// 2. Push PC low byte
     /// 3. Push status register (with B flag clear for hardware interrupts)
-    /// 4. Set I flag (disable further IRQs)
+    /// 4. Set I flag (prevents IRQs during interrupt handler, applies to both NMI and IRQ)
     /// 5. Load PC from interrupt vector
+    ///
+    /// Note: While NMI itself cannot be masked by the I flag, the I flag is still set during
+    /// NMI service to prevent IRQ from interrupting the NMI handler.
     ///
     /// # Arguments
     ///
@@ -1387,7 +1390,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         status.remove(Status::PS_BRK);
         self.push_on_stack(status.bits());
 
-        // Set interrupt disable flag
+        // Set interrupt disable flag (prevents IRQs during interrupt handler)
+        // This happens for both NMI and IRQ interrupts, even though NMI itself ignores the I flag
         self.registers.status.insert(Status::PS_DISABLE_INTERRUPTS);
 
         // Load PC from interrupt vector
