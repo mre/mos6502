@@ -100,6 +100,7 @@ fn klaus2m5_interrupt_test() {
     // Run the test
     let mut old_pc = cpu.registers.program_counter;
     let mut instr_count = 0u64;
+    let mut pc_history: Vec<(u16, u8, String)> = Vec::new(); // (PC, opcode, registers)
 
     loop {
         let current_pc = cpu.registers.program_counter;
@@ -117,8 +118,58 @@ fn klaus2m5_interrupt_test() {
             cpu.memory.feedback_register
         );
 
+        // Track execution history (keep last 30 instructions)
+        let opcode = cpu.memory.get_byte(current_pc);
+        let reg_state = format!("A:{:02X} X:{:02X} Y:{:02X} SP:{:02X} P:{:08b} FB:{:02X}",
+                                cpu.registers.accumulator,
+                                cpu.registers.index_x,
+                                cpu.registers.index_y,
+                                cpu.registers.stack_pointer.0,
+                                cpu.registers.status.bits(),
+                                cpu.memory.feedback_register);
+
+        // Detect interrupt vector jumps and RTI
+        let is_interrupt = match current_pc {
+            0x0739 => {
+                eprintln!("==> NMI HANDLER ENTRY at ${:04X}: {}", current_pc, reg_state);
+                true
+            }
+            0x077D => {
+                eprintln!("==> IRQ/BRK HANDLER ENTRY at ${:04X}: {}", current_pc, reg_state);
+                true
+            }
+            _ => false
+        };
+
+        // Detect RTI to track interrupt returns
+        if opcode == 0x40 {
+            eprintln!("<== RTI at ${:04X}, returning to handler or main code", current_pc);
+        }
+
+        pc_history.push((current_pc, opcode, reg_state));
+        if pc_history.len() > 30 {
+            pc_history.remove(0);
+        }
+
+        // Track writes to I_src ($0203) and interrupt state
+        let old_i_src = cpu.memory.get_byte(0x0203);
+        let fb_reg = cpu.memory.feedback_register;
+        let has_nmi = cpu.memory.nmi_pending();
+        let has_irq = cpu.memory.irq_pending();
+
+        // Detect when we're looping at $06F3 (waiting for I_src != 0)
+        if current_pc == 0x06F3 && old_i_src == 0 {
+            eprintln!("WARNING: At $06F3, looping while I_src=0, FB=${:02X}, NMI={}, IRQ={}",
+                     fb_reg, has_nmi, has_irq);
+        }
+
         // Execute single step (handles interrupts and instruction execution)
         cpu.single_step();
+
+        let new_i_src = cpu.memory.get_byte(0x0203);
+        if old_i_src != new_i_src {
+            eprintln!("${:04X}: I_src changed from ${:02X} to ${:02X}", current_pc, old_i_src, new_i_src);
+        }
 
         instr_count += 1;
 
@@ -156,8 +207,15 @@ fn klaus2m5_interrupt_test() {
                 let offset = cpu.memory.get_byte(current_pc.wrapping_add(1));
                 if offset == 0xFE {
                     // Branch to self (-2 bytes)
-                    // Check I_src at $200 to see what interrupt was expected
-                    let i_src = cpu.memory.get_byte(0x200);
+                    // Check I_src at $0203 to see what interrupt was expected
+                    let i_src = cpu.memory.get_byte(0x0203);
+
+                    eprintln!("\n=== Last 30 instructions before trap ===");
+                    for (pc, opc, regs) in &pc_history {
+                        eprintln!("${:04X}: {:02X}  {}", pc, opc, regs);
+                    }
+                    eprintln!("==========================================\n");
+
                     panic!(
                         "Test failed: Stuck in error trap at PC ${:04X} after {} instructions\n\
                          This is likely a 'beq *' or 'bne *' error trap in the test.\n\

@@ -444,10 +444,17 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
 
             (Instruction::BRK, OpInput::UseImplied) => {
-                for b in self.registers.program_counter.wrapping_sub(1).to_be_bytes() {
+                // BRK is a 2-byte instruction (opcode + signature byte), but AddressingMode::Implied
+                // only increments PC past the opcode. We need to increment PC by 1 more to skip the
+                // signature byte, then push PC (pointing to the instruction after BRK).
+                let return_addr = self.registers.program_counter.wrapping_add(1);
+                for b in return_addr.to_be_bytes() {
                     self.push_on_stack(b);
                 }
-                self.push_on_stack(self.registers.status.bits());
+                // Push status with B flag set (distinguishes BRK from hardware interrupts)
+                let mut status = self.registers.status;
+                status.insert(Status::PS_BRK);
+                self.push_on_stack(status.bits());
                 let pcl = self.memory.get_byte(0xfffe);
                 let pch = self.memory.get_byte(0xffff);
                 self.jump((u16::from(pch) << 8) | u16::from(pcl));
@@ -455,10 +462,17 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
 
             (Instruction::BRKcld, OpInput::UseImplied) => {
-                for b in self.registers.program_counter.wrapping_sub(1).to_be_bytes() {
+                // BRK is a 2-byte instruction (opcode + signature byte), but AddressingMode::Implied
+                // only increments PC past the opcode. We need to increment PC by 1 more to skip the
+                // signature byte, then push PC (pointing to the instruction after BRK).
+                let return_addr = self.registers.program_counter.wrapping_add(1);
+                for b in return_addr.to_be_bytes() {
                     self.push_on_stack(b);
                 }
-                self.push_on_stack(self.registers.status.bits());
+                // Push status with B flag set (distinguishes BRK from hardware interrupts)
+                let mut status = self.registers.status;
+                status.insert(Status::PS_BRK);
+                self.push_on_stack(status.bits());
                 let pcl = self.memory.get_byte(0xfffe);
                 let pch = self.memory.get_byte(0xffff);
                 self.jump((u16::from(pch) << 8) | u16::from(pcl));
@@ -1415,9 +1429,9 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     ///
     /// - [W65C02S Datasheet, Section 3.4 (IRQB) and 3.6 (NMIB)](https://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
     fn check_interrupts(&mut self) -> bool {
-        // Check for NMI falling edge (high -> low transition)
+        // Check for NMI falling edge (inactive -> active transition)
         let nmi_current = self.memory.nmi_pending();
-        let nmi_triggered = self.last_nmi_state && !nmi_current;
+        let nmi_triggered = !self.last_nmi_state && nmi_current;
         self.last_nmi_state = nmi_current;
 
         if nmi_triggered {
@@ -2613,15 +2627,17 @@ mod tests {
         cpu.memory.set_byte(NMI_INTERRUPT_VECTOR_LO, 0x00);
         cpu.memory.set_byte(NMI_INTERRUPT_VECTOR_HI, 0x90);
 
-        // Trigger NMI falling edge
-        cpu.memory.nmi = true;
+        // NMI triggers on inactive (false) -> active (true) edge
+        // Start with NMI inactive
+        cpu.memory.nmi = false;
         cpu.registers.program_counter = 0x0200;
         cpu.memory.set_byte(0x0200, 0xEA);
-        cpu.single_step(); // Set last_nmi_state = true
+        cpu.single_step(); // Set last_nmi_state = false
 
-        cpu.memory.nmi = false;
+        // Assert NMI (inactive -> active edge)
+        cpu.memory.nmi = true;
         cpu.memory.set_byte(0x0201, 0xEA);
-        cpu.single_step(); // Trigger NMI
+        cpu.single_step(); // Trigger NMI on false -> true edge
 
         // Verify NMI was serviced
         assert_eq!(cpu.registers.program_counter, 0x9000);
