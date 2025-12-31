@@ -231,6 +231,12 @@ pub enum Instruction {
 
     // Transfer Y to Accumulator
     TYA,
+
+    // Wait for Interrupt (65C02 only)
+    WAI,
+
+    // SToP processor (65C02 only)
+    STP,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -298,6 +304,10 @@ pub enum AddressingMode {
 
     // Address stored at constant zero page address
     ZeroPageIndirect,
+
+    // jump to address stored at (absolute address plus X register), e. g. `jmp ($1000,X)`.
+    // 65C02 only
+    AbsoluteIndexedIndirect,
 }
 
 impl AddressingMode {
@@ -319,6 +329,7 @@ impl AddressingMode {
             AddressingMode::IndexedIndirectX => 1,
             AddressingMode::IndirectIndexedY => 1,
             AddressingMode::ZeroPageIndirect => 1,
+            AddressingMode::AbsoluteIndexedIndirect => 2,
         }
     }
 }
@@ -925,18 +936,51 @@ impl crate::Variant for RevisionA {
     }
 }
 
-/// Emulates the 65C02, which has a few bugfixes, and another addressing mode
+/// Emulates the Western Design Center (WDC) 65C02 microprocessor.
+///
+/// The 65C02 is a CMOS version of the NMOS 6502, which offers several
+/// improvements while maintaining backward compatibility.
+///
+/// # Key Improvements Over NMOS 6502
+///
+/// ## Bug Fixes
+/// - The NMOS 6502 had a bug when JMP (addr) crossed a page boundary.
+///   The 65C02 correctly fetches both bytes of the target address.
+/// - The N and Z flags now work correctly in decimal
+///   (BCD) mode, whereas they were undefined in the NMOS 6502.
+/// - The BRK instruction now properly clears the decimal
+///   flag, preventing issues in interrupt handlers.
+///
+/// ## New Instructions
+/// - `BRA`: Branch Always (unconditional relative branch)
+/// - `PHX/PHY`: Push X/Y registers onto stack
+/// - `PLX/PLY`: Pull X/Y registers from stack
+/// - `STZ`: Store Zero to memory
+/// - `TRB/TSB`: Test and Reset/Set memory Bits
+/// - `INC A/DEC A`: Increment/Decrement Accumulator
+/// - `WAI`: Wait for Interrupt (low-power mode)
+/// - `STP`: Stop processor until reset (low-power mode)
+///
+/// ## New Addressing Modes
+/// - **Zero Page Indirect**: `(zp)` for ORA, AND, EOR, ADC, STA, LDA, CMP, SBC
+/// - **Absolute Indexed Indirect**: `JMP (abs,X)` - indexed indirect jump
+/// - **Indexed addressing for BIT**: `BIT zp,X` and `BIT abs,X`
+/// - **Immediate addressing for BIT**: `BIT #imm`
+///
+/// # References
+/// - [WDC 65C02 Datasheet](http://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
+/// - [65C02 Wikipedia Article](https://en.wikipedia.org/wiki/WDC_65C02)
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Cmos6502;
 
 impl crate::Variant for Cmos6502 {
     fn decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
-        // TODO: We obviously need to add the other CMOS instructions here.
         match opcode {
             0x00 => Some((Instruction::BRKcld, AddressingMode::Implied)),
             0x1a => Some((Instruction::INC, AddressingMode::Accumulator)),
             0x3a => Some((Instruction::DEC, AddressingMode::Accumulator)),
             0x6c => Some((Instruction::JMP, AddressingMode::Indirect)),
+            0x7c => Some((Instruction::JMP, AddressingMode::AbsoluteIndexedIndirect)),
             0x80 => Some((Instruction::BRA, AddressingMode::Relative)),
             0x64 => Some((Instruction::STZ, AddressingMode::ZeroPage)),
             0x74 => Some((Instruction::STZ, AddressingMode::ZeroPageX)),
@@ -952,6 +996,8 @@ impl crate::Variant for Cmos6502 {
             0x1c => Some((Instruction::TRB, AddressingMode::Absolute)),
             0x12 => Some((Instruction::ORA, AddressingMode::ZeroPageIndirect)),
             0x32 => Some((Instruction::AND, AddressingMode::ZeroPageIndirect)),
+            0x34 => Some((Instruction::BIT, AddressingMode::ZeroPageX)),
+            0x3c => Some((Instruction::BIT, AddressingMode::AbsoluteX)),
             0x52 => Some((Instruction::EOR, AddressingMode::ZeroPageIndirect)),
             0x72 => Some((Instruction::ADC, AddressingMode::ZeroPageIndirect)),
             0x92 => Some((Instruction::STA, AddressingMode::ZeroPageIndirect)),
@@ -959,6 +1005,8 @@ impl crate::Variant for Cmos6502 {
             0xd2 => Some((Instruction::CMP, AddressingMode::ZeroPageIndirect)),
             0xf2 => Some((Instruction::SBC, AddressingMode::ZeroPageIndirect)),
             0x89 => Some((Instruction::BIT, AddressingMode::Immediate)),
+            0xcb => Some((Instruction::WAI, AddressingMode::Implied)),
+            0xdb => Some((Instruction::STP, AddressingMode::Implied)),
             _ => Nmos6502::decode(opcode),
         }
     }

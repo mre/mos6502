@@ -62,8 +62,15 @@ where
     M: Bus,
     V: Variant,
 {
+    /// CPU registers including program counter, stack pointer, accumulator,
+    /// index registers, and status flags
     pub registers: Registers,
+    /// Memory bus that the CPU reads from and writes to
     pub memory: M,
+    /// Indicates if the CPU is halted (e.g., by STP instruction on 65C02)
+    halted: bool,
+    /// Phantom data to track which CPU variant is being emulated
+    /// (NMOS, CMOS, etc.)
     variant: core::marker::PhantomData<V>,
 }
 
@@ -77,6 +84,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             registers: Registers::new(),
             memory,
             variant: core::marker::PhantomData::<V>,
+            halted: false,
         }
     }
 
@@ -99,6 +107,9 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     ///
     /// For detailed cycle-by-cycle analysis, see: <https://www.pagetable.com/?p=410>
     pub fn reset(&mut self) {
+        // Clear halted state (hardware reset resumes a stopped processor)
+        self.halted = false;
+
         // Simulate the 3 fake stack operations that decrement SP from 0x00 to 0xFD
         // Real hardware performs reads from $0100, $01FF, $01FE but discards the results
         // This matches cycles 3-5 of the reset sequence described at pagetable.com
@@ -242,6 +253,17 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                             low_byte_of_target,
                             high_byte_of_target,
                         ))
+                    }
+                    AddressingMode::AbsoluteIndexedIndirect => {
+                        // 65C02: JMP (abs,X)
+                        // Use [u8, ..2] from instruction plus X as an address. Interpret the
+                        // two bytes starting at that address as the jump target.
+                        // (Output: a 16-bit address)
+                        let x: u8 = self.registers.index_x;
+                        let base_addr = address_from_bytes(slice[0], slice[1]);
+                        let pointer = base_addr.wrapping_add(u16::from(x));
+                        let slice = read_address(memory, pointer);
+                        OpInput::UseAddress(address_from_bytes(slice[0], slice[1]))
                     }
                     AddressingMode::IndexedIndirectX => {
                         // Use [u8, ..1] from instruction
@@ -766,6 +788,20 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.load_accumulator(val);
             }
 
+            (Instruction::WAI, OpInput::UseImplied) => {
+                // Wait for Interrupt (65C02)
+                // In a real CPU, this halts until IRQ or NMI is received
+                // For this emulator, we treat it as a NOP
+                log::debug!("WAI instruction - waiting for interrupt");
+            }
+
+            (Instruction::STP, OpInput::UseImplied) => {
+                // Stop processor (65C02)
+                // Halts execution until reset() is called
+                log::debug!("STP instruction - processor stopped");
+                self.halted = true;
+            }
+
             (Instruction::NOP, OpInput::UseImplied) => {
                 log::debug!("NOP instruction");
             }
@@ -778,14 +814,26 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         }
     }
 
-    pub fn single_step(&mut self) {
+    /// Execute a single instruction.
+    ///
+    /// Returns `true` if an instruction was executed,
+    /// `false` if the CPU is halted or no instruction could be fetched.
+    pub fn single_step(&mut self) -> bool {
+        if self.halted {
+            return false;
+        }
         if let Some(decoded_instr) = self.fetch_next_and_decode() {
             self.execute_instruction(decoded_instr);
+            true
+        } else {
+            false
         }
     }
 
     pub fn run(&mut self) {
-        while let Some(decoded_instr) = self.fetch_next_and_decode() {
+        while !self.halted
+            && let Some(decoded_instr) = self.fetch_next_and_decode()
+        {
             self.execute_instruction(decoded_instr);
         }
     }
@@ -2256,5 +2304,111 @@ mod tests {
 
         // Check that interrupt disable flag is set
         assert!(cpu.registers.status.contains(Status::PS_DISABLE_INTERRUPTS));
+    }
+
+    #[test]
+    fn cmos_bit_zpx() {
+        use crate::instruction::{Cmos6502, Instruction, OpInput};
+
+        // BIT $10,X (opcode 0x34) - tests that BIT works with ZeroPageX addressing
+        let mut cpu = CPU::new(Ram::new(), Cmos6502);
+        cpu.registers.accumulator = 0b1100_0000;
+
+        // Value at address to test
+        cpu.memory.set_byte(0x15, 0b1100_0000);
+
+        cpu.execute_instruction((Instruction::BIT, OpInput::UseAddress(0x15)));
+
+        // BIT should set N and V from memory value, Z from AND result
+        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
+        assert!(cpu.registers.status.contains(Status::PS_OVERFLOW));
+    }
+
+    #[test]
+    fn cmos_bit_absx() {
+        use crate::instruction::{Cmos6502, Instruction, OpInput};
+
+        // BIT abs,X (opcode 0x3C) - tests that BIT works with AbsoluteX addressing
+        let mut cpu = CPU::new(Ram::new(), Cmos6502);
+        cpu.registers.accumulator = 0b0100_0000;
+
+        // Value at address to test
+        cpu.memory.set_byte(0x1005, 0b0100_0000);
+
+        cpu.execute_instruction((Instruction::BIT, OpInput::UseAddress(0x1005)));
+
+        // BIT should set V from memory value
+        assert!(cpu.registers.status.contains(Status::PS_OVERFLOW));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+    }
+
+    #[test]
+    fn cmos_jmp_absx_indirect() {
+        use crate::instruction::{Cmos6502, Instruction, OpInput};
+
+        // JMP (abs,X) (opcode 0x7C) - tests indexed indirect jump
+        let mut cpu = CPU::new(Ram::new(), Cmos6502);
+
+        // Target address is $3456
+        cpu.execute_instruction((Instruction::JMP, OpInput::UseAddress(0x3456)));
+
+        // PC should now be $3456
+        assert_eq!(cpu.registers.program_counter, 0x3456);
+    }
+
+    #[test]
+    fn cmos_wai() {
+        use crate::instruction::{Cmos6502, Instruction, OpInput};
+
+        // WAI (opcode 0xCB) - Wait for Interrupt
+        let mut cpu = CPU::new(Ram::new(), Cmos6502);
+        let pc_before = cpu.registers.program_counter;
+
+        // Execute WAI instruction
+        cpu.execute_instruction((Instruction::WAI, OpInput::UseImplied));
+
+        // PC should not change (in this simple implementation)
+        // In a real CPU, this would halt until interrupt
+        assert_eq!(cpu.registers.program_counter, pc_before);
+    }
+
+    #[test]
+    fn cmos_stp() {
+        use crate::instruction::Cmos6502;
+
+        // STP (opcode 0xDB) - Stop processor
+        let mut cpu = CPU::new(Ram::new(), Cmos6502);
+
+        // Set up a simple program: LDA #$42, then STP
+        cpu.memory.set_byte(0x0000, 0xA9); // LDA immediate
+        cpu.memory.set_byte(0x0001, 0x42); // value
+        cpu.memory.set_byte(0x0002, 0xDB); // STP opcode
+
+        // Execute LDA - should work normally
+        cpu.single_step();
+        assert_eq!(cpu.registers.accumulator, 0x42);
+
+        // Execute STP - should halt the processor
+        cpu.single_step();
+        assert!(cpu.halted);
+
+        // Try to execute another step - should do nothing
+        let pc_after_stp = cpu.registers.program_counter;
+        cpu.single_step();
+        assert_eq!(cpu.registers.program_counter, pc_after_stp);
+
+        // Reset should clear halted state
+        cpu.reset();
+        assert!(!cpu.halted);
+
+        // After reset, CPU should be able to execute instructions again
+        // Set up LDA #$99 at the reset vector location
+        cpu.memory.set_byte(0xFFFC, 0x00); // Reset vector low byte
+        cpu.memory.set_byte(0xFFFD, 0x80); // Reset vector high byte
+        cpu.memory.set_byte(0x8000, 0xA9); // LDA immediate at reset location
+        cpu.memory.set_byte(0x8001, 0x99); // value
+        cpu.reset(); // Reset again to jump to our new reset vector
+        cpu.single_step(); // Execute LDA
+        assert_eq!(cpu.registers.accumulator, 0x99);
     }
 }
