@@ -1,7 +1,6 @@
 use mos6502::cpu;
 use mos6502::instruction::Nmos6502;
-use mos6502::memory::Bus;
-use mos6502::memory::Memory;
+use mos6502::memory::{Bus, Memory, IRQ_INTERRUPT_VECTOR_HI, IRQ_INTERRUPT_VECTOR_LO};
 use std::fs::read;
 
 fn main() {
@@ -26,6 +25,12 @@ fn main() {
 
     println!("Before sorting: {:?}", numbers);
 
+    // Handle trivial cases (0 or 1 element - already sorted)
+    if numbers.len() <= 1 {
+        println!("After sorting:  {:?}", numbers);
+        return;
+    }
+
     // Load the binary file from disk
     let program = match read("examples/asm/bubble_sort/bubble_sort.bin") {
         Ok(data) => data,
@@ -47,6 +52,10 @@ fn main() {
     // Load program and set PC
     cpu.memory.set_bytes(0x0400, &program);
     cpu.registers.program_counter = 0x0400;
+
+    // Set up BRK interrupt vector to point to $FFFF (halt)
+    cpu.memory.set_byte(IRQ_INTERRUPT_VECTOR_LO, 0xFF);
+    cpu.memory.set_byte(IRQ_INTERRUPT_VECTOR_HI, 0xFF);
 
     // Run the sort
     cpu.run();

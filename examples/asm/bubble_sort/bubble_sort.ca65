@@ -20,6 +20,11 @@
 .ORG $0400              ; Start program at memory address $0400
 
 start:
+    ; Early exit if array has 0 or 1 elements (nothing to sort)
+    LDA $00             ; Load array length
+    CMP #$02            ; Compare with 2
+    BCC done            ; If n < 2, skip sorting (branch if carry clear)
+
     ; Initialize the swap flag to 1 to ensure we enter the main loop
     LDA #$01            ; Load the value 1 into accumulator
     STA $10             ; Store 1 in swap flag (forces first iteration)
