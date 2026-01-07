@@ -79,4 +79,4 @@ no_swap:
 
 done:
     ; Array is fully sorted (no swaps were made in last pass)
-    BRK                 ; Break - halt the processor (end program)
+    STP                 ; Stop processor (end program)

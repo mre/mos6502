@@ -1,6 +1,6 @@
 use mos6502::cpu;
-use mos6502::instruction::Nmos6502;
-use mos6502::memory::{Bus, Memory, IRQ_INTERRUPT_VECTOR_HI, IRQ_INTERRUPT_VECTOR_LO};
+use mos6502::instruction::Cmos6502;
+use mos6502::memory::{Bus, Memory};
 use std::fs::read;
 
 fn main() {
@@ -41,7 +41,7 @@ fn main() {
         }
     };
 
-    let mut cpu = cpu::CPU::new(Memory::new(), Nmos6502);
+    let mut cpu = cpu::CPU::new(Memory::new(), Cmos6502);
 
     // Set up memory:
     // $00: array length
@@ -53,11 +53,7 @@ fn main() {
     cpu.memory.set_bytes(0x0400, &program);
     cpu.registers.program_counter = 0x0400;
 
-    // Set up BRK interrupt vector to point to $FFFF (halt)
-    cpu.memory.set_byte(IRQ_INTERRUPT_VECTOR_LO, 0xFF);
-    cpu.memory.set_byte(IRQ_INTERRUPT_VECTOR_HI, 0xFF);
-
-    // Run the sort
+    // Run the sort (will stop when STP instruction is encountered)
     cpu.run();
 
     // Read sorted array back
