@@ -67,6 +67,10 @@ where
     pub registers: Registers,
     /// Memory bus that the CPU reads from and writes to
     pub memory: M,
+    /// Total number of cycles elapsed since CPU creation or last reset.
+    /// Used for cycle-accurate emulation and synchronization with other components.
+    /// Uses u64 to prevent overflow (would take 584,942 years at 1MHz to overflow).
+    pub cycles: u64,
     /// Indicates if the CPU is halted (e.g., by STP instruction on 65C02)
     halted: bool,
     /// Phantom data to track which CPU variant is being emulated
@@ -83,6 +87,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         CPU {
             registers: Registers::new(),
             memory,
+            cycles: 0,
             variant: core::marker::PhantomData::<V>,
             halted: false,
         }
@@ -167,32 +172,38 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
                 let memory = &mut self.memory;
 
-                let am_out = match am {
+                let (am_out, page_crossed) = match am {
                     AddressingMode::Accumulator | AddressingMode::Implied => {
                         // Always the same -- no input
-                        OpInput::UseImplied
+                        (OpInput::UseImplied, false)
                     }
                     AddressingMode::Immediate => {
                         // Use [u8, ..1] specified in instruction as input
-                        OpInput::UseImmediate(slice[0])
+                        (OpInput::UseImmediate(slice[0]), false)
                     }
                     AddressingMode::ZeroPage => {
                         // Use [u8, ..1] from instruction
                         // Interpret as zero page address
                         // (Output: an 8-bit zero-page address)
-                        OpInput::UseAddress(u16::from(slice[0]))
+                        (OpInput::UseAddress(u16::from(slice[0])), false)
                     }
                     AddressingMode::ZeroPageX => {
                         // Use [u8, ..1] from instruction
                         // Add to X register (as u8 -- the final address is in 0-page)
                         // (Output: an 8-bit zero-page address)
-                        OpInput::UseAddress(u16::from(slice[0].wrapping_add(x)))
+                        (
+                            OpInput::UseAddress(u16::from(slice[0].wrapping_add(x))),
+                            false,
+                        )
                     }
                     AddressingMode::ZeroPageY => {
                         // Use [u8, ..1] from instruction
                         // Add to Y register (as u8 -- the final address is in 0-page)
                         // (Output: an 8-bit zero-page address)
-                        OpInput::UseAddress(u16::from(slice[0].wrapping_add(y)))
+                        (
+                            OpInput::UseAddress(u16::from(slice[0].wrapping_add(y))),
+                            false,
+                        )
                     }
 
                     AddressingMode::Relative => {
@@ -203,26 +214,31 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         let offset = slice[0];
                         let sign_extend = if offset & 0x80 == 0x80 { 0xffu8 } else { 0x0 };
                         let rel = u16::from_le_bytes([offset, sign_extend]);
-                        OpInput::UseRelative(rel)
+                        (OpInput::UseRelative(rel), false)
                     }
                     AddressingMode::Absolute => {
                         // Use [u8, ..2] from instruction as address
                         // (Output: a 16-bit address)
-                        OpInput::UseAddress(address_from_bytes(slice[0], slice[1]))
+                        (
+                            OpInput::UseAddress(address_from_bytes(slice[0], slice[1])),
+                            false,
+                        )
                     }
                     AddressingMode::AbsoluteX => {
                         // Use [u8, ..2] from instruction as address, add X
-                        // (Output: a 16-bit address)
-                        OpInput::UseAddress(
-                            address_from_bytes(slice[0], slice[1]).wrapping_add(x.into()),
-                        )
+                        // Check for page crossing: base and final addresses on different pages
+                        let base = address_from_bytes(slice[0], slice[1]);
+                        let final_addr = base.wrapping_add(x.into());
+                        let crossed = (base & 0xFF00) != (final_addr & 0xFF00);
+                        (OpInput::UseAddress(final_addr), crossed)
                     }
                     AddressingMode::AbsoluteY => {
                         // Use [u8, ..2] from instruction as address, add Y
-                        // (Output: a 16-bit address)
-                        OpInput::UseAddress(
-                            address_from_bytes(slice[0], slice[1]).wrapping_add(y.into()),
-                        )
+                        // Check for page crossing: base and final addresses on different pages
+                        let base = address_from_bytes(slice[0], slice[1]);
+                        let final_addr = base.wrapping_add(y.into());
+                        let crossed = (base & 0xFF00) != (final_addr & 0xFF00);
+                        (OpInput::UseAddress(final_addr), crossed)
                     }
                     AddressingMode::Indirect => {
                         // Use [u8, ..2] from instruction as an address. Interpret the
@@ -231,7 +247,10 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // Note: Cycle-accurate timing is not implemented. On real hardware,
                         // if the pointer ends in 0xff, incrementing it costs an extra cycle.
                         let slice = read_address(memory, address_from_bytes(slice[0], slice[1]));
-                        OpInput::UseAddress(address_from_bytes(slice[0], slice[1]))
+                        (
+                            OpInput::UseAddress(address_from_bytes(slice[0], slice[1])),
+                            false,
+                        )
                     }
                     AddressingMode::BuggyIndirect => {
                         // Use [u8, ..2] from instruction as an address. Interpret the
@@ -249,10 +268,13 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         ]);
 
                         let high_byte_of_target = memory.get_byte(incremented_pointer);
-                        OpInput::UseAddress(address_from_bytes(
-                            low_byte_of_target,
-                            high_byte_of_target,
-                        ))
+                        (
+                            OpInput::UseAddress(address_from_bytes(
+                                low_byte_of_target,
+                                high_byte_of_target,
+                            )),
+                            false,
+                        )
                     }
                     AddressingMode::AbsoluteIndexedIndirect => {
                         // 65C02: JMP (abs,X)
@@ -263,7 +285,10 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         let base_addr = address_from_bytes(slice[0], slice[1]);
                         let pointer = base_addr.wrapping_add(u16::from(x));
                         let slice = read_address(memory, pointer);
-                        OpInput::UseAddress(address_from_bytes(slice[0], slice[1]))
+                        (
+                            OpInput::UseAddress(address_from_bytes(slice[0], slice[1])),
+                            false,
+                        )
                     }
                     AddressingMode::IndexedIndirectX => {
                         // Use [u8, ..1] from instruction
@@ -272,18 +297,22 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // (Output: a 16-bit address)
                         let start = slice[0].wrapping_add(x);
                         let slice = read_address(memory, u16::from(start));
-                        OpInput::UseAddress(address_from_bytes(slice[0], slice[1]))
+                        (
+                            OpInput::UseAddress(address_from_bytes(slice[0], slice[1])),
+                            false,
+                        )
                     }
                     AddressingMode::IndirectIndexedY => {
                         // Use [u8, ..1] from instruction
                         // This is where the absolute (16-bit) target address is stored.
                         // Add Y register to this address to get the final address
-                        // (Output: a 16-bit address)
+                        // Check for page crossing
                         let start = slice[0];
                         let slice = read_address(memory, u16::from(start));
-                        OpInput::UseAddress(
-                            address_from_bytes(slice[0], slice[1]).wrapping_add(y.into()),
-                        )
+                        let base = address_from_bytes(slice[0], slice[1]);
+                        let final_addr = base.wrapping_add(y.into());
+                        let crossed = (base & 0xFF00) != (final_addr & 0xFF00);
+                        (OpInput::UseAddress(final_addr), crossed)
                     }
                     AddressingMode::ZeroPageIndirect => {
                         // Use [u8, ..1] from instruction
@@ -291,7 +320,10 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // (Output: a 16-bit address)
                         let start = slice[0];
                         let slice = read_address(memory, u16::from(start));
-                        OpInput::UseAddress(address_from_bytes(slice[0], slice[1]))
+                        (
+                            OpInput::UseAddress(address_from_bytes(slice[0], slice[1])),
+                            false,
+                        )
                     }
                 };
 
@@ -299,15 +331,78 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.registers.program_counter =
                     self.registers.program_counter.wrapping_add(num_bytes);
 
-                Some((instr, am_out))
+                Some((instr, am, am_out, page_crossed))
             }
             _ => None,
         }
     }
 
+    /// Calculates the total cycle count for an instruction, including base cycles and penalties.
+    ///
+    /// This is the main entry point for cycle calculation, combining:
+    /// - Base cycles from the instruction/addressing mode lookup table
+    /// - Page crossing penalties (+1 for loads when page boundary crossed)
+    /// - Decimal mode penalties (65C02 only, +1 for ADC/SBC when D flag is set)
+    ///
+    /// # Arguments
+    /// * `instr` - The instruction being executed
+    /// * `mode` - The addressing mode used
+    /// * `page_crossed` - Whether a page boundary was crossed during address calculation
+    /// * `registers` - CPU registers (needed to check decimal mode flag)
+    ///
+    /// # Returns
+    /// Total number of cycles this instruction will take
+    fn calculate_instruction_cycles(
+        instr: Instruction,
+        mode: AddressingMode,
+        page_crossed: bool,
+        registers: Registers,
+    ) -> u8 {
+        use Instruction::{STA, STX, STY, STZ};
+
+        let base_cycles = instr.base_cycles(mode);
+
+        // Page crossing penalty: +1 cycle for loads (not stores!)
+        let page_penalty = u8::from(page_crossed && !matches!(instr, STA | STX | STY | STZ));
+
+        // Decimal mode penalty: +1 cycle for ADC/SBC on 65C02 when D flag is set
+        let decimal_penalty = Self::decimal_mode_penalty_for_variant(instr, registers);
+
+        base_cycles + page_penalty + decimal_penalty
+    }
+
+    /// Determines if decimal mode adds an extra cycle (65C02 only for ADC/SBC)
+    fn decimal_mode_penalty_for_variant(instr: Instruction, registers: Registers) -> u8 {
+        use Instruction::{ADC, SBC};
+
+        // Only 65C02 has decimal mode penalty
+        if !V::is_65c02() {
+            return 0;
+        }
+
+        // Only ADC and SBC have decimal mode penalty (not ADCnd/SBCnd which disable decimal)
+        if !matches!(instr, ADC | SBC) {
+            return 0;
+        }
+
+        // Check if decimal mode flag is set
+        if registers.status.contains(Status::PS_DECIMAL_MODE) {
+            return 1;
+        }
+
+        0
+    }
+
     #[allow(clippy::too_many_lines)]
     pub fn execute_instruction(&mut self, decoded_instr: DecodedInstr) {
-        match decoded_instr {
+        let (instr, mode, operand, page_crossed) = decoded_instr;
+
+        // Calculate and track cycles for this instruction
+        let total_cycles =
+            Self::calculate_instruction_cycles(instr, mode, page_crossed, self.registers);
+        self.cycles = self.cycles.wrapping_add(u64::from(total_cycles));
+
+        match (instr, operand) {
             (Instruction::ADC, OpInput::UseImmediate(val)) => {
                 log::debug!("add with carry immediate: {val}");
                 self.add_with_carry(val);
@@ -1517,9 +1612,24 @@ mod tests {
 
         // Adding $FF plus carry should be the same as adding $00 and no carry, so these three
         // instructions should leave the carry flags unaffected, i.e. set.
-        cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(0x9c)));
-        cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
-        cpu.execute_instruction((Instruction::ADC, OpInput::UseImmediate(0xff)));
+        cpu.execute_instruction((
+            Instruction::LDA,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(0x9c),
+            false,
+        ));
+        cpu.execute_instruction((
+            Instruction::SEC,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
+        cpu.execute_instruction((
+            Instruction::ADC,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(0xff),
+            false,
+        ));
 
         assert_eq!(cpu.registers.accumulator, 0x9c);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
@@ -1528,9 +1638,24 @@ mod tests {
     #[test]
     fn php_sets_bits_4_and_5() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
-        cpu.execute_instruction((Instruction::PHP, OpInput::UseImplied));
-        cpu.execute_instruction((Instruction::PLA, OpInput::UseImplied));
-        cpu.execute_instruction((Instruction::AND, OpInput::UseImmediate(0x30)));
+        cpu.execute_instruction((
+            Instruction::PHP,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
+        cpu.execute_instruction((
+            Instruction::PLA,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
+        cpu.execute_instruction((
+            Instruction::AND,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(0x30),
+            false,
+        ));
 
         assert_eq!(cpu.registers.accumulator, 0x30);
     }
@@ -1648,31 +1773,66 @@ mod tests {
 
         cpu.memory.set_byte(addr, 5);
 
-        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
+        cpu.execute_instruction((
+            Instruction::DEC,
+            AddressingMode::Absolute,
+            OpInput::UseAddress(addr),
+            false,
+        ));
         assert_eq!(cpu.memory.get_byte(addr), 4);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
 
-        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
+        cpu.execute_instruction((
+            Instruction::DEC,
+            AddressingMode::Absolute,
+            OpInput::UseAddress(addr),
+            false,
+        ));
         assert_eq!(cpu.memory.get_byte(addr), 3);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
 
-        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
-        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
-        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
+        cpu.execute_instruction((
+            Instruction::DEC,
+            AddressingMode::Absolute,
+            OpInput::UseAddress(addr),
+            false,
+        ));
+        cpu.execute_instruction((
+            Instruction::DEC,
+            AddressingMode::Absolute,
+            OpInput::UseAddress(addr),
+            false,
+        ));
+        cpu.execute_instruction((
+            Instruction::DEC,
+            AddressingMode::Absolute,
+            OpInput::UseAddress(addr),
+            false,
+        ));
         assert_eq!(cpu.memory.get_byte(addr), 0);
         assert!(cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
 
-        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
+        cpu.execute_instruction((
+            Instruction::DEC,
+            AddressingMode::Absolute,
+            OpInput::UseAddress(addr),
+            false,
+        ));
         assert_eq!(cpu.memory.get_byte(addr) as i8, -1);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
 
         cpu.memory.set_byte(addr, 0);
 
-        cpu.execute_instruction((Instruction::DEC, OpInput::UseAddress(addr)));
+        cpu.execute_instruction((
+            Instruction::DEC,
+            AddressingMode::Absolute,
+            OpInput::UseAddress(addr),
+            false,
+        ));
         assert_eq!(cpu.memory.get_byte(addr), 0xff);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
@@ -1682,7 +1842,12 @@ mod tests {
     fn decrement_x_test() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.registers.index_x = 0x80;
-        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
+        cpu.execute_instruction((
+            Instruction::DEX,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
         assert_eq!(cpu.registers.index_x, 127);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
@@ -1692,7 +1857,12 @@ mod tests {
     fn decrement_y_test() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
         cpu.registers.index_y = 0x80;
-        cpu.execute_instruction((Instruction::DEY, OpInput::UseImplied));
+        cpu.execute_instruction((
+            Instruction::DEY,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
         assert_eq!(cpu.registers.index_y, 127);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
@@ -1703,32 +1873,72 @@ mod tests {
         // Testing UseImplied version (which targets the accumulator) only, for now
 
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
-        cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(0)));
-        cpu.execute_instruction((Instruction::LSR, OpInput::UseImplied));
+        cpu.execute_instruction((
+            Instruction::LDA,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(0),
+            false,
+        ));
+        cpu.execute_instruction((
+            Instruction::LSR,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
         assert_eq!(cpu.registers.accumulator, 0);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(1)));
-        cpu.execute_instruction((Instruction::LSR, OpInput::UseImplied));
+        cpu.execute_instruction((
+            Instruction::LDA,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(1),
+            false,
+        ));
+        cpu.execute_instruction((
+            Instruction::LSR,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
         assert_eq!(cpu.registers.accumulator, 0);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
         assert!(cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(255)));
-        cpu.execute_instruction((Instruction::LSR, OpInput::UseImplied));
+        cpu.execute_instruction((
+            Instruction::LDA,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(255),
+            false,
+        ));
+        cpu.execute_instruction((
+            Instruction::LSR,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
         assert_eq!(cpu.registers.accumulator, 0x7F);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(254)));
-        cpu.execute_instruction((Instruction::LSR, OpInput::UseImplied));
+        cpu.execute_instruction((
+            Instruction::LDA,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(254),
+            false,
+        ));
+        cpu.execute_instruction((
+            Instruction::LSR,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
         assert_eq!(cpu.registers.accumulator, 0x7F);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
@@ -1740,14 +1950,24 @@ mod tests {
     fn dec_x_test() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
-        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
+        cpu.execute_instruction((
+            Instruction::DEX,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
         assert_eq!(cpu.registers.index_x, 0xff);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
+        cpu.execute_instruction((
+            Instruction::DEX,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
         assert_eq!(cpu.registers.index_x, 0xfe);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
@@ -1755,17 +1975,42 @@ mod tests {
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
         cpu.load_x_register(5);
-        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
+        cpu.execute_instruction((
+            Instruction::DEX,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
         assert_eq!(cpu.registers.index_x, 4);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
-        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
-        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
-        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
+        cpu.execute_instruction((
+            Instruction::DEX,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
+        cpu.execute_instruction((
+            Instruction::DEX,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
+        cpu.execute_instruction((
+            Instruction::DEX,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
+        cpu.execute_instruction((
+            Instruction::DEX,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
 
         assert_eq!(cpu.registers.index_x, 0);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
@@ -1773,7 +2018,12 @@ mod tests {
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
 
-        cpu.execute_instruction((Instruction::DEX, OpInput::UseImplied));
+        cpu.execute_instruction((
+            Instruction::DEX,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
         assert_eq!(cpu.registers.index_x, 0xff);
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
@@ -1794,11 +2044,21 @@ mod tests {
     fn branch_if_carry_clear_test() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
-        cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
+        cpu.execute_instruction((
+            Instruction::SEC,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
         cpu.branch_if_carry_clear(0xABCD);
         assert_eq!(cpu.registers.program_counter, (0));
 
-        cpu.execute_instruction((Instruction::CLC, OpInput::UseImplied));
+        cpu.execute_instruction((
+            Instruction::CLC,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
         cpu.branch_if_carry_clear(0xABCD);
         assert_eq!(cpu.registers.program_counter, (0xABCD));
     }
@@ -1807,11 +2067,21 @@ mod tests {
     fn branch_if_carry_set_test() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
-        cpu.execute_instruction((Instruction::CLC, OpInput::UseImplied));
+        cpu.execute_instruction((
+            Instruction::CLC,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
         cpu.branch_if_carry_set(0xABCD);
         assert_eq!(cpu.registers.program_counter, (0));
 
-        cpu.execute_instruction((Instruction::SEC, OpInput::UseImplied));
+        cpu.execute_instruction((
+            Instruction::SEC,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
         cpu.branch_if_carry_set(0xABCD);
         assert_eq!(cpu.registers.program_counter, (0xABCD));
     }
@@ -1906,42 +2176,72 @@ mod tests {
     {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
-        cpu.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
+        cpu.execute_instruction((
+            load_instruction,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(127),
+            false,
+        ));
 
         compare(&mut cpu, 127);
         assert!(cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
 
-        cpu.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
+        cpu.execute_instruction((
+            load_instruction,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(127),
+            false,
+        ));
 
         compare(&mut cpu, 1);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
 
-        cpu.execute_instruction((load_instruction, OpInput::UseImmediate(1)));
+        cpu.execute_instruction((
+            load_instruction,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(1),
+            false,
+        ));
 
         compare(&mut cpu, 2);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
 
-        cpu.execute_instruction((load_instruction, OpInput::UseImmediate(20)));
+        cpu.execute_instruction((
+            load_instruction,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(20),
+            false,
+        ));
 
         compare(&mut cpu, -50i8 as u8);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
 
-        cpu.execute_instruction((load_instruction, OpInput::UseImmediate(1)));
+        cpu.execute_instruction((
+            load_instruction,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(1),
+            false,
+        ));
 
         compare(&mut cpu, -1i8 as u8);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(!cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
 
-        cpu.execute_instruction((load_instruction, OpInput::UseImmediate(127)));
+        cpu.execute_instruction((
+            load_instruction,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(127),
+            false,
+        ));
 
         compare(&mut cpu, -128i8 as u8);
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
@@ -1985,7 +2285,12 @@ mod tests {
 
         for a_before in 0u8..=255u8 {
             for val in 0u8..=255u8 {
-                cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(a_before)));
+                cpu.execute_instruction((
+                    Instruction::LDA,
+                    AddressingMode::Immediate,
+                    OpInput::UseImmediate(a_before),
+                    false,
+                ));
 
                 cpu.exclusive_or(val);
 
@@ -2013,7 +2318,12 @@ mod tests {
 
         for a_before in 0u8..=255u8 {
             for val in 0u8..=255u8 {
-                cpu.execute_instruction((Instruction::LDA, OpInput::UseImmediate(a_before)));
+                cpu.execute_instruction((
+                    Instruction::LDA,
+                    AddressingMode::Immediate,
+                    OpInput::UseImmediate(a_before),
+                    false,
+                ));
 
                 cpu.inclusive_or(val);
 
@@ -2317,7 +2627,12 @@ mod tests {
         // Value at address to test
         cpu.memory.set_byte(0x15, 0b1100_0000);
 
-        cpu.execute_instruction((Instruction::BIT, OpInput::UseAddress(0x15)));
+        cpu.execute_instruction((
+            Instruction::BIT,
+            AddressingMode::Absolute,
+            OpInput::UseAddress(0x15),
+            false,
+        ));
 
         // BIT should set N and V from memory value, Z from AND result
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
@@ -2335,7 +2650,12 @@ mod tests {
         // Value at address to test
         cpu.memory.set_byte(0x1005, 0b0100_0000);
 
-        cpu.execute_instruction((Instruction::BIT, OpInput::UseAddress(0x1005)));
+        cpu.execute_instruction((
+            Instruction::BIT,
+            AddressingMode::Absolute,
+            OpInput::UseAddress(0x1005),
+            false,
+        ));
 
         // BIT should set V from memory value
         assert!(cpu.registers.status.contains(Status::PS_OVERFLOW));
@@ -2350,7 +2670,12 @@ mod tests {
         let mut cpu = CPU::new(Ram::new(), Cmos6502);
 
         // Target address is $3456
-        cpu.execute_instruction((Instruction::JMP, OpInput::UseAddress(0x3456)));
+        cpu.execute_instruction((
+            Instruction::JMP,
+            AddressingMode::Absolute,
+            OpInput::UseAddress(0x3456),
+            false,
+        ));
 
         // PC should now be $3456
         assert_eq!(cpu.registers.program_counter, 0x3456);
@@ -2365,7 +2690,12 @@ mod tests {
         let pc_before = cpu.registers.program_counter;
 
         // Execute WAI instruction
-        cpu.execute_instruction((Instruction::WAI, OpInput::UseImplied));
+        cpu.execute_instruction((
+            Instruction::WAI,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
 
         // PC should not change (in this simple implementation)
         // In a real CPU, this would halt until interrupt
@@ -2410,5 +2740,267 @@ mod tests {
         cpu.reset(); // Reset again to jump to our new reset vector
         cpu.single_step(); // Execute LDA
         assert_eq!(cpu.registers.accumulator, 0x99);
+    }
+}
+
+#[cfg(test)]
+mod cycle_timing_tests {
+    use super::*;
+    use crate::instruction::{Cmos6502, Instruction, Nmos6502};
+    use crate::memory::Memory as Ram;
+
+    #[test]
+    fn test_basic_cycle_counting() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+        assert_eq!(cpu.cycles, 0);
+
+        // LDA #$42 - Immediate mode: 2 cycles
+        cpu.execute_instruction((
+            Instruction::LDA,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(0x42),
+            false,
+        ));
+        assert_eq!(cpu.cycles, 2);
+
+        // NOP - Implied mode: 2 cycles
+        cpu.execute_instruction((
+            Instruction::NOP,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
+        assert_eq!(cpu.cycles, 4);
+
+        // ADC #$01 - Immediate mode: 2 cycles (NMOS, no decimal penalty)
+        cpu.execute_instruction((
+            Instruction::ADC,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(0x01),
+            false,
+        ));
+        assert_eq!(cpu.cycles, 6);
+    }
+
+    #[test]
+    fn test_decimal_mode_penalty_65c02() {
+        let mut cpu = CPU::new(Ram::new(), Cmos6502);
+        assert_eq!(cpu.cycles, 0);
+
+        // ADC #$01 without decimal mode: 2 cycles
+        cpu.execute_instruction((
+            Instruction::ADC,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(0x01),
+            false,
+        ));
+        assert_eq!(cpu.cycles, 2);
+
+        // Set decimal mode
+        cpu.set_flag(Status::PS_DECIMAL_MODE);
+
+        // ADC #$01 with decimal mode on 65C02: 3 cycles (2 + 1 decimal penalty)
+        cpu.execute_instruction((
+            Instruction::ADC,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(0x01),
+            false,
+        ));
+        assert_eq!(cpu.cycles, 5); // 2 + 3
+    }
+
+    #[test]
+    fn test_no_decimal_penalty_on_nmos() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        // Set decimal mode
+        cpu.set_flag(Status::PS_DECIMAL_MODE);
+
+        // ADC #$01 with decimal mode on NMOS: still 2 cycles (no penalty)
+        cpu.execute_instruction((
+            Instruction::ADC,
+            AddressingMode::Immediate,
+            OpInput::UseImmediate(0x01),
+            false,
+        ));
+        assert_eq!(cpu.cycles, 2);
+    }
+
+    #[test]
+    fn test_various_instruction_cycles() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        // BRK - 7 cycles
+        cpu.execute_instruction((
+            Instruction::BRK,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+            false,
+        ));
+        assert_eq!(cpu.cycles, 7);
+
+        cpu.cycles = 0; // Reset for next test
+
+        // JSR - 6 cycles
+        cpu.execute_instruction((
+            Instruction::JSR,
+            AddressingMode::Absolute,
+            OpInput::UseAddress(0x1234),
+            false,
+        ));
+        assert_eq!(cpu.cycles, 6);
+
+        cpu.cycles = 0;
+
+        // ASL A - Accumulator mode: 2 cycles
+        cpu.execute_instruction((
+            Instruction::ASL,
+            AddressingMode::Accumulator,
+            OpInput::UseImplied,
+            false,
+        ));
+        assert_eq!(cpu.cycles, 2);
+
+        cpu.cycles = 0;
+
+        // ASL $00 - Zero page: 5 cycles
+        cpu.execute_instruction((
+            Instruction::ASL,
+            AddressingMode::ZeroPage,
+            OpInput::UseAddress(0x00),
+            false,
+        ));
+        assert_eq!(cpu.cycles, 5);
+    }
+
+    #[test]
+    fn test_cycles_accumulate() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        // Execute multiple instructions and verify cycles accumulate
+        for _ in 0..10 {
+            cpu.execute_instruction((
+                Instruction::NOP,
+                AddressingMode::Implied,
+                OpInput::UseImplied,
+                false,
+            ));
+        }
+
+        assert_eq!(cpu.cycles, 20); // 10 instructions × 2 cycles each
+    }
+
+    #[test]
+    fn test_page_crossing_detection() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        // Test 1: LDA $1200,X with X=$FF - no page crossing (stays in $12xx)
+        cpu.registers.index_x = 0xFF;
+        cpu.execute_instruction((
+            Instruction::LDA,
+            AddressingMode::AbsoluteX,
+            OpInput::UseAddress(0x12FF),
+            false, // Base $1200 + X $FF = $12FF
+        ));
+        // Base cycles: 4, no page crossing penalty
+        assert_eq!(cpu.cycles, 4);
+
+        cpu.cycles = 0;
+
+        // Test 2: LDA $12FF,X with X=$02 - page crossing! ($12 -> $13)
+        cpu.registers.index_x = 0x02;
+        cpu.execute_instruction((
+            Instruction::LDA,
+            AddressingMode::AbsoluteX,
+            OpInput::UseAddress(0x1301),
+            true, // Base $12FF + X $02 = $1301
+        ));
+        // Base cycles: 4, page crossing penalty: +1 = 5 total
+        assert_eq!(cpu.cycles, 5);
+
+        cpu.cycles = 0;
+
+        // Test 3: LDA $10FF,Y with Y=$01 - page crossing! ($10 -> $11)
+        cpu.registers.index_y = 0x01;
+        cpu.execute_instruction((
+            Instruction::LDA,
+            AddressingMode::AbsoluteY,
+            OpInput::UseAddress(0x1100),
+            true, // Base $10FF + Y $01 = $1100
+        ));
+        // Base cycles: 4, page crossing penalty: +1 = 5 total
+        assert_eq!(cpu.cycles, 5);
+
+        cpu.cycles = 0;
+
+        // Test 4: STA $12FF,X with X=$02 - page crossing but NO PENALTY for stores!
+        cpu.registers.index_x = 0x02;
+        cpu.execute_instruction((
+            Instruction::STA,
+            AddressingMode::AbsoluteX,
+            OpInput::UseAddress(0x1301),
+            true, // Base $12FF + X $02 = $1301
+        ));
+        // Base cycles: 5, NO page crossing penalty for stores
+        assert_eq!(cpu.cycles, 5);
+    }
+
+    #[test]
+    fn test_page_crossing_edge_cases() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        // Edge case 1: Wrapping at end of address space
+        cpu.registers.index_x = 0xFF;
+        cpu.execute_instruction((
+            Instruction::LDA,
+            AddressingMode::AbsoluteX,
+            OpInput::UseAddress(0x00FE),
+            true, // Base $FFFF + X $FF = $00FE (wrapped)
+        ));
+        // Should detect page crossing: $FF -> $00
+        assert_eq!(cpu.cycles, 5); // 4 + 1 page crossing
+
+        cpu.cycles = 0;
+
+        // Edge case 2: No crossing at page boundary
+        cpu.registers.index_x = 0x00;
+        cpu.execute_instruction((
+            Instruction::LDA,
+            AddressingMode::AbsoluteX,
+            OpInput::UseAddress(0x1200),
+            false, // Base $1200 + X $00 = $1200
+        ));
+        // No page crossing
+        assert_eq!(cpu.cycles, 4);
+    }
+
+    #[test]
+    fn test_indirect_indexed_page_crossing() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        // IndirectIndexedY: LDA ($80),Y where Y=$10
+        // If the value at $80-$81 is $12F0, then final is $1300 (page crossed)
+        cpu.registers.index_y = 0x10;
+        cpu.execute_instruction((
+            Instruction::LDA,
+            AddressingMode::IndirectIndexedY,
+            OpInput::UseAddress(0x1300),
+            true, // Base $12F0 + Y $10 = $1300
+        ));
+        // Base cycles: 5, page crossing penalty: +1 = 6 total
+        assert_eq!(cpu.cycles, 6);
+
+        cpu.cycles = 0;
+
+        // Same mode, no page crossing
+        cpu.registers.index_y = 0x05;
+        cpu.execute_instruction((
+            Instruction::LDA,
+            AddressingMode::IndirectIndexedY,
+            OpInput::UseAddress(0x1205),
+            false, // Base $1200 + Y $05 = $1205
+        ));
+        // Base cycles: 5, no page crossing
+        assert_eq!(cpu.cycles, 5);
     }
 }
