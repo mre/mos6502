@@ -69,7 +69,7 @@ where
     pub memory: M,
     /// Total number of cycles elapsed since CPU creation or last reset.
     /// Used for cycle-accurate emulation and synchronization with other components.
-    /// Uses u64 to prevent overflow (would take 584,942 years at 1MHz to overflow).
+    /// Uses u64 to prevent wraparound (would take 584,942 years at 1MHz to wrap).
     pub cycles: u64,
     /// Indicates if the CPU is halted (e.g., by STP instruction on 65C02)
     halted: bool,
