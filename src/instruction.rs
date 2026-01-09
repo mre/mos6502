@@ -247,7 +247,7 @@ impl Instruction {
     /// - Decimal mode on 65C02 (+1 for ADC/SBC when D flag is set)
     /// - Branch instructions (+1 if taken, +2 if taken and crosses page)
     #[must_use]
-    pub const fn base_cycles(self, mode: AddressingMode) -> u8 {
+    pub fn base_cycles(self, mode: AddressingMode) -> u8 {
         #[allow(clippy::enum_glob_use)]
         use AddressingMode::*;
         #[allow(clippy::enum_glob_use)]
@@ -492,7 +492,7 @@ impl Instruction {
             (WAI, Implied) => 3,
 
             // Invalid combinations return 0 (checked at runtime during decode)
-            _ => 0,
+            _ => unreachable!("undecoded instruction"),
         }
     }
 }
