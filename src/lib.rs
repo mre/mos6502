@@ -118,16 +118,6 @@ pub trait Variant {
         crate::instruction::AddressingMode,
     )>;
 
-    /// Returns true if this is the 65C02 CMOS variant (Western Design Center)
-    ///
-    /// The 65C02 has additional timing characteristics compared to NMOS variants:
-    /// - ADC/SBC take +1 cycle in decimal mode (when D flag is set)
-    /// - JMP (indirect) takes 6 cycles instead of 5 (and fixes the page-crossing bug)
-    #[must_use]
-    fn is_65c02() -> bool {
-        false // Default to false, overridden by Cmos6502
-    }
-
     /// Returns the cycle penalty for ADC/SBC in decimal mode for this variant.
     ///
     /// - NMOS/Ricoh: 0 (no penalty)
