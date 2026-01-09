@@ -502,7 +502,20 @@ pub enum OpInput {
     UseImplied,
     UseImmediate(u8),
     UseRelative(u16),
-    UseAddress(u16),
+    UseAddress { address: u16, page_crossed: bool },
+}
+
+impl OpInput {
+    /// Returns true if a page boundary was crossed during address calculation.
+    ///
+    /// Only relevant for `UseAddress` - all other addressing modes return false.
+    #[must_use]
+    pub const fn page_crossed(&self) -> bool {
+        match self {
+            OpInput::UseAddress { page_crossed, .. } => *page_crossed,
+            _ => false,
+        }
+    }
 }
 
 impl Display for OpInput {
@@ -511,7 +524,7 @@ impl Display for OpInput {
             OpInput::UseImplied => write!(f, ""),
             OpInput::UseImmediate(v) => write!(f, "#${v:02X}"),
             OpInput::UseRelative(v) => write!(f, "${v:04X}"),
-            OpInput::UseAddress(v) => write!(f, "${v:04X}"),
+            OpInput::UseAddress { address, .. } => write!(f, "${address:04X}"),
         }
     }
 }
@@ -594,7 +607,7 @@ impl AddressingMode {
 
 /// A decoded instruction containing the instruction type, addressing mode, operand data,
 /// and whether a page boundary was crossed during address calculation (used for cycle counting).
-pub type DecodedInstr = (Instruction, AddressingMode, OpInput, bool);
+pub type DecodedInstr = (Instruction, AddressingMode, OpInput);
 
 /// The NMOS 6502 variant. This one is present in the Commodore 64, early Apple IIs, etc.
 #[derive(Copy, Clone, Debug, Default)]
