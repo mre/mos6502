@@ -39,9 +39,9 @@ const VECTOR_TIMER_READ: u16 = 0x2040; // Read timer into X
 const VECTOR_END_TEST: u16 = 0x2050; // End of test, A contains failure count
 
 // Memory locations for timer state
-const TIMER_START_ADDR: u16 = 0xFE64; // Where we store the timer start value
-const TIMER_CYCLES_LO: u16 = 0xFE65; // Low byte of start cycles
-const TIMER_CYCLES_HI: u16 = 0xFE66; // High byte of start cycles
+// const TIMER_START_ADDR: u16 = 0xFE64; // Where we store the timer start value
+// const TIMER_CYCLES_LO: u16 = 0xFE65; // Low byte of start cycles
+// const TIMER_CYCLES_HI: u16 = 0xFE66; // High byte of start cycles
 
 // Safety limit
 const MAX_INSTRUCTIONS: u64 = 200_000_000;
