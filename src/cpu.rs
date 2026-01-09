@@ -342,7 +342,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     /// This is the main entry point for cycle calculation, combining:
     /// - Base cycles from the instruction/addressing mode lookup table
     /// - Page crossing penalties (+1 for loads when page boundary crossed)
-    /// - Decimal mode penalties (65C02 only, +1 for ADC/SBC when D flag is set)
+    /// - Decimal mode penalties (variant-specific, +1 for ADC/SBC on 65C02 when D flag is set)
     ///
     /// # Arguments
     /// * `instr` - The instruction being executed
@@ -365,20 +365,19 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         // Page crossing penalty: +1 cycle for loads (not stores!)
         let page_penalty = u8::from(page_crossed && !matches!(instr, STA | STX | STY | STZ));
 
-        // Decimal mode penalty: +1 cycle for ADC/SBC on 65C02 when D flag is set
+        // Decimal mode penalty: variant-specific (e.g., +1 for ADC/SBC on 65C02 when D flag is set)
         let decimal_penalty = Self::decimal_mode_penalty_for_variant(instr, registers);
 
         base_cycles + page_penalty + decimal_penalty
     }
 
-    /// Determines if decimal mode adds an extra cycle (65C02 only for ADC/SBC)
+    /// Determines if decimal mode adds an extra cycle for this instruction and variant.
+    ///
+    /// Returns the penalty cycles for ADC/SBC in decimal mode, which varies by variant:
+    /// - NMOS/Ricoh: 0 (no penalty)
+    /// - 65C02: 1 (when D flag is set and instruction is ADC/SBC)
     fn decimal_mode_penalty_for_variant(instr: Instruction, registers: Registers) -> u8 {
         use Instruction::{ADC, SBC};
-
-        // Only 65C02 has decimal mode penalty
-        if !V::is_65c02() {
-            return 0;
-        }
 
         // Only ADC and SBC have decimal mode penalty (not ADCnd/SBCnd which disable decimal)
         if !matches!(instr, ADC | SBC) {
@@ -386,11 +385,12 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         }
 
         // Check if decimal mode flag is set
-        if registers.status.contains(Status::PS_DECIMAL_MODE) {
-            return 1;
+        if !registers.status.contains(Status::PS_DECIMAL_MODE) {
+            return 0;
         }
 
-        0
+        // Return variant-specific penalty
+        V::penalty_cycles_for_decimal_mode()
     }
 
     #[allow(clippy::too_many_lines)]

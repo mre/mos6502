@@ -1469,4 +1469,12 @@ impl crate::Variant for Cmos6502 {
     fn is_65c02() -> bool {
         true
     }
+
+    fn penalty_cycles_for_decimal_mode() -> u8 {
+        1 // 65C02 adds 1 cycle for ADC/SBC in decimal mode
+    }
+
+    fn penalty_cycles_for_indirect_jmp() -> u8 {
+        1 // 65C02 takes 6 cycles for JMP (indirect) instead of 5
+    }
 }
