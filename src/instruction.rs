@@ -491,7 +491,7 @@ impl Instruction {
             // WAI - Wait for Interrupt (65C02 only, 3 cycles before waiting)
             (WAI, Implied) => 3,
 
-            // Invalid combinations return 0 (checked at runtime during decode)
+            // Invalid combinations cause a panic to indicate a bug in the decoder
             _ => unreachable!("undecoded instruction"),
         }
     }
