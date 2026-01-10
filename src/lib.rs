@@ -118,6 +118,26 @@ pub trait Variant {
         crate::instruction::AddressingMode,
     )>;
 
+    /// Returns the cycle penalty for ADC/SBC in decimal mode for this variant.
+    ///
+    /// - NMOS/Ricoh: 0 (no penalty)
+    /// - 65C02: 1 (decimal mode adds an extra cycle)
+    /// - Future variants may have different values
+    #[must_use]
+    fn penalty_cycles_for_decimal_mode() -> u8 {
+        0 // Default: no penalty
+    }
+
+    /// Returns the cycle penalty for JMP (indirect) for this variant.
+    ///
+    /// - NMOS/Ricoh: 0 (5 cycles total)
+    /// - 65C02: 1 (6 cycles total, also fixes page-crossing bug)
+    /// - Future HMOS 7501: 0 (5 cycles)
+    #[must_use]
+    fn penalty_cycles_for_indirect_jmp() -> u8 {
+        0 // Default: no penalty
+    }
+
     /// Execute Add with Carry (ADC) in binary mode
     ///
     /// # Arguments

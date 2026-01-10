@@ -239,12 +239,283 @@ pub enum Instruction {
     STP,
 }
 
+impl Instruction {
+    /// Returns the base cycle count for this instruction with the given addressing mode.
+    ///
+    /// This returns the minimum number of cycles required. Additional cycles may be added for:
+    /// - Page boundary crossings (+1 for certain addressing modes)
+    /// - Decimal mode on 65C02 (+1 for ADC/SBC when D flag is set)
+    /// - Branch instructions (+1 if taken, +2 if taken and crosses page)
+    #[must_use]
+    pub fn base_cycles(self, mode: AddressingMode) -> u8 {
+        #[allow(clippy::enum_glob_use)]
+        use AddressingMode::*;
+        #[allow(clippy::enum_glob_use)]
+        use Instruction::*;
+
+        match (self, mode) {
+            // ADC - Add with Carry (2-6 cycles, +1 for page crossing on some modes, +1 for decimal on 65C02)
+            (ADC | ADCnd, Immediate) => 2,
+            (ADC | ADCnd, ZeroPage) => 3,
+            (ADC | ADCnd, ZeroPageX) => 4,
+            (ADC | ADCnd, Absolute) => 4,
+            (ADC | ADCnd, AbsoluteX) => 4, // +1 if page crossed
+            (ADC | ADCnd, AbsoluteY) => 4, // +1 if page crossed
+            (ADC | ADCnd, IndexedIndirectX) => 6,
+            (ADC | ADCnd, IndirectIndexedY) => 5, // +1 if page crossed
+            (ADC | ADCnd, ZeroPageIndirect) => 5, // 65C02 only
+
+            // AND - Logical AND (2-6 cycles)
+            (AND, Immediate) => 2,
+            (AND, ZeroPage) => 3,
+            (AND, ZeroPageX) => 4,
+            (AND, Absolute) => 4,
+            (AND, AbsoluteX) => 4, // +1 if page crossed
+            (AND, AbsoluteY) => 4, // +1 if page crossed
+            (AND, IndexedIndirectX) => 6,
+            (AND, IndirectIndexedY) => 5, // +1 if page crossed
+            (AND, ZeroPageIndirect) => 5, // 65C02 only
+
+            // ASL - Arithmetic Shift Left (2-7 cycles)
+            (ASL, Accumulator) => 2,
+            (ASL, ZeroPage) => 5,
+            (ASL, ZeroPageX) => 6,
+            (ASL, Absolute) => 6,
+            (ASL, AbsoluteX) => 7,
+
+            // Branch instructions - 2 cycles base, +1 if taken, +1 more if page crossed
+            (BCC | BCS | BEQ | BMI | BNE | BPL | BVC | BVS, Relative) => 2,
+
+            // BRA - Branch Always (65C02 only) - 3 cycles, +1 if page crossed
+            (BRA, Relative) => 3,
+
+            // BIT - Bit Test (2-4 cycles)
+            (BIT, ZeroPage) => 3,
+            (BIT, Absolute) => 4,
+            (BIT, ZeroPageX) => 4, // 65C02 only
+            (BIT, AbsoluteX) => 4, // 65C02 only, +1 if page crossed
+            (BIT, Immediate) => 2, // 65C02 only
+
+            // BRK - Break (7 cycles)
+            (BRK | BRKcld, Implied) => 7,
+
+            // CMP - Compare Accumulator (2-6 cycles)
+            (CMP, Immediate) => 2,
+            (CMP, ZeroPage) => 3,
+            (CMP, ZeroPageX) => 4,
+            (CMP, Absolute) => 4,
+            (CMP, AbsoluteX) => 4, // +1 if page crossed
+            (CMP, AbsoluteY) => 4, // +1 if page crossed
+            (CMP, IndexedIndirectX) => 6,
+            (CMP, IndirectIndexedY) => 5, // +1 if page crossed
+            (CMP, ZeroPageIndirect) => 5, // 65C02 only
+
+            // CPX - Compare X Register (2-4 cycles)
+            (CPX, Immediate) => 2,
+            (CPX, ZeroPage) => 3,
+            (CPX, Absolute) => 4,
+
+            // CPY - Compare Y Register (2-4 cycles)
+            (CPY, Immediate) => 2,
+            (CPY, ZeroPage) => 3,
+            (CPY, Absolute) => 4,
+
+            // DEC - Decrement Memory (2-7 cycles)
+            (DEC, Accumulator) => 2, // 65C02 only
+            (DEC, ZeroPage) => 5,
+            (DEC, ZeroPageX) => 6,
+            (DEC, Absolute) => 6,
+            (DEC, AbsoluteX) => 7,
+
+            // DEX/DEY - Decrement X/Y (2 cycles)
+            (DEX | DEY, Implied) => 2,
+
+            // EOR - Exclusive OR (2-6 cycles)
+            (EOR, Immediate) => 2,
+            (EOR, ZeroPage) => 3,
+            (EOR, ZeroPageX) => 4,
+            (EOR, Absolute) => 4,
+            (EOR, AbsoluteX) => 4, // +1 if page crossed
+            (EOR, AbsoluteY) => 4, // +1 if page crossed
+            (EOR, IndexedIndirectX) => 6,
+            (EOR, IndirectIndexedY) => 5, // +1 if page crossed
+            (EOR, ZeroPageIndirect) => 5, // 65C02 only
+
+            // Flag instructions (2 cycles)
+            (CLC | CLD | CLI | CLV | SEC | SED | SEI, Implied) => 2,
+
+            // INC - Increment Memory (2-7 cycles)
+            (INC, Accumulator) => 2, // 65C02 only
+            (INC, ZeroPage) => 5,
+            (INC, ZeroPageX) => 6,
+            (INC, Absolute) => 6,
+            (INC, AbsoluteX) => 7,
+
+            // INX/INY - Increment X/Y (2 cycles)
+            (INX | INY, Implied) => 2,
+
+            // JMP - Jump (3-6 cycles)
+            (JMP, Absolute) => 3,
+            (JMP, BuggyIndirect) => 5,           // NMOS with bug
+            (JMP, Indirect) => 6,                // 65C02 fixed version
+            (JMP, AbsoluteIndexedIndirect) => 6, // 65C02 only
+
+            // JSR - Jump to Subroutine (6 cycles)
+            (JSR, Absolute) => 6,
+
+            // LDA - Load Accumulator (2-6 cycles)
+            (LDA, Immediate) => 2,
+            (LDA, ZeroPage) => 3,
+            (LDA, ZeroPageX) => 4,
+            (LDA, Absolute) => 4,
+            (LDA, AbsoluteX) => 4, // +1 if page crossed
+            (LDA, AbsoluteY) => 4, // +1 if page crossed
+            (LDA, IndexedIndirectX) => 6,
+            (LDA, IndirectIndexedY) => 5, // +1 if page crossed
+            (LDA, ZeroPageIndirect) => 5, // 65C02 only
+
+            // LDX - Load X Register (2-4 cycles)
+            (LDX, Immediate) => 2,
+            (LDX, ZeroPage) => 3,
+            (LDX, ZeroPageY) => 4,
+            (LDX, Absolute) => 4,
+            (LDX, AbsoluteY) => 4, // +1 if page crossed
+
+            // LDY - Load Y Register (2-4 cycles)
+            (LDY, Immediate) => 2,
+            (LDY, ZeroPage) => 3,
+            (LDY, ZeroPageX) => 4,
+            (LDY, Absolute) => 4,
+            (LDY, AbsoluteX) => 4, // +1 if page crossed
+
+            // LSR - Logical Shift Right (2-7 cycles)
+            (LSR, Accumulator) => 2,
+            (LSR, ZeroPage) => 5,
+            (LSR, ZeroPageX) => 6,
+            (LSR, Absolute) => 6,
+            (LSR, AbsoluteX) => 7,
+
+            // NOP - No Operation (2 cycles)
+            (NOP, Implied) => 2,
+
+            // ORA - Logical OR (2-6 cycles)
+            (ORA, Immediate) => 2,
+            (ORA, ZeroPage) => 3,
+            (ORA, ZeroPageX) => 4,
+            (ORA, Absolute) => 4,
+            (ORA, AbsoluteX) => 4, // +1 if page crossed
+            (ORA, AbsoluteY) => 4, // +1 if page crossed
+            (ORA, IndexedIndirectX) => 6,
+            (ORA, IndirectIndexedY) => 5, // +1 if page crossed
+            (ORA, ZeroPageIndirect) => 5, // 65C02 only
+
+            // PHA/PHP - Push Accumulator/Processor Status (3 cycles)
+            (PHA | PHP, Implied) => 3,
+
+            // PHX/PHY - Push X/Y (65C02 only, 3 cycles)
+            (PHX | PHY, Implied) => 3,
+
+            // PLA/PLP - Pull Accumulator/Processor Status (4 cycles)
+            (PLA | PLP, Implied) => 4,
+
+            // PLX/PLY - Pull X/Y (65C02 only, 4 cycles)
+            (PLX | PLY, Implied) => 4,
+
+            // ROL - Rotate Left (2-7 cycles)
+            (ROL, Accumulator) => 2,
+            (ROL, ZeroPage) => 5,
+            (ROL, ZeroPageX) => 6,
+            (ROL, Absolute) => 6,
+            (ROL, AbsoluteX) => 7,
+
+            // ROR - Rotate Right (2-7 cycles)
+            (ROR, Accumulator) => 2,
+            (ROR, ZeroPage) => 5,
+            (ROR, ZeroPageX) => 6,
+            (ROR, Absolute) => 6,
+            (ROR, AbsoluteX) => 7,
+
+            // RTI - Return from Interrupt (6 cycles)
+            (RTI, Implied) => 6,
+
+            // RTS - Return from Subroutine (6 cycles)
+            (RTS, Implied) => 6,
+
+            // SBC - Subtract with Carry (2-6 cycles, +1 for page crossing, +1 for decimal on 65C02)
+            (SBC | SBCnd, Immediate) => 2,
+            (SBC | SBCnd, ZeroPage) => 3,
+            (SBC | SBCnd, ZeroPageX) => 4,
+            (SBC | SBCnd, Absolute) => 4,
+            (SBC | SBCnd, AbsoluteX) => 4, // +1 if page crossed
+            (SBC | SBCnd, AbsoluteY) => 4, // +1 if page crossed
+            (SBC | SBCnd, IndexedIndirectX) => 6,
+            (SBC | SBCnd, IndirectIndexedY) => 5, // +1 if page crossed
+            (SBC | SBCnd, ZeroPageIndirect) => 5, // 65C02 only
+
+            // STA - Store Accumulator (3-6 cycles, NO page crossing penalty)
+            (STA, ZeroPage) => 3,
+            (STA, ZeroPageX) => 4,
+            (STA, Absolute) => 4,
+            (STA, AbsoluteX) => 5,
+            (STA, AbsoluteY) => 5,
+            (STA, IndexedIndirectX) => 6,
+            (STA, IndirectIndexedY) => 6,
+            (STA, ZeroPageIndirect) => 5, // 65C02 only
+
+            // STX - Store X Register (3-4 cycles)
+            (STX, ZeroPage) => 3,
+            (STX, ZeroPageY) => 4,
+            (STX, Absolute) => 4,
+
+            // STY - Store Y Register (3-4 cycles)
+            (STY, ZeroPage) => 3,
+            (STY, ZeroPageX) => 4,
+            (STY, Absolute) => 4,
+
+            // STZ - Store Zero (65C02 only, 3-5 cycles)
+            (STZ, ZeroPage) => 3,
+            (STZ, ZeroPageX) => 4,
+            (STZ, Absolute) => 4,
+            (STZ, AbsoluteX) => 5,
+
+            // Transfer instructions (2 cycles)
+            (TAX | TAY | TSX | TXA | TXS | TYA, Implied) => 2,
+
+            // TRB/TSB - Test and Reset/Set Bits (65C02 only, 5-6 cycles)
+            (TRB | TSB, ZeroPage) => 5,
+            (TRB | TSB, Absolute) => 6,
+
+            // STP - Stop (65C02 only, 3 cycles before halting)
+            (STP, Implied) => 3,
+
+            // WAI - Wait for Interrupt (65C02 only, 3 cycles before waiting)
+            (WAI, Implied) => 3,
+
+            // Invalid combinations cause a panic to indicate a bug in the decoder
+            _ => unreachable!("undecoded instruction"),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub enum OpInput {
     UseImplied,
     UseImmediate(u8),
     UseRelative(u16),
-    UseAddress(u16),
+    UseAddress { address: u16, page_crossed: bool },
+}
+
+impl OpInput {
+    /// Returns true if a page boundary was crossed during address calculation.
+    ///
+    /// Only relevant for `UseAddress` - all other addressing modes return false.
+    #[must_use]
+    pub const fn page_crossed(&self) -> bool {
+        match self {
+            OpInput::UseAddress { page_crossed, .. } => *page_crossed,
+            _ => false,
+        }
+    }
 }
 
 impl Display for OpInput {
@@ -253,7 +524,7 @@ impl Display for OpInput {
             OpInput::UseImplied => write!(f, ""),
             OpInput::UseImmediate(v) => write!(f, "#${v:02X}"),
             OpInput::UseRelative(v) => write!(f, "${v:04X}"),
-            OpInput::UseAddress(v) => write!(f, "${v:04X}"),
+            OpInput::UseAddress { address, .. } => write!(f, "${address:04X}"),
         }
     }
 }
@@ -334,7 +605,9 @@ impl AddressingMode {
     }
 }
 
-pub type DecodedInstr = (Instruction, OpInput);
+/// A decoded instruction containing the instruction type, addressing mode, operand data,
+/// and whether a page boundary was crossed during address calculation (used for cycle counting).
+pub type DecodedInstr = (Instruction, AddressingMode, OpInput);
 
 /// The NMOS 6502 variant. This one is present in the Commodore 64, early Apple IIs, etc.
 #[derive(Copy, Clone, Debug, Default)]
@@ -1204,5 +1477,13 @@ impl crate::Variant for Cmos6502 {
             negative,
             zero,
         }
+    }
+
+    fn penalty_cycles_for_decimal_mode() -> u8 {
+        1 // 65C02 adds 1 cycle for ADC/SBC in decimal mode
+    }
+
+    fn penalty_cycles_for_indirect_jmp() -> u8 {
+        1 // 65C02 takes 6 cycles for JMP (indirect) instead of 5
     }
 }
