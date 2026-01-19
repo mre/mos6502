@@ -894,6 +894,10 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 let val = self.registers.index_y;
                 self.load_accumulator(val);
             }
+            (Instruction::XAA, OpInput::UseImmediate(val)) => {
+                self.load_accumulator(self.registers.index_x);
+                self.and(val);
+            }
 
             (Instruction::WAI, OpInput::UseImplied) => {
                 // Wait for Interrupt (65C02)

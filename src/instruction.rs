@@ -240,6 +240,9 @@ pub enum Instruction {
 
     // SToP processor (65C02 only)
     STP,
+
+    // XAA, (transfer X to A, and then ANDs the accumulator with an immediate value)
+    XAA,
 }
 
 impl Instruction {
@@ -758,7 +761,7 @@ impl crate::Variant for Nmos6502 {
             0x88 => Some((Instruction::DEY, AddressingMode::Implied)),
             0x89 => None,
             0x8a => Some((Instruction::TXA, AddressingMode::Implied)),
-            0x8b => None,
+            0x8b => Some((Instruction::XAA, AddressingMode::Immediate)),
             0x8c => Some((Instruction::STY, AddressingMode::Absolute)),
             0x8d => Some((Instruction::STA, AddressingMode::Absolute)),
             0x8e => Some((Instruction::STX, AddressingMode::Absolute)),
