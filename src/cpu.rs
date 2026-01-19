@@ -818,7 +818,10 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             (Instruction::SEI, OpInput::UseImplied) => {
                 self.set_flag(Status::PS_DISABLE_INTERRUPTS);
             }
-
+            (Instruction::SAX, OpInput::UseAddress { address: addr, .. }) => {
+                self.memory
+                    .set_byte(addr, self.registers.accumulator & self.registers.index_x);
+            }
             (Instruction::STA, OpInput::UseAddress { address: addr, .. }) => {
                 self.memory.set_byte(addr, self.registers.accumulator);
             }

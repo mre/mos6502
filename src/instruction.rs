@@ -208,6 +208,9 @@ pub enum Instruction {
     // STore Zero
     STZ,
 
+    // STore A & X
+    SAX,
+
     // Transfer Accumulator to X
     TAX,
 
@@ -747,11 +750,11 @@ impl crate::Variant for Nmos6502 {
             0x80 => None,
             0x81 => Some((Instruction::STA, AddressingMode::IndexedIndirectX)),
             0x82 => None,
-            0x83 => None,
+            0x83 => Some((Instruction::SAX, AddressingMode::ZeroPage)),
             0x84 => Some((Instruction::STY, AddressingMode::ZeroPage)),
             0x85 => Some((Instruction::STA, AddressingMode::ZeroPage)),
             0x86 => Some((Instruction::STX, AddressingMode::ZeroPage)),
-            0x87 => None,
+            0x87 => Some((Instruction::SAX, AddressingMode::ZeroPage)),
             0x88 => Some((Instruction::DEY, AddressingMode::Implied)),
             0x89 => None,
             0x8a => Some((Instruction::TXA, AddressingMode::Implied)),
@@ -759,7 +762,7 @@ impl crate::Variant for Nmos6502 {
             0x8c => Some((Instruction::STY, AddressingMode::Absolute)),
             0x8d => Some((Instruction::STA, AddressingMode::Absolute)),
             0x8e => Some((Instruction::STX, AddressingMode::Absolute)),
-            0x8f => None,
+            0x8f => Some((Instruction::SAX, AddressingMode::Absolute)),
             0x90 => Some((Instruction::BCC, AddressingMode::Relative)),
             0x91 => Some((Instruction::STA, AddressingMode::IndirectIndexedY)),
             0x92 => None,
@@ -767,7 +770,7 @@ impl crate::Variant for Nmos6502 {
             0x94 => Some((Instruction::STY, AddressingMode::ZeroPageX)),
             0x95 => Some((Instruction::STA, AddressingMode::ZeroPageX)),
             0x96 => Some((Instruction::STX, AddressingMode::ZeroPageY)),
-            0x97 => None,
+            0x97 => Some((Instruction::SAX, AddressingMode::ZeroPageY)),
             0x98 => Some((Instruction::TYA, AddressingMode::Implied)),
             0x99 => Some((Instruction::STA, AddressingMode::AbsoluteY)),
             0x9a => Some((Instruction::TXS, AddressingMode::Implied)),
