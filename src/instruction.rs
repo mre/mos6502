@@ -243,6 +243,9 @@ pub enum Instruction {
 
     // XAA, (transfer X to A, and then ANDs the accumulator with an immediate value)
     XAA,
+
+    // ALR, (ANDs the accumulator with an immediate value, and then does LSR)
+    ALR,
 }
 
 impl Instruction {
@@ -697,7 +700,7 @@ impl crate::Variant for Nmos6502 {
             0x48 => Some((Instruction::PHA, AddressingMode::Implied)),
             0x49 => Some((Instruction::EOR, AddressingMode::Immediate)),
             0x4a => Some((Instruction::LSR, AddressingMode::Accumulator)),
-            0x4b => None,
+            0x4b => Some((Instruction::ALR, AddressingMode::Immediate)),
             0x4c => Some((Instruction::JMP, AddressingMode::Absolute)),
             0x4d => Some((Instruction::EOR, AddressingMode::Absolute)),
             0x4e => Some((Instruction::LSR, AddressingMode::Absolute)),

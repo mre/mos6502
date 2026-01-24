@@ -916,6 +916,14 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             (Instruction::NOP, OpInput::UseImplied) => {
                 log::debug!("NOP instruction");
             }
+
+            (Instruction::ALR, OpInput::UseImmediate(val)) => {
+                self.and(val);
+                let mut val = self.registers.accumulator;
+                CPU::<M, V>::shift_right_with_flags(&mut val, &mut self.registers.status);
+                self.registers.accumulator = val;
+            }
+
             (_, _) => {
                 log::debug!(
                     "attempting to execute unimplemented or invalid \
