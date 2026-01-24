@@ -924,6 +924,15 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.registers.accumulator = val;
             }
 
+            (Instruction::ANC, OpInput::UseImmediate(val)) => {
+                self.and(val);
+                if self.registers.accumulator & 0x80 != 0 {
+                    self.set_flag(Status::PS_CARRY);
+                } else {
+                    self.unset_flag(Status::PS_CARRY);
+                }
+            }
+
             (_, _) => {
                 log::debug!(
                     "attempting to execute unimplemented or invalid \

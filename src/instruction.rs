@@ -246,6 +246,9 @@ pub enum Instruction {
 
     // ALR, (ANDs the accumulator with an immediate value, and then does LSR)
     ALR,
+
+    // ANC, (ANDs the accumulator and then copies bit 7 into carry flag)
+    ANC,
 }
 
 impl Instruction {
@@ -636,7 +639,7 @@ impl crate::Variant for Nmos6502 {
             0x08 => Some((Instruction::PHP, AddressingMode::Implied)),
             0x09 => Some((Instruction::ORA, AddressingMode::Immediate)),
             0x0a => Some((Instruction::ASL, AddressingMode::Accumulator)),
-            0x0b => None,
+            0x0b => Some((Instruction::ANC, AddressingMode::Immediate)),
             0x0c => None,
             0x0d => Some((Instruction::ORA, AddressingMode::Absolute)),
             0x0e => Some((Instruction::ASL, AddressingMode::Absolute)),
@@ -668,7 +671,7 @@ impl crate::Variant for Nmos6502 {
             0x28 => Some((Instruction::PLP, AddressingMode::Implied)),
             0x29 => Some((Instruction::AND, AddressingMode::Immediate)),
             0x2a => Some((Instruction::ROL, AddressingMode::Accumulator)),
-            0x2b => None,
+            0x2b => Some((Instruction::ANC, AddressingMode::Immediate)),
             0x2c => Some((Instruction::BIT, AddressingMode::Absolute)),
             0x2d => Some((Instruction::AND, AddressingMode::Absolute)),
             0x2e => Some((Instruction::ROL, AddressingMode::Absolute)),
