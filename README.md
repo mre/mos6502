@@ -49,7 +49,7 @@ fn main() {
         0x4c, 0x12, 0x00, // Jump to .algo_
         // .end
         0xa5, 0x00,       // Load from S to A
-        0xff,
+        0x02,             // JAM - halt CPU to end program
         // .swap
         0xa6, 0x00,       // load F to X
         0xa4, 0x01,       // load S to Y
@@ -89,7 +89,7 @@ ld65 -C ../linker.cfg -o euclid.bin euclid.o
 
 This will create a binary file `euclid.bin` that you can load into the emulator:
 
-```rust
+```rust,no_run
 use mos6502::memory::Bus;
 use mos6502::memory::Memory;
 use mos6502::instruction::Nmos6502;
