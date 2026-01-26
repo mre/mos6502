@@ -933,6 +933,134 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 }
             }
 
+            // ARR - AND with immediate, then ROR with special flag handling.
+            // Unlike normal ROR, ARR sets C and V flags based on result bits,
+            // not from the shift operation. This quirk stems from how the 6502's
+            // internal buses interact during this undocumented instruction.
+            (Instruction::ARR, OpInput::UseImmediate(val)) => {
+                self.and(val);
+                let a = self.registers.accumulator;
+                let carry = self.registers.status.contains(Status::PS_CARRY);
+
+                // ROR the accumulator
+                let result = (a >> 1) | (if carry { 0x80 } else { 0 });
+                self.registers.accumulator = result;
+
+                // Set N and Z flags from result
+                CPU::<M, V>::set_flags_from_u8(&mut self.registers.status, result);
+
+                // Carry is set from bit 6 (not bit 0 as in normal ROR)
+                if result & 0x40 != 0 {
+                    self.set_flag(Status::PS_CARRY);
+                } else {
+                    self.unset_flag(Status::PS_CARRY);
+                }
+
+                // Overflow is set when bits 6 and 5 differ. This unusual behavior
+                // detects a "sign change" between the two highest result bits,
+                // useful for BCD fixup in some algorithms.
+                if ((result >> 6) ^ (result >> 5)) & 1 != 0 {
+                    self.set_flag(Status::PS_OVERFLOW);
+                } else {
+                    self.unset_flag(Status::PS_OVERFLOW);
+                }
+            }
+
+            // DCP - Decrement memory, then compare with accumulator
+            (Instruction::DCP, OpInput::UseAddress { address: addr, .. }) => {
+                let val = self.memory.get_byte(addr).wrapping_sub(1);
+                self.memory.set_byte(addr, val);
+                self.compare_with_a_register(val);
+            }
+
+            // ISC - Increment memory, then SBC from accumulator
+            (Instruction::ISC, OpInput::UseAddress { address: addr, .. }) => {
+                let val = self.memory.get_byte(addr).wrapping_add(1);
+                self.memory.set_byte(addr, val);
+                self.subtract_with_carry(val);
+            }
+
+            // JAM - Halt the CPU (requires reset)
+            (Instruction::JAM, OpInput::UseImplied) => {
+                self.halted = true;
+            }
+
+            // LAS - AND memory with SP, load to A, X, SP
+            (Instruction::LAS, OpInput::UseAddress { address: addr, .. }) => {
+                let val = self.memory.get_byte(addr) & self.registers.stack_pointer.0;
+                self.registers.accumulator = val;
+                self.registers.index_x = val;
+                self.registers.stack_pointer = StackPointer(val);
+                CPU::<M, V>::set_flags_from_u8(&mut self.registers.status, val);
+            }
+
+            // LAX - Load A and X with the same value from memory
+            (Instruction::LAX, OpInput::UseAddress { address: addr, .. }) => {
+                let val = self.memory.get_byte(addr);
+                self.load_accumulator(val);
+                self.load_x_register(val);
+            }
+
+            // NOP variants - read memory but do nothing
+            (Instruction::NOPI, OpInput::UseImmediate(_)) => {}
+            (Instruction::NOPZ, OpInput::UseAddress { .. }) => {}
+            (Instruction::NOPZX, OpInput::UseAddress { .. }) => {}
+            (Instruction::NOPA, OpInput::UseAddress { .. }) => {}
+            (Instruction::NOPAX, OpInput::UseAddress { .. }) => {}
+
+            // RLA - Rotate left memory, then AND with accumulator
+            (Instruction::RLA, OpInput::UseAddress { address: addr, .. }) => {
+                let mut val = self.memory.get_byte(addr);
+                CPU::<M, V>::rotate_left_with_flags(&mut val, &mut self.registers.status);
+                self.memory.set_byte(addr, val);
+                self.and(val);
+            }
+
+            // RRA - Rotate right memory, then ADC with accumulator
+            (Instruction::RRA, OpInput::UseAddress { address: addr, .. }) => {
+                let mut val = self.memory.get_byte(addr);
+                CPU::<M, V>::rotate_right_with_flags(&mut val, &mut self.registers.status);
+                self.memory.set_byte(addr, val);
+                self.add_with_carry(val);
+            }
+
+            // SBX - (A AND X) - immediate -> X, flags like CMP
+            (Instruction::SBX, OpInput::UseImmediate(val)) => {
+                let ax = self.registers.accumulator & self.registers.index_x;
+                let result = ax.wrapping_sub(val);
+                self.registers.index_x = result;
+
+                // Set carry if no borrow (ax >= val)
+                if ax >= val {
+                    self.set_flag(Status::PS_CARRY);
+                } else {
+                    self.unset_flag(Status::PS_CARRY);
+                }
+
+                CPU::<M, V>::set_flags_from_u8(&mut self.registers.status, result);
+            }
+
+            // SLO - Shift left memory, then OR with accumulator
+            (Instruction::SLO, OpInput::UseAddress { address: addr, .. }) => {
+                let mut val = self.memory.get_byte(addr);
+                CPU::<M, V>::shift_left_with_flags(&mut val, &mut self.registers.status);
+                self.memory.set_byte(addr, val);
+                self.inclusive_or(val);
+            }
+
+            // SRE - Shift right memory, then EOR with accumulator
+            (Instruction::SRE, OpInput::UseAddress { address: addr, .. }) => {
+                let mut val = self.memory.get_byte(addr);
+                CPU::<M, V>::shift_right_with_flags(&mut val, &mut self.registers.status);
+                self.memory.set_byte(addr, val);
+                self.exclusive_or(val);
+            }
+
+            // USBC - Same as SBC immediate
+            (Instruction::USBC, OpInput::UseImmediate(val)) => {
+                self.subtract_with_carry(val);
+            }
+
             (_, _) => {
                 log::debug!(
                     "attempting to execute unimplemented or invalid \
@@ -2756,6 +2884,389 @@ mod tests {
         cpu.reset(); // Reset again to jump to our new reset vector
         cpu.single_step(); // Execute LDA
         assert_eq!(cpu.registers.accumulator, 0x99);
+    }
+
+    // ==================== Illegal Opcode Tests ====================
+
+    /// Execute instruction with zero-page addressing
+    macro_rules! exec_zp {
+        ($cpu:expr, $instr:ident, $addr:expr) => {
+            $cpu.execute_instruction((
+                Instruction::$instr,
+                AddressingMode::ZeroPage,
+                OpInput::UseAddress {
+                    address: $addr,
+                    page_crossed: false,
+                },
+            ))
+        };
+    }
+
+    /// Execute instruction with immediate addressing
+    macro_rules! exec_imm {
+        ($cpu:expr, $instr:ident, $val:expr) => {
+            $cpu.execute_instruction((
+                Instruction::$instr,
+                AddressingMode::Immediate,
+                OpInput::UseImmediate($val),
+            ))
+        };
+    }
+
+    /// Execute instruction with implied addressing
+    macro_rules! exec_impl {
+        ($cpu:expr, $instr:ident) => {
+            $cpu.execute_instruction((
+                Instruction::$instr,
+                AddressingMode::Implied,
+                OpInput::UseImplied,
+            ))
+        };
+    }
+
+    /// Execute instruction with absolute,Y addressing
+    macro_rules! exec_aby {
+        ($cpu:expr, $instr:ident, $addr:expr) => {
+            $cpu.execute_instruction((
+                Instruction::$instr,
+                AddressingMode::AbsoluteY,
+                OpInput::UseAddress {
+                    address: $addr,
+                    page_crossed: false,
+                },
+            ))
+        };
+    }
+
+    #[test]
+    fn lax_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        cpu.memory.set_byte(0x42, 0x55);
+        exec_zp!(cpu, LAX, 0x42);
+        assert_eq!(cpu.registers.accumulator, 0x55);
+        assert_eq!(cpu.registers.index_x, 0x55);
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+
+        cpu.memory.set_byte(0x10, 0x00);
+        exec_zp!(cpu, LAX, 0x10);
+        assert_eq!(cpu.registers.accumulator, 0x00);
+        assert_eq!(cpu.registers.index_x, 0x00);
+        assert!(cpu.registers.status.contains(Status::PS_ZERO));
+
+        cpu.memory.set_byte(0x20, 0x80);
+        exec_zp!(cpu, LAX, 0x20);
+        assert_eq!(cpu.registers.accumulator, 0x80);
+        assert_eq!(cpu.registers.index_x, 0x80);
+        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
+    }
+
+    #[test]
+    fn sax_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        cpu.registers.accumulator = 0xFF;
+        cpu.registers.index_x = 0x0F;
+        exec_zp!(cpu, SAX, 0x42);
+        assert_eq!(cpu.memory.get_byte(0x42), 0x0F);
+
+        cpu.registers.accumulator = 0xAA;
+        cpu.registers.index_x = 0x55;
+        exec_zp!(cpu, SAX, 0x43);
+        assert_eq!(cpu.memory.get_byte(0x43), 0x00);
+    }
+
+    #[test]
+    fn dcp_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        cpu.memory.set_byte(0x42, 0x10);
+        cpu.registers.accumulator = 0x0F;
+        exec_zp!(cpu, DCP, 0x42);
+        assert_eq!(cpu.memory.get_byte(0x42), 0x0F);
+        assert!(cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+
+        cpu.memory.set_byte(0x43, 0x05);
+        cpu.registers.accumulator = 0x10;
+        exec_zp!(cpu, DCP, 0x43);
+        assert_eq!(cpu.memory.get_byte(0x43), 0x04);
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+
+        cpu.memory.set_byte(0x44, 0x00);
+        cpu.registers.accumulator = 0x00;
+        exec_zp!(cpu, DCP, 0x44);
+        assert_eq!(cpu.memory.get_byte(0x44), 0xFF);
+        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
+    }
+
+    #[test]
+    fn isc_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+        cpu.registers.status.remove(Status::PS_DECIMAL_MODE);
+
+        cpu.memory.set_byte(0x42, 0x09);
+        cpu.registers.accumulator = 0x20;
+        cpu.registers.status.insert(Status::PS_CARRY);
+        exec_zp!(cpu, ISC, 0x42);
+        assert_eq!(cpu.memory.get_byte(0x42), 0x0A);
+        assert_eq!(cpu.registers.accumulator, 0x16);
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+
+        cpu.memory.set_byte(0x43, 0xFF);
+        cpu.registers.accumulator = 0x10;
+        cpu.registers.status.insert(Status::PS_CARRY);
+        exec_zp!(cpu, ISC, 0x43);
+        assert_eq!(cpu.memory.get_byte(0x43), 0x00);
+        assert_eq!(cpu.registers.accumulator, 0x10);
+    }
+
+    #[test]
+    fn slo_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        cpu.memory.set_byte(0x42, 0x40);
+        cpu.registers.accumulator = 0x01;
+        exec_zp!(cpu, SLO, 0x42);
+        assert_eq!(cpu.memory.get_byte(0x42), 0x80);
+        assert_eq!(cpu.registers.accumulator, 0x81);
+        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
+        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
+
+        cpu.memory.set_byte(0x43, 0x80);
+        cpu.registers.accumulator = 0x00;
+        exec_zp!(cpu, SLO, 0x43);
+        assert_eq!(cpu.memory.get_byte(0x43), 0x00);
+        assert_eq!(cpu.registers.accumulator, 0x00);
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+        assert!(cpu.registers.status.contains(Status::PS_ZERO));
+    }
+
+    #[test]
+    fn rla_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        cpu.registers.status.remove(Status::PS_CARRY);
+        cpu.memory.set_byte(0x42, 0x40);
+        cpu.registers.accumulator = 0xFF;
+        exec_zp!(cpu, RLA, 0x42);
+        assert_eq!(cpu.memory.get_byte(0x42), 0x80);
+        assert_eq!(cpu.registers.accumulator, 0x80);
+        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
+
+        cpu.registers.status.insert(Status::PS_CARRY);
+        cpu.memory.set_byte(0x43, 0x40);
+        cpu.registers.accumulator = 0xFF;
+        exec_zp!(cpu, RLA, 0x43);
+        assert_eq!(cpu.memory.get_byte(0x43), 0x81);
+        assert_eq!(cpu.registers.accumulator, 0x81);
+    }
+
+    #[test]
+    fn sre_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        cpu.memory.set_byte(0x42, 0x02);
+        cpu.registers.accumulator = 0xFF;
+        exec_zp!(cpu, SRE, 0x42);
+        assert_eq!(cpu.memory.get_byte(0x42), 0x01);
+        assert_eq!(cpu.registers.accumulator, 0xFE);
+        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
+
+        cpu.memory.set_byte(0x43, 0x01);
+        cpu.registers.accumulator = 0x00;
+        exec_zp!(cpu, SRE, 0x43);
+        assert_eq!(cpu.memory.get_byte(0x43), 0x00);
+        assert_eq!(cpu.registers.accumulator, 0x00);
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+    }
+
+    #[test]
+    fn rra_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+        cpu.registers.status.remove(Status::PS_DECIMAL_MODE);
+
+        cpu.registers.status.remove(Status::PS_CARRY);
+        cpu.memory.set_byte(0x42, 0x02);
+        cpu.registers.accumulator = 0x10;
+        exec_zp!(cpu, RRA, 0x42);
+        assert_eq!(cpu.memory.get_byte(0x42), 0x01);
+        assert_eq!(cpu.registers.accumulator, 0x11);
+
+        cpu.registers.status.insert(Status::PS_CARRY);
+        cpu.memory.set_byte(0x43, 0x02);
+        cpu.registers.accumulator = 0x00;
+        exec_zp!(cpu, RRA, 0x43);
+        assert_eq!(cpu.memory.get_byte(0x43), 0x81);
+        assert_eq!(cpu.registers.accumulator, 0x81);
+    }
+
+    #[test]
+    fn arr_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        cpu.registers.accumulator = 0xFF;
+        cpu.registers.status.remove(Status::PS_CARRY);
+        exec_imm!(cpu, ARR, 0x55);
+        assert_eq!(cpu.registers.accumulator, 0x2A);
+        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
+
+        cpu.registers.accumulator = 0xFF;
+        cpu.registers.status.insert(Status::PS_CARRY);
+        exec_imm!(cpu, ARR, 0x55);
+        assert_eq!(cpu.registers.accumulator, 0xAA);
+        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
+    }
+
+    #[test]
+    fn sbx_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        cpu.registers.accumulator = 0xFF;
+        cpu.registers.index_x = 0x0F;
+        exec_imm!(cpu, SBX, 0x05);
+        assert_eq!(cpu.registers.index_x, 0x0A);
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+
+        cpu.registers.accumulator = 0xFF;
+        cpu.registers.index_x = 0x0F;
+        exec_imm!(cpu, SBX, 0x10);
+        assert_eq!(cpu.registers.index_x, 0xFF);
+        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
+        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
+    }
+
+    #[test]
+    fn alr_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        cpu.registers.accumulator = 0xFF;
+        exec_imm!(cpu, ALR, 0xAA);
+        assert_eq!(cpu.registers.accumulator, 0x55);
+        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
+
+        cpu.registers.accumulator = 0xFF;
+        exec_imm!(cpu, ALR, 0x55);
+        assert_eq!(cpu.registers.accumulator, 0x2A);
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+    }
+
+    #[test]
+    fn anc_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        cpu.registers.accumulator = 0xFF;
+        exec_imm!(cpu, ANC, 0x80);
+        assert_eq!(cpu.registers.accumulator, 0x80);
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
+
+        cpu.registers.accumulator = 0xFF;
+        exec_imm!(cpu, ANC, 0x7F);
+        assert_eq!(cpu.registers.accumulator, 0x7F);
+        assert!(!cpu.registers.status.contains(Status::PS_CARRY));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+    }
+
+    #[test]
+    fn xaa_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        // XAA transfers X to A, then ANDs with immediate
+        cpu.registers.index_x = 0xFF;
+        cpu.registers.accumulator = 0x00;
+        exec_imm!(cpu, XAA, 0x0F);
+        assert_eq!(cpu.registers.accumulator, 0x0F);
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+
+        cpu.registers.index_x = 0xAA;
+        exec_imm!(cpu, XAA, 0xF0);
+        assert_eq!(cpu.registers.accumulator, 0xA0);
+        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
+
+        cpu.registers.index_x = 0x55;
+        exec_imm!(cpu, XAA, 0xAA);
+        assert_eq!(cpu.registers.accumulator, 0x00);
+        assert!(cpu.registers.status.contains(Status::PS_ZERO));
+    }
+
+    #[test]
+    fn las_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        cpu.registers.stack_pointer = StackPointer(0xFF);
+        cpu.memory.set_byte(0x1000, 0x0F);
+        exec_aby!(cpu, LAS, 0x1000);
+        assert_eq!(cpu.registers.accumulator, 0x0F);
+        assert_eq!(cpu.registers.index_x, 0x0F);
+        assert_eq!(cpu.registers.stack_pointer.0, 0x0F);
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+    }
+
+    #[test]
+    fn usbc_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+        cpu.registers.status.remove(Status::PS_DECIMAL_MODE);
+
+        cpu.registers.accumulator = 0x20;
+        cpu.registers.status.insert(Status::PS_CARRY);
+        exec_imm!(cpu, USBC, 0x10);
+        assert_eq!(cpu.registers.accumulator, 0x10);
+        assert!(cpu.registers.status.contains(Status::PS_CARRY));
+    }
+
+    #[test]
+    fn jam_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        assert!(!cpu.halted);
+        exec_impl!(cpu, JAM);
+        assert!(cpu.halted);
+        assert!(!cpu.single_step());
+    }
+
+    #[test]
+    fn nop_variants_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        let initial_a = 0x42;
+        let initial_x = 0x13;
+        let initial_y = 0x37;
+        cpu.registers.accumulator = initial_a;
+        cpu.registers.index_x = initial_x;
+        cpu.registers.index_y = initial_y;
+
+        exec_imm!(cpu, NOPI, 0xFF);
+        assert_eq!(cpu.registers.accumulator, initial_a);
+        assert_eq!(cpu.registers.index_x, initial_x);
+        assert_eq!(cpu.registers.index_y, initial_y);
+
+        exec_zp!(cpu, NOPZ, 0x42);
+        assert_eq!(cpu.registers.accumulator, initial_a);
+
+        cpu.execute_instruction((
+            Instruction::NOPA,
+            AddressingMode::Absolute,
+            OpInput::UseAddress {
+                address: 0x1234,
+                page_crossed: false,
+            },
+        ));
+        assert_eq!(cpu.registers.accumulator, initial_a);
+
+        cpu.execute_instruction((
+            Instruction::NOPAX,
+            AddressingMode::AbsoluteX,
+            OpInput::UseAddress {
+                address: 0x1234,
+                page_crossed: false,
+            },
+        ));
+        assert_eq!(cpu.registers.accumulator, initial_a);
     }
 }
 
