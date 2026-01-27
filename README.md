@@ -89,7 +89,7 @@ ld65 -C ../linker.cfg -o euclid.bin euclid.o
 
 This will create a binary file `euclid.bin` that you can load into the emulator:
 
-```rust,no_run
+```rust
 use mos6502::memory::Bus;
 use mos6502::memory::Memory;
 use mos6502::instruction::Nmos6502;
