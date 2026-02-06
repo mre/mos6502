@@ -49,7 +49,7 @@ fn main() {
         0x4c, 0x12, 0x00, // Jump to .algo_
         // .end
         0xa5, 0x00,       // Load from S to A
-        0xff,
+        0x02,             // JAM - halt CPU to end program
         // .swap
         0xa6, 0x00,       // load F to X
         0xa4, 0x01,       // load S to Y
