@@ -1,0 +1,82 @@
+; bubble_sort.ca65
+; A program to sort an array of numbers using bubble sort algorithm
+;
+; BUBBLE SORT EXPLANATION:
+; Bubble sort repeatedly steps through the array, compares adjacent elements,
+; and swaps them if they are in the wrong order. The pass through the array
+; is repeated until the array is sorted.
+;
+; Memory layout:
+;   $00: array length (n) - stores how many elements are in the array
+;   $20-$2F: array data (up to 16 elements) - the actual array values
+;   $10: swap flag (1 if swap occurred, 0 if no swaps) - tracks if we made changes
+;   $11: loop limit (n-1) - how many comparisons to make in each pass
+;
+; REGISTERS USED:
+;   A (Accumulator): holds values being compared and moved
+;   X: array index for current position
+;   Y: temporary storage for array values during swaps
+
+.ORG $0400              ; Start program at memory address $0400
+
+start:
+    ; Early exit if array has 0 or 1 elements (nothing to sort)
+    LDA $00             ; Load array length
+    CMP #$02            ; Compare with 2
+    BCC done            ; If n < 2, skip sorting (branch if carry clear)
+
+    ; Initialize the swap flag to 1 to ensure we enter the main loop
+    LDA #$01            ; Load the value 1 into accumulator
+    STA $10             ; Store 1 in swap flag (forces first iteration)
+
+outer_loop:
+    ; Check if any swaps were made in the previous pass
+    LDA $10             ; Load swap flag into accumulator
+    BEQ done            ; Branch to 'done' if flag = 0 (no swaps = sorted)
+
+    ; Reset swap flag for this pass through the array
+    LDA #$00            ; Load 0 into accumulator
+    STA $10             ; Store 0 in swap flag (assume no swaps needed)
+
+    ; Calculate n-1 for loop bound (we compare pairs, so need n-1 comparisons)
+    LDA $00             ; Load array length (n) from memory location $00
+    SEC                 ; Set carry flag (required for subtraction)
+    SBC #$01            ; Subtract 1 from accumulator (n - 1)
+    STA $11             ; Store result in loop limit variable
+
+    ; Initialize array index to start at beginning
+    LDX #$00            ; Load 0 into X register (start at first element)
+
+inner_loop:
+    ; Load current element and next element for comparison
+    LDA $20,X           ; Load array[X] into accumulator (indexed addressing)
+    LDY $21,X           ; Load array[X+1] into Y register for later use
+
+    ; Compare current element with next element
+    ; Goal: if current > next, we need to swap them
+    CMP $21,X           ; Compare A (array[X]) with memory at array[X+1]
+    BCC no_swap         ; Branch if array[X] < array[X+1] (Carry Clear)
+    BEQ no_swap         ; Branch if array[X] = array[X+1] (Equal)
+
+    ; Perform swap: array[X] > array[X+1], so swap them
+    ; At this point: A contains array[X], Y contains array[X+1]
+    STA $21,X           ; Store array[X] into array[X+1] position
+    TYA                 ; Transfer Y (old array[X+1]) to accumulator
+    STA $20,X           ; Store old array[X+1] into array[X] position
+
+    ; Mark that we made a swap (array is not yet fully sorted)
+    LDA #$01            ; Load 1 into accumulator
+    STA $10             ; Set swap flag to indicate a swap occurred
+
+no_swap:
+    ; Move to next array position
+    INX                 ; Increment X register (move to next array index)
+    CPX $11             ; Compare X with loop limit (n-1)
+    BCC inner_loop      ; Branch back if X < (n-1) - more pairs to check
+
+    ; Finished one complete pass through array
+    JMP outer_loop      ; Jump back to start another pass
+
+done:
+    ; Array is fully sorted (no swaps were made in last pass)
+    STP                 ; Stop processor (end program)

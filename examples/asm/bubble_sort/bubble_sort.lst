@@ -1,0 +1,87 @@
+ca65 V2.18 - N/A
+Main file   : bubble_sort.ca65
+Current file: bubble_sort.ca65
+
+000000r 1               ; bubble_sort.ca65
+000000r 1               ; A program to sort an array of numbers using bubble sort algorithm
+000000r 1               ;
+000000r 1               ; BUBBLE SORT EXPLANATION:
+000000r 1               ; Bubble sort repeatedly steps through the array, compares adjacent elements,
+000000r 1               ; and swaps them if they are in the wrong order. The pass through the array
+000000r 1               ; is repeated until the array is sorted.
+000000r 1               ;
+000000r 1               ; Memory layout:
+000000r 1               ;   $00: array length (n) - stores how many elements are in the array
+000000r 1               ;   $20-$2F: array data (up to 16 elements) - the actual array values
+000000r 1               ;   $10: swap flag (1 if swap occurred, 0 if no swaps) - tracks if we made changes
+000000r 1               ;   $11: loop limit (n-1) - how many comparisons to make in each pass
+000000r 1               ;
+000000r 1               ; REGISTERS USED:
+000000r 1               ;   A (Accumulator): holds values being compared and moved
+000000r 1               ;   X: array index for current position
+000000r 1               ;   Y: temporary storage for array values during swaps
+000000r 1               
+000000r 1               .ORG $0400              ; Start program at memory address $0400
+000400  1               
+000400  1               start:
+000400  1                   ; Early exit if array has 0 or 1 elements (nothing to sort)
+000400  1  A5 00            LDA $00             ; Load array length
+000402  1  C9 02            CMP #$02            ; Compare with 2
+000404  1  90 30            BCC done            ; If n < 2, skip sorting (branch if carry clear)
+000406  1               
+000406  1                   ; Initialize the swap flag to 1 to ensure we enter the main loop
+000406  1  A9 01            LDA #$01            ; Load the value 1 into accumulator
+000408  1  85 10            STA $10             ; Store 1 in swap flag (forces first iteration)
+00040A  1               
+00040A  1               outer_loop:
+00040A  1                   ; Check if any swaps were made in the previous pass
+00040A  1  A5 10            LDA $10             ; Load swap flag into accumulator
+00040C  1  F0 28            BEQ done            ; Branch to 'done' if flag = 0 (no swaps = sorted)
+00040E  1               
+00040E  1                   ; Reset swap flag for this pass through the array
+00040E  1  A9 00            LDA #$00            ; Load 0 into accumulator
+000410  1  85 10            STA $10             ; Store 0 in swap flag (assume no swaps needed)
+000412  1               
+000412  1                   ; Calculate n-1 for loop bound (we compare pairs, so need n-1 comparisons)
+000412  1  A5 00            LDA $00             ; Load array length (n) from memory location $00
+000414  1  38               SEC                 ; Set carry flag (required for subtraction)
+000415  1  E9 01            SBC #$01            ; Subtract 1 from accumulator (n - 1)
+000417  1  85 11            STA $11             ; Store result in loop limit variable
+000419  1               
+000419  1                   ; Initialize array index to start at beginning
+000419  1  A2 00            LDX #$00            ; Load 0 into X register (start at first element)
+00041B  1               
+00041B  1               inner_loop:
+00041B  1                   ; Load current element and next element for comparison
+00041B  1  B5 20            LDA $20,X           ; Load array[X] into accumulator (indexed addressing)
+00041D  1  B4 21            LDY $21,X           ; Load array[X+1] into Y register for later use
+00041F  1               
+00041F  1                   ; Compare current element with next element
+00041F  1                   ; Goal: if current > next, we need to swap them
+00041F  1  D5 21            CMP $21,X           ; Compare A (array[X]) with memory at array[X+1]
+000421  1  90 0B            BCC no_swap         ; Branch if array[X] < array[X+1] (Carry Clear)
+000423  1  F0 09            BEQ no_swap         ; Branch if array[X] = array[X+1] (Equal)
+000425  1               
+000425  1                   ; Perform swap: array[X] > array[X+1], so swap them
+000425  1                   ; At this point: A contains array[X], Y contains array[X+1]
+000425  1  95 21            STA $21,X           ; Store array[X] into array[X+1] position
+000427  1  98               TYA                 ; Transfer Y (old array[X+1]) to accumulator
+000428  1  95 20            STA $20,X           ; Store old array[X+1] into array[X] position
+00042A  1               
+00042A  1                   ; Mark that we made a swap (array is not yet fully sorted)
+00042A  1  A9 01            LDA #$01            ; Load 1 into accumulator
+00042C  1  85 10            STA $10             ; Set swap flag to indicate a swap occurred
+00042E  1               
+00042E  1               no_swap:
+00042E  1                   ; Move to next array position
+00042E  1  E8               INX                 ; Increment X register (move to next array index)
+00042F  1  E4 11            CPX $11             ; Compare X with loop limit (n-1)
+000431  1  90 E8            BCC inner_loop      ; Branch back if X < (n-1) - more pairs to check
+000433  1               
+000433  1                   ; Finished one complete pass through array
+000433  1  4C 0A 04         JMP outer_loop      ; Jump back to start another pass
+000436  1               
+000436  1               done:
+000436  1                   ; Array is fully sorted (no swaps were made in last pass)
+000436  1  DB               STP                 ; Stop processor (end program)
+000436  1               
