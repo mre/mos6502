@@ -1503,55 +1503,58 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         self.registers.program_counter = addr;
     }
 
-    const fn branch_if_carry_clear(&mut self, addr: u16) {
+    fn branch_if_carry_clear(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_CARRY) {
-            self.registers.program_counter = addr;
+            self.branch(addr);
         }
     }
 
-    const fn branch_if_carry_set(&mut self, addr: u16) {
+    fn branch_if_carry_set(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_CARRY) {
-            self.registers.program_counter = addr;
+            self.branch(addr);
         }
     }
 
-    const fn branch_if_equal(&mut self, addr: u16) {
+    fn branch_if_equal(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_ZERO) {
-            self.registers.program_counter = addr;
+            self.branch(addr);
         }
     }
 
-    const fn branch_if_not_equal(&mut self, addr: u16) {
+    fn branch_if_not_equal(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_ZERO) {
-            self.registers.program_counter = addr;
+            self.branch(addr);
         }
     }
 
-    const fn branch_if_minus(&mut self, addr: u16) {
+    fn branch_if_minus(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_NEGATIVE) {
-            self.registers.program_counter = addr;
+            self.branch(addr);
         }
     }
 
-    const fn branch(&mut self, addr: u16) {
+    fn branch(&mut self, addr: u16) {
+        // +1 cycle for branch taken, +1 more if page boundary crossed
+        let page_crossed = (self.registers.program_counter ^ addr) & 0xFF00 != 0;
+        self.cycles += 1 + u64::from(page_crossed);
         self.registers.program_counter = addr;
     }
 
-    const fn branch_if_positive(&mut self, addr: u16) {
+    fn branch_if_positive(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_NEGATIVE) {
-            self.registers.program_counter = addr;
+            self.branch(addr);
         }
     }
 
-    const fn branch_if_overflow_clear(&mut self, addr: u16) {
+    fn branch_if_overflow_clear(&mut self, addr: u16) {
         if !self.registers.status.contains(Status::PS_OVERFLOW) {
-            self.registers.program_counter = addr;
+            self.branch(addr);
         }
     }
 
-    const fn branch_if_overflow_set(&mut self, addr: u16) {
+    fn branch_if_overflow_set(&mut self, addr: u16) {
         if self.registers.status.contains(Status::PS_OVERFLOW) {
-            self.registers.program_counter = addr;
+            self.branch(addr);
         }
     }
 
@@ -3817,5 +3820,82 @@ mod cycle_timing_tests {
         // Should have serviced interrupt and cleared waiting state
         assert_eq!(cpu.wait_state, WaitState::Running);
         assert_eq!(cpu.registers.program_counter, 0x8000);
+    }
+
+    #[test]
+    fn test_branch_cycle_timing() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        // Test 1: Branch NOT taken (Z=0, BEQ doesn't branch) = 2 cycles
+        cpu.registers.status.remove(Status::PS_ZERO);
+        cpu.registers.program_counter = 0x1000;
+        cpu.execute_instruction((
+            Instruction::BEQ,
+            AddressingMode::Relative,
+            OpInput::UseRelative(0x10), // Would branch to 0x1010 if taken
+        ));
+        assert_eq!(cpu.cycles, 2, "Branch not taken should be 2 cycles");
+
+        cpu.cycles = 0;
+
+        // Test 2: Branch taken, same page (Z=1, BEQ branches) = 3 cycles
+        cpu.registers.status.insert(Status::PS_ZERO);
+        cpu.registers.program_counter = 0x1000;
+        cpu.execute_instruction((
+            Instruction::BEQ,
+            AddressingMode::Relative,
+            OpInput::UseRelative(0x10), // Branches to 0x1010 (same page)
+        ));
+        assert_eq!(cpu.cycles, 3, "Branch taken (same page) should be 3 cycles");
+
+        cpu.cycles = 0;
+
+        // Test 3: Branch taken, page crossing (Z=1, BEQ branches across page) = 4 cycles
+        // PC = 0x10F0, rel = 0x10, target = 0x1100 (crosses from page 0x10 to 0x11)
+        cpu.registers.status.insert(Status::PS_ZERO);
+        cpu.registers.program_counter = 0x10F0;
+        cpu.execute_instruction((
+            Instruction::BEQ,
+            AddressingMode::Relative,
+            OpInput::UseRelative(0x10), // Branches to 0x1100 (page cross)
+        ));
+        assert_eq!(cpu.cycles, 4, "Branch taken (page cross) should be 4 cycles");
+
+        cpu.cycles = 0;
+
+        // Test 4: BNE not taken (Z=1) = 2 cycles
+        cpu.registers.status.insert(Status::PS_ZERO);
+        cpu.registers.program_counter = 0x1000;
+        cpu.execute_instruction((
+            Instruction::BNE,
+            AddressingMode::Relative,
+            OpInput::UseRelative(0x10),
+        ));
+        assert_eq!(cpu.cycles, 2, "BNE not taken should be 2 cycles");
+
+        cpu.cycles = 0;
+
+        // Test 5: BNE taken, same page (Z=0) = 3 cycles
+        cpu.registers.status.remove(Status::PS_ZERO);
+        cpu.registers.program_counter = 0x1000;
+        cpu.execute_instruction((
+            Instruction::BNE,
+            AddressingMode::Relative,
+            OpInput::UseRelative(0x20), // Branches to 0x1020 (same page)
+        ));
+        assert_eq!(cpu.cycles, 3, "BNE taken (same page) should be 3 cycles");
+
+        cpu.cycles = 0;
+
+        // Test 6: Backward branch, page crossing = 4 cycles
+        // PC = 0x1100, rel = -0x10 (0xF0 as signed), target = 0x10F0 (crosses from 0x11 to 0x10)
+        cpu.registers.status.insert(Status::PS_ZERO);
+        cpu.registers.program_counter = 0x1100;
+        cpu.execute_instruction((
+            Instruction::BEQ,
+            AddressingMode::Relative,
+            OpInput::UseRelative(-0x10_i8 as u16), // Branches back to 0x10F0
+        ));
+        assert_eq!(cpu.cycles, 4, "Backward branch (page cross) should be 4 cycles");
     }
 }
