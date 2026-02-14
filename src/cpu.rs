@@ -3859,7 +3859,10 @@ mod cycle_timing_tests {
             AddressingMode::Relative,
             OpInput::UseRelative(0x10), // Branches to 0x1100 (page cross)
         ));
-        assert_eq!(cpu.cycles, 4, "Branch taken (page cross) should be 4 cycles");
+        assert_eq!(
+            cpu.cycles, 4,
+            "Branch taken (page cross) should be 4 cycles"
+        );
 
         cpu.cycles = 0;
 
@@ -3896,6 +3899,9 @@ mod cycle_timing_tests {
             AddressingMode::Relative,
             OpInput::UseRelative(-0x10_i8 as u16), // Branches back to 0x10F0
         ));
-        assert_eq!(cpu.cycles, 4, "Backward branch (page cross) should be 4 cycles");
+        assert_eq!(
+            cpu.cycles, 4,
+            "Backward branch (page cross) should be 4 cycles"
+        );
     }
 }
