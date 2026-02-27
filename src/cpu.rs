@@ -3897,7 +3897,8 @@ mod cycle_timing_tests {
         cpu.execute_instruction((
             Instruction::BEQ,
             AddressingMode::Relative,
-            OpInput::UseRelative(-0x10_i8 as u16), // Branches back to 0x10F0
+            // Signed-to-unsigned cast is intentional: negative offset simulates a backward branch
+            OpInput::UseRelative(u16::from((-0x10_i8).cast_unsigned())), // Branches back to 0x10F0
         ));
         assert_eq!(
             cpu.cycles, 4,
