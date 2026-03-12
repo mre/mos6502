@@ -754,6 +754,10 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 CPU::<M, V>::decrement(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
             }
+            (Instruction::DEC, OpInput::UseImplied) => {
+                // 65C02 DEC A (accumulator)
+                CPU::<M, V>::decrement(&mut self.registers.accumulator, &mut self.registers.status);
+            }
 
             (Instruction::DEY, OpInput::UseImplied) => {
                 CPU::<M, V>::decrement(&mut self.registers.index_y, &mut self.registers.status);
@@ -775,6 +779,10 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 let mut operand: u8 = self.memory.get_byte(addr);
                 CPU::<M, V>::increment(&mut operand, &mut self.registers.status);
                 self.memory.set_byte(addr, operand);
+            }
+            (Instruction::INC, OpInput::UseImplied) => {
+                // 65C02 INC A (accumulator)
+                CPU::<M, V>::increment(&mut self.registers.accumulator, &mut self.registers.status);
             }
             (Instruction::INX, OpInput::UseImplied) => {
                 CPU::<M, V>::increment(&mut self.registers.index_x, &mut self.registers.status);
@@ -1159,11 +1167,13 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
 
             // NOP variants - read memory but do nothing
+            (Instruction::NOP1, OpInput::UseImplied) => {}
             (Instruction::NOPI, OpInput::UseImmediate(_)) => {}
             (Instruction::NOPZ, OpInput::UseAddress { .. }) => {}
             (Instruction::NOPZX, OpInput::UseAddress { .. }) => {}
             (Instruction::NOPA, OpInput::UseAddress { .. }) => {}
             (Instruction::NOPAX, OpInput::UseAddress { .. }) => {}
+            (Instruction::NOPAX8, OpInput::UseAddress { .. }) => {}
 
             // RLA - Rotate left memory, then AND with accumulator
             (Instruction::RLA, OpInput::UseAddress { address: addr, .. }) => {
@@ -3551,6 +3561,75 @@ mod tests {
             },
         ));
         assert_eq!(cpu.registers.accumulator, initial_a);
+    }
+
+    #[test]
+    fn dec_accumulator_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+        cpu.registers.accumulator = 0x05;
+
+        cpu.execute_instruction((
+            Instruction::DEC,
+            AddressingMode::Accumulator,
+            OpInput::UseImplied,
+        ));
+        assert_eq!(cpu.registers.accumulator, 0x04);
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+
+        cpu.registers.accumulator = 0x01;
+        cpu.execute_instruction((
+            Instruction::DEC,
+            AddressingMode::Accumulator,
+            OpInput::UseImplied,
+        ));
+        assert_eq!(cpu.registers.accumulator, 0x00);
+        assert!(cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+
+        // Wrap around 0x00 → 0xFF
+        cpu.execute_instruction((
+            Instruction::DEC,
+            AddressingMode::Accumulator,
+            OpInput::UseImplied,
+        ));
+        assert_eq!(cpu.registers.accumulator, 0xFF);
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
+    }
+
+    #[test]
+    fn inc_accumulator_test() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+        cpu.registers.accumulator = 0xFE;
+
+        cpu.execute_instruction((
+            Instruction::INC,
+            AddressingMode::Accumulator,
+            OpInput::UseImplied,
+        ));
+        assert_eq!(cpu.registers.accumulator, 0xFF);
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
+
+        // Wrap around 0xFF → 0x00
+        cpu.execute_instruction((
+            Instruction::INC,
+            AddressingMode::Accumulator,
+            OpInput::UseImplied,
+        ));
+        assert_eq!(cpu.registers.accumulator, 0x00);
+        assert!(cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+
+        cpu.execute_instruction((
+            Instruction::INC,
+            AddressingMode::Accumulator,
+            OpInput::UseImplied,
+        ));
+        assert_eq!(cpu.registers.accumulator, 0x01);
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
     }
 
     #[test]

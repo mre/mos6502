@@ -309,6 +309,8 @@ pub enum Instruction {
     LAX,
 
     // NOP with addressing modes (reads memory but does nothing)
+    // 1-cycle NOP (65C02 undefined opcodes: $x3, $xB groups)
+    NOP1,
     // Immediate NOP
     NOPI,
     // Zero Page NOP
@@ -319,6 +321,8 @@ pub enum Instruction {
     NOPA,
     // Absolute,X NOP
     NOPAX,
+    // Absolute,X NOP - 8 cycle variant (65C02 $5C)
+    NOPAX8,
 
     // RLA, (Rotates memory left, then ANDs with accumulator)
     RLA,
@@ -650,11 +654,13 @@ impl Instruction {
             (LAX, IndirectIndexedY) => 5, // +1 if page crossed
 
             // Illegal opcodes - NOP variants
+            (NOP1, Implied) => 1,
             (NOPI, Immediate) => 2,
             (NOPZ, ZeroPage) => 3,
             (NOPZX, ZeroPageX) => 4,
             (NOPA, Absolute) => 4,
             (NOPAX, AbsoluteX) => 4, // +1 if page crossed
+            (NOPAX8, AbsoluteX) => 8,
 
             // Illegal opcodes - RLA (Rotate Left then AND)
             (RLA, ZeroPage) => 5,
@@ -1470,6 +1476,16 @@ impl crate::Variant for Cmos6502 {
     fn decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
         match opcode {
             0x00 => Some((Instruction::BRKcld, AddressingMode::Implied)),
+            0x02 => Some((Instruction::NOPI, AddressingMode::Immediate)),
+            0x22 => Some((Instruction::NOPI, AddressingMode::Immediate)),
+            0x42 => Some((Instruction::NOPI, AddressingMode::Immediate)),
+            0x62 => Some((Instruction::NOPI, AddressingMode::Immediate)),
+            0x03 | 0x13 | 0x23 | 0x33 | 0x43 | 0x53 | 0x63 | 0x73 | 0x83 | 0x93 | 0xa3 | 0xb3
+            | 0xc3 | 0xd3 | 0xe3 | 0xf3 | 0x0b | 0x1b | 0x2b | 0x3b | 0x4b | 0x5b | 0x6b | 0x7b
+            | 0x8b | 0x9b | 0xab | 0xbb | 0xeb | 0xfb => {
+                Some((Instruction::NOP1, AddressingMode::Implied))
+            }
+            0x5c => Some((Instruction::NOPAX8, AddressingMode::AbsoluteX)),
             0x1a => Some((Instruction::INC, AddressingMode::Accumulator)),
             0x3a => Some((Instruction::DEC, AddressingMode::Accumulator)),
             0x6c => Some((Instruction::JMP, AddressingMode::Indirect)),
