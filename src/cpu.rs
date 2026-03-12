@@ -677,10 +677,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 // signature byte, then push PC (pointing to the instruction after BRK).
                 let return_addr = self.registers.program_counter.wrapping_add(1);
                 self.push_address(return_addr);
-                // Push status with B flag set (distinguishes BRK from hardware interrupts)
-                let mut status = self.registers.status;
-                status.insert(Status::PS_BRK);
-                self.push_on_stack(status.bits());
+                // Push status with B flag and unused bit set (both bits 4 and 5 always set on stack)
+                self.push_on_stack(self.registers.status.bits() | 0x30);
                 let pcl = self.memory.get_byte(0xfffe);
                 let pch = self.memory.get_byte(0xffff);
                 self.jump((u16::from(pch) << 8) | u16::from(pcl));
@@ -695,10 +693,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 for b in return_addr.to_be_bytes() {
                     self.push_on_stack(b);
                 }
-                // Push status with B flag set (distinguishes BRK from hardware interrupts)
-                let mut status = self.registers.status;
-                status.insert(Status::PS_BRK);
-                self.push_on_stack(status.bits());
+                // Push status with B flag and unused bit set (both bits 4 and 5 always set on stack)
+                self.push_on_stack(self.registers.status.bits() | 0x30);
                 let pcl = self.memory.get_byte(0xfffe);
                 let pch = self.memory.get_byte(0xffff);
                 self.jump((u16::from(pch) << 8) | u16::from(pcl));
@@ -872,7 +868,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                     Status::PS_ZERO | Status::PS_NEGATIVE,
                     Status::new(StatusArgs {
                         zero: val == 0,
-                        negative: self.registers.accumulator > 127,
+                        negative: val > 127,
                         ..StatusArgs::none()
                     }),
                 );
@@ -885,7 +881,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                     Status::PS_ZERO | Status::PS_NEGATIVE,
                     Status::new(StatusArgs {
                         zero: val == 0,
-                        negative: self.registers.accumulator > 127,
+                        negative: val > 127,
                         ..StatusArgs::none()
                     }),
                 );
@@ -1016,8 +1012,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                     }),
                 );
 
-                // The 1's in the accumulator set the corresponding bits in the operand
-                let res = self.registers.accumulator | val;
+                // TRB: reset (clear) the bits in memory that are 1 in accumulator
+                let res = val & !self.registers.accumulator;
                 self.memory.set_byte(addr, res);
             }
             (Instruction::TSB, OpInput::UseAddress { address: addr, .. }) => {
@@ -1032,8 +1028,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                     }),
                 );
 
-                // The 1's in the accumulator clear the corresponding bits in the operand
-                let res = (self.registers.accumulator ^ 0xff) & val;
+                // TSB: set the bits in memory that are 1 in accumulator
+                let res = val | self.registers.accumulator;
                 self.memory.set_byte(addr, res);
             }
             (Instruction::TSX, OpInput::UseImplied) => {
@@ -1792,9 +1788,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         // Remove Status::PS_BRK, and instead pass a boolean into the
         // `service_interrupt` method which sets the bit accordingly. This also
         // affects PHP instruction.
-        let mut status = self.registers.status;
-        status.remove(Status::PS_BRK);
-        self.push_on_stack(status.bits());
+        // Hardware interrupts push status with bit 5 (unused) set, bit 4 (B) clear
+        self.push_on_stack((self.registers.status.bits() | 0x20) & !0x10);
 
         // Set interrupt disable flag (prevents IRQs during interrupt handler)
         // This happens for both NMI and IRQ interrupts, even though NMI itself ignores the I flag
@@ -3556,6 +3551,146 @@ mod tests {
             },
         ));
         assert_eq!(cpu.registers.accumulator, initial_a);
+    }
+
+    #[test]
+    fn brk_pushes_bits_4_and_5_set() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+        // Set up BRK vector
+        cpu.memory.set_byte(0xFFFE, 0x00);
+        cpu.memory.set_byte(0xFFFF, 0x80);
+        // Start with a known status: no flags set
+        cpu.registers.status = Status::from_bits_truncate(0x00);
+
+        cpu.execute_instruction((
+            Instruction::BRK,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+        ));
+
+        // SP starts at 0x00 (Registers::new()), so:
+        // push PC hi at 0x0100 (SP: 0x00→0xFF), push PC lo at 0x01FF (SP: 0xFF→0xFE), push status at 0x01FE
+        let pushed_status = cpu.memory.get_byte(0x01FE);
+        assert_eq!(
+            pushed_status & 0x30,
+            0x30,
+            "BRK must push status with bits 4 (B) and 5 (unused) set, got {:08b}",
+            pushed_status
+        );
+    }
+
+    #[test]
+    fn pla_negative_flag_from_pulled_value() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+        // Push 0x80 onto the stack
+        cpu.push_on_stack(0x80);
+        // Accumulator is 0 — the bug used accumulator instead of pulled value for N flag
+        cpu.registers.accumulator = 0x00;
+
+        cpu.execute_instruction((
+            Instruction::PLA,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+        ));
+
+        assert_eq!(cpu.registers.accumulator, 0x80);
+        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+    }
+
+    #[test]
+    fn plx_ply_negative_flag_from_pulled_value() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+
+        // PLX: push 0x80, X=0, pull — N should be set from 0x80
+        cpu.push_on_stack(0x80);
+        cpu.registers.index_x = 0x00;
+        cpu.execute_instruction((
+            Instruction::PLX,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+        ));
+        assert_eq!(cpu.registers.index_x, 0x80);
+        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
+
+        // PLY: push 0x80, Y=0, pull — N should be set from 0x80
+        cpu.push_on_stack(0x80);
+        cpu.registers.index_y = 0x00;
+        cpu.execute_instruction((
+            Instruction::PLY,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+        ));
+        assert_eq!(cpu.registers.index_y, 0x80);
+        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
+    }
+
+    #[test]
+    fn trb_resets_bits_in_memory() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+        cpu.memory.set_byte(0x50, 0xFF);
+        cpu.registers.accumulator = 0b0000_1111; // clear lower nibble
+
+        cpu.execute_instruction((
+            Instruction::TRB,
+            AddressingMode::Absolute,
+            OpInput::UseAddress {
+                address: 0x50,
+                page_crossed: false,
+            },
+        ));
+
+        assert_eq!(cpu.memory.get_byte(0x50), 0xF0);
+        // Z flag: set if (A & M) == 0 before the operation; 0x0F & 0xFF = 0x0F ≠ 0
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+
+        // TRB with A=0: Z should be set (A & M == 0)
+        cpu.memory.set_byte(0x50, 0xAA);
+        cpu.registers.accumulator = 0x00;
+        cpu.execute_instruction((
+            Instruction::TRB,
+            AddressingMode::Absolute,
+            OpInput::UseAddress {
+                address: 0x50,
+                page_crossed: false,
+            },
+        ));
+        assert_eq!(cpu.memory.get_byte(0x50), 0xAA); // unchanged
+        assert!(cpu.registers.status.contains(Status::PS_ZERO));
+    }
+
+    #[test]
+    fn tsb_sets_bits_in_memory() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+        cpu.memory.set_byte(0x50, 0x00);
+        cpu.registers.accumulator = 0b0000_1111; // set lower nibble
+
+        cpu.execute_instruction((
+            Instruction::TSB,
+            AddressingMode::Absolute,
+            OpInput::UseAddress {
+                address: 0x50,
+                page_crossed: false,
+            },
+        ));
+
+        assert_eq!(cpu.memory.get_byte(0x50), 0x0F);
+        // Z flag: A & M == 0x0F & 0x00 == 0 → Z set
+        assert!(cpu.registers.status.contains(Status::PS_ZERO));
+
+        // TSB with overlap: Z should be clear (A & M != 0)
+        cpu.memory.set_byte(0x50, 0x0F);
+        cpu.registers.accumulator = 0x0F;
+        cpu.execute_instruction((
+            Instruction::TSB,
+            AddressingMode::Absolute,
+            OpInput::UseAddress {
+                address: 0x50,
+                page_crossed: false,
+            },
+        ));
+        assert_eq!(cpu.memory.get_byte(0x50), 0x0F); // unchanged since bits already set
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
     }
 
     #[test]
