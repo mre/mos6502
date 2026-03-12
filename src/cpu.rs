@@ -1093,11 +1093,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.subtract_with_carry(val);
             }
 
-            (_, _) => {
-                log::debug!(
-                    "attempting to execute unimplemented or invalid \
-                     instruction"
-                );
+            (instr, input) => {
+                panic!("unimplemented or invalid instruction: {instr:?} with input {input:?}");
             }
         }
     }
