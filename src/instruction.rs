@@ -242,44 +242,16 @@ pub enum Instruction {
     STP,
 
     // Branch on Bit Reset (65C02 only) - BBRn zp,rel
-    BBR0,
-    BBR1,
-    BBR2,
-    BBR3,
-    BBR4,
-    BBR5,
-    BBR6,
-    BBR7,
+    BBR(u8),
 
     // Branch on Bit Set (65C02 only) - BBSn zp,rel
-    BBS0,
-    BBS1,
-    BBS2,
-    BBS3,
-    BBS4,
-    BBS5,
-    BBS6,
-    BBS7,
+    BBS(u8),
 
     // Reset Memory Bit (65C02 only) - RMBn zp
-    RMB0,
-    RMB1,
-    RMB2,
-    RMB3,
-    RMB4,
-    RMB5,
-    RMB6,
-    RMB7,
+    RMB(u8),
 
     // Set Memory Bit (65C02 only) - SMBn zp
-    SMB0,
-    SMB1,
-    SMB2,
-    SMB3,
-    SMB4,
-    SMB5,
-    SMB6,
-    SMB7,
+    SMB(u8),
 
     // XAA, (transfer X to A, and then ANDs the accumulator with an immediate value)
     XAA,
@@ -596,12 +568,12 @@ impl Instruction {
             (WAI, Implied) => 3,
 
             // BBR/BBS - Branch on Bit Reset/Set (65C02 only, 5 cycles)
-            (BBR0 | BBR1 | BBR2 | BBR3 | BBR4 | BBR5 | BBR6 | BBR7, ZeroPageRelative) => 5,
-            (BBS0 | BBS1 | BBS2 | BBS3 | BBS4 | BBS5 | BBS6 | BBS7, ZeroPageRelative) => 5,
+            (BBR(_), ZeroPageRelative) => 5,
+            (BBS(_), ZeroPageRelative) => 5,
 
             // RMB/SMB - Reset/Set Memory Bit (65C02 only, 5 cycles)
-            (RMB0 | RMB1 | RMB2 | RMB3 | RMB4 | RMB5 | RMB6 | RMB7, ZeroPage) => 5,
-            (SMB0 | SMB1 | SMB2 | SMB3 | SMB4 | SMB5 | SMB6 | SMB7, ZeroPage) => 5,
+            (RMB(_), ZeroPage) => 5,
+            (SMB(_), ZeroPage) => 5,
 
             // Illegal opcodes - SAX (Store A AND X)
             (SAX, ZeroPage) => 3,
@@ -1516,42 +1488,24 @@ impl crate::Variant for Cmos6502 {
             0x89 => Some((Instruction::BIT, AddressingMode::Immediate)),
             0xcb => Some((Instruction::WAI, AddressingMode::Implied)),
             0xdb => Some((Instruction::STP, AddressingMode::Implied)),
-            // BBR - Branch on Bit Reset (bit number in high nibble >> 4)
-            0x0f => Some((Instruction::BBR0, AddressingMode::ZeroPageRelative)),
-            0x1f => Some((Instruction::BBR1, AddressingMode::ZeroPageRelative)),
-            0x2f => Some((Instruction::BBR2, AddressingMode::ZeroPageRelative)),
-            0x3f => Some((Instruction::BBR3, AddressingMode::ZeroPageRelative)),
-            0x4f => Some((Instruction::BBR4, AddressingMode::ZeroPageRelative)),
-            0x5f => Some((Instruction::BBR5, AddressingMode::ZeroPageRelative)),
-            0x6f => Some((Instruction::BBR6, AddressingMode::ZeroPageRelative)),
-            0x7f => Some((Instruction::BBR7, AddressingMode::ZeroPageRelative)),
-            // BBS - Branch on Bit Set
-            0x8f => Some((Instruction::BBS0, AddressingMode::ZeroPageRelative)),
-            0x9f => Some((Instruction::BBS1, AddressingMode::ZeroPageRelative)),
-            0xaf => Some((Instruction::BBS2, AddressingMode::ZeroPageRelative)),
-            0xbf => Some((Instruction::BBS3, AddressingMode::ZeroPageRelative)),
-            0xcf => Some((Instruction::BBS4, AddressingMode::ZeroPageRelative)),
-            0xdf => Some((Instruction::BBS5, AddressingMode::ZeroPageRelative)),
-            0xef => Some((Instruction::BBS6, AddressingMode::ZeroPageRelative)),
-            0xff => Some((Instruction::BBS7, AddressingMode::ZeroPageRelative)),
-            // RMB - Reset Memory Bit
-            0x07 => Some((Instruction::RMB0, AddressingMode::ZeroPage)),
-            0x17 => Some((Instruction::RMB1, AddressingMode::ZeroPage)),
-            0x27 => Some((Instruction::RMB2, AddressingMode::ZeroPage)),
-            0x37 => Some((Instruction::RMB3, AddressingMode::ZeroPage)),
-            0x47 => Some((Instruction::RMB4, AddressingMode::ZeroPage)),
-            0x57 => Some((Instruction::RMB5, AddressingMode::ZeroPage)),
-            0x67 => Some((Instruction::RMB6, AddressingMode::ZeroPage)),
-            0x77 => Some((Instruction::RMB7, AddressingMode::ZeroPage)),
-            // SMB - Set Memory Bit
-            0x87 => Some((Instruction::SMB0, AddressingMode::ZeroPage)),
-            0x97 => Some((Instruction::SMB1, AddressingMode::ZeroPage)),
-            0xa7 => Some((Instruction::SMB2, AddressingMode::ZeroPage)),
-            0xb7 => Some((Instruction::SMB3, AddressingMode::ZeroPage)),
-            0xc7 => Some((Instruction::SMB4, AddressingMode::ZeroPage)),
-            0xd7 => Some((Instruction::SMB5, AddressingMode::ZeroPage)),
-            0xe7 => Some((Instruction::SMB6, AddressingMode::ZeroPage)),
-            0xf7 => Some((Instruction::SMB7, AddressingMode::ZeroPage)),
+            // BBR/BBS - Branch on Bit Reset/Set (low nibble 0xf, bit = high nibble)
+            _ if opcode & 0x0f == 0x0f => {
+                let bit = (opcode >> 4) & 0x07;
+                if opcode < 0x80 {
+                    Some((Instruction::BBR(bit), AddressingMode::ZeroPageRelative))
+                } else {
+                    Some((Instruction::BBS(bit), AddressingMode::ZeroPageRelative))
+                }
+            }
+            // RMB/SMB - Reset/Set Memory Bit (low nibble 0x7, bit = high nibble)
+            _ if opcode & 0x0f == 0x07 => {
+                let bit = (opcode >> 4) & 0x07;
+                if opcode < 0x80 {
+                    Some((Instruction::RMB(bit), AddressingMode::ZeroPage))
+                } else {
+                    Some((Instruction::SMB(bit), AddressingMode::ZeroPage))
+                }
+            }
             _ => Nmos6502::decode(opcode),
         }
     }

@@ -561,30 +561,12 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
 
             (
-                Instruction::BBR0
-                | Instruction::BBR1
-                | Instruction::BBR2
-                | Instruction::BBR3
-                | Instruction::BBR4
-                | Instruction::BBR5
-                | Instruction::BBR6
-                | Instruction::BBR7,
+                Instruction::BBR(bit),
                 OpInput::UseBitBranch {
                     zp_address,
                     relative,
                 },
             ) => {
-                let bit = match instr {
-                    Instruction::BBR0 => 0,
-                    Instruction::BBR1 => 1,
-                    Instruction::BBR2 => 2,
-                    Instruction::BBR3 => 3,
-                    Instruction::BBR4 => 4,
-                    Instruction::BBR5 => 5,
-                    Instruction::BBR6 => 6,
-                    Instruction::BBR7 => 7,
-                    _ => unreachable!(),
-                };
                 let val = self.memory.get_byte(u16::from(zp_address));
                 if val & (1 << bit) == 0 {
                     let addr = self.registers.program_counter.wrapping_add(relative);
@@ -593,30 +575,12 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             }
 
             (
-                Instruction::BBS0
-                | Instruction::BBS1
-                | Instruction::BBS2
-                | Instruction::BBS3
-                | Instruction::BBS4
-                | Instruction::BBS5
-                | Instruction::BBS6
-                | Instruction::BBS7,
+                Instruction::BBS(bit),
                 OpInput::UseBitBranch {
                     zp_address,
                     relative,
                 },
             ) => {
-                let bit = match instr {
-                    Instruction::BBS0 => 0,
-                    Instruction::BBS1 => 1,
-                    Instruction::BBS2 => 2,
-                    Instruction::BBS3 => 3,
-                    Instruction::BBS4 => 4,
-                    Instruction::BBS5 => 5,
-                    Instruction::BBS6 => 6,
-                    Instruction::BBS7 => 7,
-                    _ => unreachable!(),
-                };
                 let val = self.memory.get_byte(u16::from(zp_address));
                 if val & (1 << bit) != 0 {
                     let addr = self.registers.program_counter.wrapping_add(relative);
@@ -624,54 +588,12 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 }
             }
 
-            (
-                Instruction::RMB0
-                | Instruction::RMB1
-                | Instruction::RMB2
-                | Instruction::RMB3
-                | Instruction::RMB4
-                | Instruction::RMB5
-                | Instruction::RMB6
-                | Instruction::RMB7,
-                OpInput::UseAddress { address: addr, .. },
-            ) => {
-                let bit = match instr {
-                    Instruction::RMB0 => 0,
-                    Instruction::RMB1 => 1,
-                    Instruction::RMB2 => 2,
-                    Instruction::RMB3 => 3,
-                    Instruction::RMB4 => 4,
-                    Instruction::RMB5 => 5,
-                    Instruction::RMB6 => 6,
-                    Instruction::RMB7 => 7,
-                    _ => unreachable!(),
-                };
+            (Instruction::RMB(bit), OpInput::UseAddress { address: addr, .. }) => {
                 let val = self.memory.get_byte(addr);
                 self.memory.set_byte(addr, val & !(1 << bit));
             }
 
-            (
-                Instruction::SMB0
-                | Instruction::SMB1
-                | Instruction::SMB2
-                | Instruction::SMB3
-                | Instruction::SMB4
-                | Instruction::SMB5
-                | Instruction::SMB6
-                | Instruction::SMB7,
-                OpInput::UseAddress { address: addr, .. },
-            ) => {
-                let bit = match instr {
-                    Instruction::SMB0 => 0,
-                    Instruction::SMB1 => 1,
-                    Instruction::SMB2 => 2,
-                    Instruction::SMB3 => 3,
-                    Instruction::SMB4 => 4,
-                    Instruction::SMB5 => 5,
-                    Instruction::SMB6 => 6,
-                    Instruction::SMB7 => 7,
-                    _ => unreachable!(),
-                };
+            (Instruction::SMB(bit), OpInput::UseAddress { address: addr, .. }) => {
                 let val = self.memory.get_byte(addr);
                 self.memory.set_byte(addr, val | (1 << bit));
             }
@@ -3781,16 +3703,7 @@ mod tests {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         for bit in 0u8..8 {
-            let instr = [
-                Instruction::RMB0,
-                Instruction::RMB1,
-                Instruction::RMB2,
-                Instruction::RMB3,
-                Instruction::RMB4,
-                Instruction::RMB5,
-                Instruction::RMB6,
-                Instruction::RMB7,
-            ][bit as usize];
+            let instr = Instruction::RMB(bit);
             cpu.memory.set_byte(0x10, 0xFF);
             cpu.execute_instruction((
                 instr,
@@ -3813,16 +3726,7 @@ mod tests {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
         for bit in 0u8..8 {
-            let instr = [
-                Instruction::SMB0,
-                Instruction::SMB1,
-                Instruction::SMB2,
-                Instruction::SMB3,
-                Instruction::SMB4,
-                Instruction::SMB5,
-                Instruction::SMB6,
-                Instruction::SMB7,
-            ][bit as usize];
+            let instr = Instruction::SMB(bit);
             cpu.memory.set_byte(0x10, 0x00);
             cpu.execute_instruction((
                 instr,
@@ -3850,7 +3754,7 @@ mod tests {
         // BBR3: bit 3 is clear → should branch forward by 5
         cpu.registers.program_counter = start_pc;
         cpu.execute_instruction((
-            Instruction::BBR3,
+            Instruction::BBR(3),
             AddressingMode::ZeroPageRelative,
             OpInput::UseBitBranch {
                 zp_address: 0x20,
@@ -3862,7 +3766,7 @@ mod tests {
         // BBR5: bit 5 is SET → should NOT branch
         cpu.registers.program_counter = start_pc;
         cpu.execute_instruction((
-            Instruction::BBR5,
+            Instruction::BBR(5),
             AddressingMode::ZeroPageRelative,
             OpInput::UseBitBranch {
                 zp_address: 0x20,
@@ -3882,7 +3786,7 @@ mod tests {
         // BBS5: bit 5 is set → should branch forward by 10
         cpu.registers.program_counter = start_pc;
         cpu.execute_instruction((
-            Instruction::BBS5,
+            Instruction::BBS(5),
             AddressingMode::ZeroPageRelative,
             OpInput::UseBitBranch {
                 zp_address: 0x20,
@@ -3894,7 +3798,7 @@ mod tests {
         // BBS3: bit 3 is clear → should NOT branch
         cpu.registers.program_counter = start_pc;
         cpu.execute_instruction((
-            Instruction::BBS3,
+            Instruction::BBS(3),
             AddressingMode::ZeroPageRelative,
             OpInput::UseBitBranch {
                 zp_address: 0x20,
@@ -3915,7 +3819,7 @@ mod tests {
         let rel = (-8_i16).cast_unsigned();
         cpu.registers.program_counter = start_pc;
         cpu.execute_instruction((
-            Instruction::BBR0,
+            Instruction::BBR(0),
             AddressingMode::ZeroPageRelative,
             OpInput::UseBitBranch {
                 zp_address: 0x30,
@@ -3925,7 +3829,7 @@ mod tests {
         assert_eq!(
             cpu.registers.program_counter,
             start_pc.wrapping_add(rel),
-            "BBR0 backward branch should wrap correctly"
+            "BBR(0) backward branch should wrap correctly"
         );
     }
 }
