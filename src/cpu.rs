@@ -435,6 +435,11 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         V::penalty_cycles_for_decimal_mode()
     }
 
+    /// Runs one decoded instruction.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `decoded_instr`'s (mode, operand) combination is not valid.
     #[allow(clippy::too_many_lines)]
     pub fn execute_instruction(&mut self, decoded_instr: DecodedInstr) {
         let (instr, mode, operand) = decoded_instr;
@@ -3653,8 +3658,7 @@ mod tests {
         assert_eq!(
             pushed_status & 0x30,
             0x30,
-            "BRK must push status with bits 4 (B) and 5 (unused) set, got {:08b}",
-            pushed_status
+            "BRK must push status with bits 4 (B) and 5 (unused) set, got {pushed_status:08b}"
         );
     }
 
@@ -3798,7 +3802,7 @@ mod tests {
             ));
             assert_eq!(
                 cpu.memory.get_byte(0x10),
-                0xFF & !(1 << bit),
+                !(1 << bit),
                 "RMB{bit} should clear bit {bit}"
             );
         }
