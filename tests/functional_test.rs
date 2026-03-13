@@ -4,6 +4,7 @@
 use mos6502::Variant;
 use mos6502::cpu;
 use mos6502::instruction::Cmos6502;
+use mos6502::instruction::Mos65C02;
 use mos6502::instruction::Nmos6502;
 use mos6502::memory::Bus;
 use mos6502::memory::Memory;
@@ -96,7 +97,7 @@ fn klaus2m5_65c02_extended_opcodes_test() {
     let program = read(TEST_BINARY_PATH_65C02_EXTENDED_OPCODES)
         .expect("Could not read functional test binary");
 
-    let mut cpu = cpu::CPU::new(Memory::new(), Cmos6502);
+    let mut cpu = cpu::CPU::new(Memory::new(), Mos65C02::<true, false> {});
 
     cpu.memory.set_bytes(PROGRAM_LOAD_ADDR, &program);
     cpu.registers.program_counter = PROGRAM_START_ADDR;

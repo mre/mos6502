@@ -38,7 +38,10 @@
 //! in behavior. Choose the [variant] that matches your target system:
 //!
 //! - **NMOS 6502**: Original MOS Technology processor
-//! - **65C02**: CMOS version with bug fixes and new instructions
+//! - **65C02**: CMOS version with bug fixes and new instructions. Several
+//!   historical 65C02 chips are available as named type aliases:
+//!   - [`instruction::Cmos6502`] — WDC W65C02 original (WAI/STP only)
+//!   - [`instruction::W65C02S`] - Modern W65C02S, with low-power and Rockwell extensions.
 //! - **Ricoh 2A03**: Nintendo's NES variant without decimal mode
 //! - **Revision A**: Very early variant missing the ROR instruction
 //!

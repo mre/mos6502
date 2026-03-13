@@ -1407,10 +1407,19 @@ impl crate::Variant for RevisionA {
     }
 }
 
-/// Emulates the Western Design Center (WDC) 65C02 microprocessor.
+/// Configurable emulation of a 65C02-family CMOS microprocessor.
 ///
 /// The 65C02 is a CMOS version of the NMOS 6502, which offers several
 /// improvements while maintaining backward compatibility.
+///
+/// Two const parameters select which optional extension sets are present:
+///
+/// - `ROCKWELL` — enables the Rockwell bit-manipulation instructions
+///   (BBR, BBS, RMB, SMB). Present on the Rockwell R65C02 (1987) and
+///   WDC W65C02S/-SB, but absent from the original WDC 65C02.
+/// - `WDC` — enables the WDC low-power instructions (WAI, STP).
+///   Present on the WDC W65C02 (1990) and later, but absent from the
+///   Rockwell R65C02.
 ///
 /// # Key Improvements Over NMOS 6502
 ///
@@ -1429,8 +1438,6 @@ impl crate::Variant for RevisionA {
 /// - `STZ`: Store Zero to memory
 /// - `TRB/TSB`: Test and Reset/Set memory Bits
 /// - `INC A/DEC A`: Increment/Decrement Accumulator
-/// - `WAI`: Wait for Interrupt (low-power mode)
-/// - `STP`: Stop processor until reset (low-power mode)
 ///
 /// ## New Addressing Modes
 /// - **Zero Page Indirect**: `(zp)` for ORA, AND, EOR, ADC, STA, LDA, CMP, SBC
@@ -1442,72 +1449,108 @@ impl crate::Variant for RevisionA {
 /// - [WDC 65C02 Datasheet](http://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
 /// - [65C02 Wikipedia Article](https://en.wikipedia.org/wiki/WDC_65C02)
 #[derive(Copy, Clone, Debug, Default)]
-pub struct Cmos6502;
+pub struct Mos65C02<const ROCKWELL: bool, const WDC: bool>;
 
-impl crate::Variant for Cmos6502 {
-    fn decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
-        match opcode {
-            0x00 => Some((Instruction::BRKcld, AddressingMode::Implied)),
-            0x02 => Some((Instruction::NOPI, AddressingMode::Immediate)),
-            0x22 => Some((Instruction::NOPI, AddressingMode::Immediate)),
-            0x42 => Some((Instruction::NOPI, AddressingMode::Immediate)),
-            0x62 => Some((Instruction::NOPI, AddressingMode::Immediate)),
-            0x03 | 0x13 | 0x23 | 0x33 | 0x43 | 0x53 | 0x63 | 0x73 | 0x83 | 0x93 | 0xa3 | 0xb3
-            | 0xc3 | 0xd3 | 0xe3 | 0xf3 | 0x0b | 0x1b | 0x2b | 0x3b | 0x4b | 0x5b | 0x6b | 0x7b
-            | 0x8b | 0x9b | 0xab | 0xbb | 0xeb | 0xfb => {
-                Some((Instruction::NOP1, AddressingMode::Implied))
-            }
-            0x5c => Some((Instruction::NOPAX8, AddressingMode::AbsoluteX)),
-            0x1a => Some((Instruction::INC, AddressingMode::Accumulator)),
-            0x3a => Some((Instruction::DEC, AddressingMode::Accumulator)),
-            0x6c => Some((Instruction::JMP, AddressingMode::Indirect)),
-            0x7c => Some((Instruction::JMP, AddressingMode::AbsoluteIndexedIndirect)),
-            0x80 => Some((Instruction::BRA, AddressingMode::Relative)),
-            0x64 => Some((Instruction::STZ, AddressingMode::ZeroPage)),
-            0x74 => Some((Instruction::STZ, AddressingMode::ZeroPageX)),
-            0x9c => Some((Instruction::STZ, AddressingMode::Absolute)),
-            0x9e => Some((Instruction::STZ, AddressingMode::AbsoluteX)),
-            0x7a => Some((Instruction::PLY, AddressingMode::Implied)),
-            0xfa => Some((Instruction::PLX, AddressingMode::Implied)),
-            0x5a => Some((Instruction::PHY, AddressingMode::Implied)),
-            0xda => Some((Instruction::PHX, AddressingMode::Implied)),
-            0x04 => Some((Instruction::TSB, AddressingMode::ZeroPage)),
-            0x14 => Some((Instruction::TRB, AddressingMode::ZeroPage)),
-            0x0c => Some((Instruction::TSB, AddressingMode::Absolute)),
-            0x1c => Some((Instruction::TRB, AddressingMode::Absolute)),
-            0x12 => Some((Instruction::ORA, AddressingMode::ZeroPageIndirect)),
-            0x32 => Some((Instruction::AND, AddressingMode::ZeroPageIndirect)),
-            0x34 => Some((Instruction::BIT, AddressingMode::ZeroPageX)),
-            0x3c => Some((Instruction::BIT, AddressingMode::AbsoluteX)),
-            0x52 => Some((Instruction::EOR, AddressingMode::ZeroPageIndirect)),
-            0x72 => Some((Instruction::ADC, AddressingMode::ZeroPageIndirect)),
-            0x92 => Some((Instruction::STA, AddressingMode::ZeroPageIndirect)),
-            0xb2 => Some((Instruction::LDA, AddressingMode::ZeroPageIndirect)),
-            0xd2 => Some((Instruction::CMP, AddressingMode::ZeroPageIndirect)),
-            0xf2 => Some((Instruction::SBC, AddressingMode::ZeroPageIndirect)),
-            0x89 => Some((Instruction::BIT, AddressingMode::Immediate)),
-            0xcb => Some((Instruction::WAI, AddressingMode::Implied)),
-            0xdb => Some((Instruction::STP, AddressingMode::Implied)),
-            // BBR/BBS - Branch on Bit Reset/Set (low nibble 0xf, bit = high nibble)
-            _ if opcode & 0x0f == 0x0f => {
-                let bit = (opcode >> 4) & 0x07;
-                if opcode < 0x80 {
-                    Some((Instruction::BBR(bit), AddressingMode::ZeroPageRelative))
-                } else {
-                    Some((Instruction::BBS(bit), AddressingMode::ZeroPageRelative))
-                }
-            }
-            // RMB/SMB - Reset/Set Memory Bit (low nibble 0x7, bit = high nibble)
-            _ if opcode & 0x0f == 0x07 => {
-                let bit = (opcode >> 4) & 0x07;
-                if opcode < 0x80 {
-                    Some((Instruction::RMB(bit), AddressingMode::ZeroPage))
-                } else {
-                    Some((Instruction::SMB(bit), AddressingMode::ZeroPage))
-                }
-            }
-            _ => Nmos6502::decode(opcode),
+/// Backward-compatible alias for `Mos65C02<false, true>`, an early W65C02.
+pub type Cmos6502 = Mos65C02<false, true>;
+/// Value constant for backward compatibility with unit struct.
+#[allow(non_upper_case_globals)]
+pub const Cmos6502: Cmos6502 = Cmos6502 {};
+
+/// Alias for a modern W65C02S, with both Rockwell and WDC extensions.
+pub type W65C02S = Mos65C02<true, true>;
+/// Value constant to avoid braces.
+pub const W65C02S: W65C02S = W65C02S {};
+
+/// Decode opcodes shared by all 65C02 variants (base CMOS instruction set).
+const fn cmos_base_decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
+    match opcode {
+        0x00 => Some((Instruction::BRKcld, AddressingMode::Implied)),
+        0x02 => Some((Instruction::NOPI, AddressingMode::Immediate)),
+        0x22 => Some((Instruction::NOPI, AddressingMode::Immediate)),
+        0x42 => Some((Instruction::NOPI, AddressingMode::Immediate)),
+        0x62 => Some((Instruction::NOPI, AddressingMode::Immediate)),
+        0x03 | 0x13 | 0x23 | 0x33 | 0x43 | 0x53 | 0x63 | 0x73 | 0x83 | 0x93 | 0xa3 | 0xb3
+        | 0xc3 | 0xd3 | 0xe3 | 0xf3 | 0x0b | 0x1b | 0x2b | 0x3b | 0x4b | 0x5b | 0x6b | 0x7b
+        | 0x8b | 0x9b | 0xab | 0xbb | 0xeb | 0xfb => {
+            Some((Instruction::NOP1, AddressingMode::Implied))
         }
+        0x5c => Some((Instruction::NOPAX8, AddressingMode::AbsoluteX)),
+        0x1a => Some((Instruction::INC, AddressingMode::Accumulator)),
+        0x3a => Some((Instruction::DEC, AddressingMode::Accumulator)),
+        0x6c => Some((Instruction::JMP, AddressingMode::Indirect)),
+        0x7c => Some((Instruction::JMP, AddressingMode::AbsoluteIndexedIndirect)),
+        0x80 => Some((Instruction::BRA, AddressingMode::Relative)),
+        0x64 => Some((Instruction::STZ, AddressingMode::ZeroPage)),
+        0x74 => Some((Instruction::STZ, AddressingMode::ZeroPageX)),
+        0x9c => Some((Instruction::STZ, AddressingMode::Absolute)),
+        0x9e => Some((Instruction::STZ, AddressingMode::AbsoluteX)),
+        0x7a => Some((Instruction::PLY, AddressingMode::Implied)),
+        0xfa => Some((Instruction::PLX, AddressingMode::Implied)),
+        0x5a => Some((Instruction::PHY, AddressingMode::Implied)),
+        0xda => Some((Instruction::PHX, AddressingMode::Implied)),
+        0x04 => Some((Instruction::TSB, AddressingMode::ZeroPage)),
+        0x14 => Some((Instruction::TRB, AddressingMode::ZeroPage)),
+        0x0c => Some((Instruction::TSB, AddressingMode::Absolute)),
+        0x1c => Some((Instruction::TRB, AddressingMode::Absolute)),
+        0x12 => Some((Instruction::ORA, AddressingMode::ZeroPageIndirect)),
+        0x32 => Some((Instruction::AND, AddressingMode::ZeroPageIndirect)),
+        0x34 => Some((Instruction::BIT, AddressingMode::ZeroPageX)),
+        0x3c => Some((Instruction::BIT, AddressingMode::AbsoluteX)),
+        0x52 => Some((Instruction::EOR, AddressingMode::ZeroPageIndirect)),
+        0x72 => Some((Instruction::ADC, AddressingMode::ZeroPageIndirect)),
+        0x92 => Some((Instruction::STA, AddressingMode::ZeroPageIndirect)),
+        0xb2 => Some((Instruction::LDA, AddressingMode::ZeroPageIndirect)),
+        0xd2 => Some((Instruction::CMP, AddressingMode::ZeroPageIndirect)),
+        0xf2 => Some((Instruction::SBC, AddressingMode::ZeroPageIndirect)),
+        0x89 => Some((Instruction::BIT, AddressingMode::Immediate)),
+        _ => None,
+    }
+}
+
+/// Decode WDC low-power extension opcodes (WAI, STP).
+const fn wdc_decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
+    match opcode {
+        0xcb => Some((Instruction::WAI, AddressingMode::Implied)),
+        0xdb => Some((Instruction::STP, AddressingMode::Implied)),
+        _ => None,
+    }
+}
+
+/// Decode Rockwell bit-manipulation extension opcodes (BBR, BBS, RMB, SMB).
+const fn rockwell_decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
+    let bit = (opcode >> 4) & 0x07;
+    if opcode & 0x0f == 0x0f {
+        // BBR/BBS - Branch on Bit Reset/Set (low nibble 0xf, high nibble < 8 for BBR, BBS otherwise)
+        if opcode < 0x80 {
+            Some((Instruction::BBR(bit), AddressingMode::ZeroPageRelative))
+        } else {
+            Some((Instruction::BBS(bit), AddressingMode::ZeroPageRelative))
+        }
+    } else if opcode & 0x0f == 0x07 {
+        // RMB/SMB - Reset/Set Memory Bit (low nibble 0x7, high nibble < 8 for RMB, SMB otherwise)
+        if opcode < 0x80 {
+            Some((Instruction::RMB(bit), AddressingMode::ZeroPage))
+        } else {
+            Some((Instruction::SMB(bit), AddressingMode::ZeroPage))
+        }
+    } else {
+        None
+    }
+}
+
+impl<const ROCKWELL: bool, const WDC: bool> crate::Variant for Mos65C02<ROCKWELL, WDC> {
+    fn decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
+        cmos_base_decode(opcode)
+            .or_else(|| if WDC { wdc_decode(opcode) } else { None })
+            .or_else(|| {
+                if ROCKWELL {
+                    rockwell_decode(opcode)
+                } else {
+                    None
+                }
+            })
+            .or_else(|| Nmos6502::decode(opcode))
     }
 
     /// 65C02 (CMOS) ADC implementation in binary mode
