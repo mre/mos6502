@@ -725,6 +725,7 @@ impl Instruction {
             (USBC, Immediate) => 2,
 
             // ----- HuC6280 extensions -----
+
             // MMU mapping register transfers
             (TAM, Immediate) => 5,
             (TMA, Immediate) => 4,
@@ -1917,7 +1918,7 @@ const fn huc6280_decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
 /// so it inherits all of the 65C02 additions (`BRA`, `PHX/PLX`, `PHY/PLY`,
 /// `STZ`, `TRB/TSB`, the Rockwell `RMB/SMB/BBR/BBS` bit instructions, and the
 /// `(zp)` / `(abs,X)` addressing modes). On top of that it adds Hudson's own
-/// extensions, all of which this variant decodes and executes:
+/// extensions:
 ///
 /// - Integrated MMU: eight 8-bit mapping registers (MPR0-MPR7) widen the
 ///   16-bit logical space to 21 bits (2 MB). Programmed with `TAM`/`TMA` and
