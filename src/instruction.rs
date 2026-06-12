@@ -313,6 +313,54 @@ pub enum Instruction {
 
     // USBC, (Same as SBC immediate)
     USBC,
+
+    // ----- HuC6280 (TurboGrafx-16 / PC Engine) extensions -----
+
+    // TAM, (Transfer Accumulator to MMU Mapping register(s) selected by bitmask)
+    TAM,
+
+    // TMA, (Transfer MMU Mapping register selected by bitmask to Accumulator)
+    TMA,
+
+    // TII, (block transfer: source increment, destination increment)
+    TII,
+
+    // TDD, (block transfer: source decrement, destination decrement)
+    TDD,
+
+    // TIN, (block transfer: source increment, destination fixed)
+    TIN,
+
+    // TIA, (block transfer: source increment, destination alternates)
+    TIA,
+
+    // TAI, (block transfer: source alternates, destination increment)
+    TAI,
+
+    // TST, (test memory bits against an immediate mask, like BIT but non-destructive)
+    TST,
+
+    // ST0/ST1/ST2, (write immediate to the VDC address/data ports)
+    ST0,
+    ST1,
+    ST2,
+
+    // CSL/CSH, (select low / high CPU clock speed)
+    CSL,
+    CSH,
+
+    // CLA/CLX/CLY, (clear the Accumulator / X / Y register, flags unaffected)
+    CLA,
+    CLX,
+    CLY,
+
+    // SXY/SAX/SAY, (swap X<->Y / A<->X / A<->Y, flags unaffected)
+    // Note: the HuC6280's A<->X swap is mnemonically `SAX`, but that name is
+    // already taken by the undocumented NMOS opcode above, so it is spelled
+    // `SWAPAX` here.
+    SXY,
+    SWAPAX,
+    SAY,
 }
 
 impl Instruction {
@@ -676,6 +724,32 @@ impl Instruction {
             // Illegal opcodes - USBC (Same as SBC)
             (USBC, Immediate) => 2,
 
+            // ----- HuC6280 extensions -----
+            // MMU mapping register transfers
+            (TAM, Immediate) => 5,
+            (TMA, Immediate) => 4,
+
+            // Block transfers: 17 cycles of fixed overhead. The HuC6280 also
+            // spends 6 cycles per byte copied; that variable cost is added at
+            // execution time (see `cpu::CPU::block_transfer`).
+            (TII | TDD | TIN | TIA | TAI, BlockTransfer) => 17,
+
+            // TST - test memory bits against an immediate mask
+            (TST, ImmediateZeroPage | ImmediateZeroPageX) => 7,
+            (TST, ImmediateAbsolute | ImmediateAbsoluteX) => 8,
+
+            // VDC port writes
+            (ST0 | ST1 | ST2, Immediate) => 4,
+
+            // Clock speed select
+            (CSL | CSH, Implied) => 3,
+
+            // Register clears
+            (CLA | CLX | CLY, Implied) => 2,
+
+            // Register swaps
+            (SXY | SWAPAX | SAY, Implied) => 3,
+
             // Invalid combinations cause a panic to indicate a bug in the decoder
             _ => unreachable!("undecoded instruction"),
         }
@@ -690,6 +764,10 @@ pub enum OpInput {
     UseAddress { address: u16, page_crossed: bool },
     // BBR/BBS: zero-page address to test, plus sign-extended relative offset
     UseBitBranch { zp_address: u8, relative: u16 },
+    // HuC6280 block transfer (TII/TDD/TIN/TIA/TAI): source, destination, length.
+    UseBlockTransfer { source: u16, dest: u16, length: u16 },
+    // HuC6280 TST: an immediate test mask plus the target memory address.
+    UseImmediateAddress { value: u8, address: u16 },
 }
 
 impl OpInput {
@@ -717,6 +795,16 @@ impl Display for OpInput {
                 relative,
             } => {
                 write!(f, "${zp_address:02X},${relative:04X}")
+            }
+            OpInput::UseBlockTransfer {
+                source,
+                dest,
+                length,
+            } => {
+                write!(f, "${source:04X},${dest:04X},${length:04X}")
+            }
+            OpInput::UseImmediateAddress { value, address } => {
+                write!(f, "#${value:02X},${address:04X}")
             }
         }
     }
@@ -776,6 +864,20 @@ pub enum AddressingMode {
     // Zero page address + relative offset, used for BBR/BBS (65C02 only).
     // Encodes two operand bytes: zp_address, relative_offset.
     ZeroPageRelative,
+
+    // HuC6280 block transfer: three 16-bit operands (source, destination,
+    // length), six operand bytes total. Used by TII/TDD/TIN/TIA/TAI.
+    BlockTransfer,
+
+    // HuC6280 TST modes: an immediate test mask followed by a memory operand.
+    // `#imm, zp` (two operand bytes).
+    ImmediateZeroPage,
+    // `#imm, zp,X` (two operand bytes).
+    ImmediateZeroPageX,
+    // `#imm, abs` (three operand bytes).
+    ImmediateAbsolute,
+    // `#imm, abs,X` (three operand bytes).
+    ImmediateAbsoluteX,
 }
 
 impl AddressingMode {
@@ -799,6 +901,11 @@ impl AddressingMode {
             AddressingMode::ZeroPageIndirect => 1,
             AddressingMode::AbsoluteIndexedIndirect => 2,
             AddressingMode::ZeroPageRelative => 2,
+            AddressingMode::BlockTransfer => 6,
+            AddressingMode::ImmediateZeroPage => 2,
+            AddressingMode::ImmediateZeroPageX => 2,
+            AddressingMode::ImmediateAbsolute => 3,
+            AddressingMode::ImmediateAbsoluteX => 3,
         }
     }
 }
@@ -1754,5 +1861,135 @@ impl<const ROCKWELL: bool, const WDC: bool> crate::Variant for Mos65C02<ROCKWELL
 
     fn penalty_cycles_for_indirect_jmp() -> u8 {
         1 // 65C02 takes 6 cycles for JMP (indirect) instead of 5
+    }
+}
+
+/// Decode the HuC6280-exclusive opcodes (MMU, block transfer, and the
+/// Hudson-specific accumulator / register / I/O instructions).
+///
+/// These opcodes occupy slots that are unused (or undocumented NOPs) on the
+/// stock 65C02, so this table is consulted *before* the shared CMOS and NMOS
+/// decoders to take priority over those fallbacks.
+const fn huc6280_decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
+    match opcode {
+        // Register swaps and clears
+        0x02 => Some((Instruction::SXY, AddressingMode::Implied)),
+        0x22 => Some((Instruction::SWAPAX, AddressingMode::Implied)),
+        0x42 => Some((Instruction::SAY, AddressingMode::Implied)),
+        0x62 => Some((Instruction::CLA, AddressingMode::Implied)),
+        0x82 => Some((Instruction::CLX, AddressingMode::Implied)),
+        0xC2 => Some((Instruction::CLY, AddressingMode::Implied)),
+
+        // VDC port writes (ST0/ST1/ST2)
+        0x03 => Some((Instruction::ST0, AddressingMode::Immediate)),
+        0x13 => Some((Instruction::ST1, AddressingMode::Immediate)),
+        0x23 => Some((Instruction::ST2, AddressingMode::Immediate)),
+
+        // MMU mapping register transfers
+        0x43 => Some((Instruction::TMA, AddressingMode::Immediate)),
+        0x53 => Some((Instruction::TAM, AddressingMode::Immediate)),
+
+        // CPU clock speed select
+        0x54 => Some((Instruction::CSL, AddressingMode::Implied)),
+        0xD4 => Some((Instruction::CSH, AddressingMode::Implied)),
+
+        // Block transfer instructions
+        0x73 => Some((Instruction::TII, AddressingMode::BlockTransfer)),
+        0xC3 => Some((Instruction::TDD, AddressingMode::BlockTransfer)),
+        0xD3 => Some((Instruction::TIN, AddressingMode::BlockTransfer)),
+        0xE3 => Some((Instruction::TIA, AddressingMode::BlockTransfer)),
+        0xF3 => Some((Instruction::TAI, AddressingMode::BlockTransfer)),
+
+        // TST - test memory against an immediate mask
+        0x83 => Some((Instruction::TST, AddressingMode::ImmediateZeroPage)),
+        0x93 => Some((Instruction::TST, AddressingMode::ImmediateAbsolute)),
+        0xA3 => Some((Instruction::TST, AddressingMode::ImmediateZeroPageX)),
+        0xB3 => Some((Instruction::TST, AddressingMode::ImmediateAbsoluteX)),
+
+        _ => None,
+    }
+}
+
+/// Emulation of the Hudson Soft / NEC `HuC6280`, the CPU at the heart of the
+/// NEC `TurboGrafx-16` / PC Engine (1987).
+///
+/// The `HuC6280` is a CMOS 6502 derivative built on the 65C02 instruction set,
+/// so it inherits all of the 65C02 additions (`BRA`, `PHX/PLX`, `PHY/PLY`,
+/// `STZ`, `TRB/TSB`, the Rockwell `RMB/SMB/BBR/BBS` bit instructions, and the
+/// `(zp)` / `(abs,X)` addressing modes). On top of that it adds Hudson's own
+/// extensions, all of which this variant decodes and executes:
+///
+/// - Integrated MMU: eight 8-bit mapping registers (MPR0-MPR7) widen the
+///   16-bit logical space to 21 bits (2 MB). Programmed with `TAM`/`TMA` and
+///   stored in [`crate::registers::Registers::mpr`]. Logical-to-physical
+///   translation is available via
+///   [`crate::registers::Registers::physical_address`].
+/// - Block transfer instructions: `TII`, `TDD`, `TIN`, `TIA`, `TAI` copy a
+///   block of memory in a single instruction.
+/// - Bit testing: `TST` tests memory against an immediate mask without
+///   disturbing the accumulator.
+/// - Helper opcodes: `CLA/CLX/CLY` (clear register), `SXY/SAX/SAY` (swap
+///   registers), `ST0/ST1/ST2` (VDC port writes), and `CSL/CSH` (clock speed).
+///
+/// # Unmodelled hardware
+///
+/// The `HuC6280` die also integrates a 6-channel PSG, a programmable timer, and
+/// an 8-bit I/O port. Those are peripherals rather than CPU instructions and,
+/// like all other I/O in this crate, are left to the [`crate::memory::Bus`]
+/// implementation. The `SET` (T-flag) prefix instruction is likewise not
+/// modelled, as it would require threading an extra memory-operand mode through
+/// every arithmetic/logic instruction.
+///
+/// # References
+///
+/// - [HuC6280 - PC Engine / TurboGrafx-16 CPU (cmos manual)](http://shu.sega.free.fr/pcengine/pce_cpu.txt)
+/// - [Wikipedia: Hudson Soft HuC6280](https://en.wikipedia.org/wiki/Hudson_Soft_HuC6280)
+#[derive(Copy, Clone, Debug, Default)]
+pub struct Huc6280;
+
+impl crate::Variant for Huc6280 {
+    fn decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
+        huc6280_decode(opcode)
+            .or_else(|| cmos_base_decode(opcode))
+            .or_else(|| rockwell_decode(opcode))
+            .or_else(|| Nmos6502::decode(opcode))
+    }
+
+    // The HuC6280's arithmetic core matches the 65C02 (reliable decimal-mode
+    // flags), so delegate to the fully-featured W65C02S implementation.
+    fn adc_binary(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
+        <W65C02S as crate::Variant>::adc_binary(accumulator, value, carry_set)
+    }
+
+    fn adc_decimal(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
+        <W65C02S as crate::Variant>::adc_decimal(accumulator, value, carry_set)
+    }
+
+    fn sbc_binary(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
+        <W65C02S as crate::Variant>::sbc_binary(accumulator, value, carry_set)
+    }
+
+    fn sbc_decimal(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
+        <W65C02S as crate::Variant>::sbc_decimal(accumulator, value, carry_set)
+    }
+
+    fn penalty_cycles_for_decimal_mode() -> u8 {
+        1 // CMOS-derived: decimal-mode ADC/SBC takes an extra cycle
+    }
+
+    fn penalty_cycles_for_indirect_jmp() -> u8 {
+        1 // Fixes the NMOS page-crossing bug and takes 6 cycles like the 65C02
+    }
+
+    fn zero_page_base() -> u16 {
+        0x2000 // Zero page lives at $2000-$20FF (via MPR1)
+    }
+
+    fn stack_base() -> u16 {
+        0x2100 // Stack lives at $2100-$21FF (via MPR1)
+    }
+
+    fn brk_vector() -> u16 {
+        0xFFF6 // HuC6280 software-interrupt (BRK) vector
     }
 }

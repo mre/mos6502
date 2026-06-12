@@ -177,6 +177,33 @@ pub struct Registers {
     pub stack_pointer: StackPointer,
     pub program_counter: u16,
     pub status: Status,
+    /// `HuC6280` Memory Management Unit mapping registers (MPR0-MPR7).
+    ///
+    /// The `HuC6280` (`TurboGrafx-16` / PC Engine) extends the 16-bit logical
+    /// address space to a 21-bit (2 MB) physical space. The top three bits of
+    /// every logical address select one of these eight registers, whose 8-bit
+    /// value supplies the upper bits of the physical address. They are
+    /// programmed with the `TAM`/`TMA` instructions.
+    ///
+    /// These registers are unused by every other variant and remain zeroed.
+    pub mpr: [u8; 8],
+}
+
+impl Registers {
+    /// Translates a 16-bit logical address into the 21-bit physical address
+    /// produced by the `HuC6280` MMU, using the current mapping registers.
+    ///
+    /// The top three bits of `logical` select the mapping register (MPR0-MPR7);
+    /// the selected register supplies bits 13-20 of the physical address while
+    /// the low 13 bits pass through unchanged.
+    ///
+    /// For every non-HuC6280 variant the mapping registers are zero, so this is
+    /// the identity mapping within the low 64 KB.
+    #[must_use]
+    pub const fn physical_address(&self, logical: u16) -> u32 {
+        let bank = self.mpr[(logical >> 13) as usize];
+        ((bank as u32) << 13) | (logical as u32 & 0x1FFF)
+    }
 }
 
 impl Default for Registers {
@@ -197,6 +224,7 @@ impl Registers {
             stack_pointer: StackPointer(0), // Real hardware: random value on power-on
             program_counter: 0,             // Set by reset vector in practice
             status: Status::default(),
+            mpr: [0; 8], // HuC6280 MMU registers; unused by other variants
         }
     }
 }

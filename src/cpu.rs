@@ -70,6 +70,20 @@ enum WaitState {
     WaitingForReset,
 }
 
+/// How a `HuC6280` block-transfer instruction advances one of its pointers
+/// after each byte is copied.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum AddrStep {
+    /// Advance to the next address (`+1`).
+    Inc,
+    /// Advance to the previous address (`-1`).
+    Dec,
+    /// Stay put (used for the destination of `TIN`).
+    Fixed,
+    /// Alternate between the base address and base + 1 on each byte.
+    Alternate,
+}
+
 #[derive(Clone, Default)]
 pub struct CPU<M, V>
 where
@@ -165,6 +179,18 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             [lo, hi]
         }
 
+        // Read a 16-bit pointer from the zero page, wrapping within the page.
+        //
+        // On the 6502 family the high byte of a zero-page indirect pointer is
+        // fetched from `(ptr + 1) & 0xFF`; it stays inside the zero page
+        // rather than spilling into the next page. `zp_base` relocates the page
+        // for variants whose zero page is not at $0000 (e.g. the HuC6280).
+        fn read_zp_address<M: Bus>(mem: &mut M, zp_base: u16, ptr: u8) -> [u8; 2] {
+            let lo = mem.get_byte(zp_base | u16::from(ptr));
+            let hi = mem.get_byte(zp_base | u16::from(ptr.wrapping_add(1)));
+            [lo, hi]
+        }
+
         let x: u8 = self.memory.get_byte(self.registers.program_counter);
 
         match V::decode(x) {
@@ -184,11 +210,15 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         self.memory.get_byte(data_start.wrapping_add(1)),
                     ]
                 } else {
-                    panic!()
+                    // HuC6280 modes with more than two operand bytes (block
+                    // transfer, immediate+absolute) read their operands
+                    // directly from memory in the match below.
+                    [0, 0]
                 };
 
                 let x = self.registers.index_x;
                 let y = self.registers.index_y;
+                let zp_base = V::zero_page_base();
 
                 let memory = &mut self.memory;
 
@@ -206,7 +236,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // Interpret as zero page address
                         // (Output: an 8-bit zero-page address)
                         OpInput::UseAddress {
-                            address: u16::from(slice[0]),
+                            address: zp_base.wrapping_add(u16::from(slice[0])),
                             page_crossed: false,
                         }
                     }
@@ -215,7 +245,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // Add to X register (as u8 -- the final address is in 0-page)
                         // (Output: an 8-bit zero-page address)
                         OpInput::UseAddress {
-                            address: u16::from(slice[0].wrapping_add(x)),
+                            address: zp_base.wrapping_add(u16::from(slice[0].wrapping_add(x))),
                             page_crossed: false,
                         }
                     }
@@ -224,7 +254,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // Add to Y register (as u8 -- the final address is in 0-page)
                         // (Output: an 8-bit zero-page address)
                         OpInput::UseAddress {
-                            address: u16::from(slice[0].wrapping_add(y)),
+                            address: zp_base.wrapping_add(u16::from(slice[0].wrapping_add(y))),
                             page_crossed: false,
                         }
                     }
@@ -322,7 +352,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // This is where the absolute (16-bit) target address is stored.
                         // (Output: a 16-bit address)
                         let start = slice[0].wrapping_add(x);
-                        let slice = read_address(memory, u16::from(start));
+                        let slice = read_zp_address(memory, zp_base, start);
                         OpInput::UseAddress {
                             address: address_from_bytes(slice[0], slice[1]),
                             page_crossed: false,
@@ -334,7 +364,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // Add Y register to this address to get the final address
                         // Check for page crossing
                         let start = slice[0];
-                        let slice = read_address(memory, u16::from(start));
+                        let slice = read_zp_address(memory, zp_base, start);
                         let base = address_from_bytes(slice[0], slice[1]);
                         let final_addr = base.wrapping_add(y.into());
                         let crossed = (base & 0xFF00) != (final_addr & 0xFF00);
@@ -348,7 +378,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // This is where the absolute (16-bit) target address is stored.
                         // (Output: a 16-bit address)
                         let start = slice[0];
-                        let slice = read_address(memory, u16::from(start));
+                        let slice = read_zp_address(memory, zp_base, start);
                         OpInput::UseAddress {
                             address: address_from_bytes(slice[0], slice[1]),
                             page_crossed: false,
@@ -365,6 +395,64 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         OpInput::UseBitBranch {
                             zp_address,
                             relative,
+                        }
+                    }
+                    AddressingMode::BlockTransfer => {
+                        // HuC6280 block transfer: three little-endian 16-bit
+                        // operands - source, destination, length.
+                        let source = address_from_bytes(
+                            memory.get_byte(data_start),
+                            memory.get_byte(data_start.wrapping_add(1)),
+                        );
+                        let dest = address_from_bytes(
+                            memory.get_byte(data_start.wrapping_add(2)),
+                            memory.get_byte(data_start.wrapping_add(3)),
+                        );
+                        let length = address_from_bytes(
+                            memory.get_byte(data_start.wrapping_add(4)),
+                            memory.get_byte(data_start.wrapping_add(5)),
+                        );
+                        OpInput::UseBlockTransfer {
+                            source,
+                            dest,
+                            length,
+                        }
+                    }
+                    AddressingMode::ImmediateZeroPage => {
+                        // HuC6280 TST #imm, zp
+                        let value = memory.get_byte(data_start);
+                        let address = zp_base
+                            .wrapping_add(u16::from(memory.get_byte(data_start.wrapping_add(1))));
+                        OpInput::UseImmediateAddress { value, address }
+                    }
+                    AddressingMode::ImmediateZeroPageX => {
+                        // HuC6280 TST #imm, zp,X (zero-page wraparound)
+                        let value = memory.get_byte(data_start);
+                        let zp = memory.get_byte(data_start.wrapping_add(1)).wrapping_add(x);
+                        OpInput::UseImmediateAddress {
+                            value,
+                            address: zp_base.wrapping_add(u16::from(zp)),
+                        }
+                    }
+                    AddressingMode::ImmediateAbsolute => {
+                        // HuC6280 TST #imm, abs
+                        let value = memory.get_byte(data_start);
+                        let address = address_from_bytes(
+                            memory.get_byte(data_start.wrapping_add(1)),
+                            memory.get_byte(data_start.wrapping_add(2)),
+                        );
+                        OpInput::UseImmediateAddress { value, address }
+                    }
+                    AddressingMode::ImmediateAbsoluteX => {
+                        // HuC6280 TST #imm, abs,X
+                        let value = memory.get_byte(data_start);
+                        let base = address_from_bytes(
+                            memory.get_byte(data_start.wrapping_add(1)),
+                            memory.get_byte(data_start.wrapping_add(2)),
+                        );
+                        OpInput::UseImmediateAddress {
+                            value,
+                            address: base.wrapping_add(u16::from(x)),
                         }
                     }
                 };
@@ -567,7 +655,9 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                     relative,
                 },
             ) => {
-                let val = self.memory.get_byte(u16::from(zp_address));
+                let val = self
+                    .memory
+                    .get_byte(V::zero_page_base() | u16::from(zp_address));
                 if val & (1 << bit) == 0 {
                     let addr = self.registers.program_counter.wrapping_add(relative);
                     self.registers.program_counter = addr;
@@ -581,7 +671,9 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                     relative,
                 },
             ) => {
-                let val = self.memory.get_byte(u16::from(zp_address));
+                let val = self
+                    .memory
+                    .get_byte(V::zero_page_base() | u16::from(zp_address));
                 if val & (1 << bit) != 0 {
                     let addr = self.registers.program_counter.wrapping_add(relative);
                     self.registers.program_counter = addr;
@@ -606,8 +698,9 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.push_address(return_addr);
                 // Push status with B flag and unused bit set (both bits 4 and 5 always set on stack)
                 self.push_on_stack(self.registers.status.bits() | 0x30);
-                let pcl = self.memory.get_byte(0xfffe);
-                let pch = self.memory.get_byte(0xffff);
+                let vector = V::brk_vector();
+                let pcl = self.memory.get_byte(vector);
+                let pch = self.memory.get_byte(vector.wrapping_add(1));
                 self.jump((u16::from(pch) << 8) | u16::from(pcl));
                 self.set_flag(Status::PS_DISABLE_INTERRUPTS);
             }
@@ -622,8 +715,9 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 }
                 // Push status with B flag and unused bit set (both bits 4 and 5 always set on stack)
                 self.push_on_stack(self.registers.status.bits() | 0x30);
-                let pcl = self.memory.get_byte(0xfffe);
-                let pch = self.memory.get_byte(0xffff);
+                let vector = V::brk_vector();
+                let pcl = self.memory.get_byte(vector);
+                let pch = self.memory.get_byte(vector.wrapping_add(1));
                 self.jump((u16::from(pch) << 8) | u16::from(pcl));
                 self.set_flag(Status::PS_DISABLE_INTERRUPTS);
                 self.unset_flag(Status::PS_DECIMAL_MODE);
@@ -1155,8 +1249,191 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.subtract_with_carry(val);
             }
 
+            // ----- HuC6280 (TurboGrafx-16 / PC Engine) extensions -----
+
+            // TAM - Transfer Accumulator to MMU Mapping register(s).
+            // The immediate is a bitmask: every set bit i copies A into MPR[i].
+            (Instruction::TAM, OpInput::UseImmediate(mask)) => {
+                for i in 0..8 {
+                    if mask & (1 << i) != 0 {
+                        self.registers.mpr[i] = self.registers.accumulator;
+                    }
+                }
+            }
+
+            // TMA - Transfer MMU Mapping register to Accumulator.
+            // The immediate is a bitmask; the selected registers are wired
+            // together onto the internal bus, so the accumulator receives the
+            // bitwise OR of every selected mapping register.
+            (Instruction::TMA, OpInput::UseImmediate(mask)) => {
+                if mask != 0 {
+                    let mut value = 0u8;
+                    for i in 0..8 {
+                        if mask & (1 << i) != 0 {
+                            value |= self.registers.mpr[i];
+                        }
+                    }
+                    self.registers.accumulator = value;
+                }
+            }
+
+            // Block transfers (operate on the 16-bit logical address space;
+            // the Bus is responsible for any physical/bank mapping).
+            (
+                Instruction::TII,
+                OpInput::UseBlockTransfer {
+                    source,
+                    dest,
+                    length,
+                },
+            ) => self.block_transfer(source, dest, length, AddrStep::Inc, AddrStep::Inc),
+            (
+                Instruction::TDD,
+                OpInput::UseBlockTransfer {
+                    source,
+                    dest,
+                    length,
+                },
+            ) => self.block_transfer(source, dest, length, AddrStep::Dec, AddrStep::Dec),
+            (
+                Instruction::TIN,
+                OpInput::UseBlockTransfer {
+                    source,
+                    dest,
+                    length,
+                },
+            ) => self.block_transfer(source, dest, length, AddrStep::Inc, AddrStep::Fixed),
+            (
+                Instruction::TIA,
+                OpInput::UseBlockTransfer {
+                    source,
+                    dest,
+                    length,
+                },
+            ) => self.block_transfer(source, dest, length, AddrStep::Inc, AddrStep::Alternate),
+            (
+                Instruction::TAI,
+                OpInput::UseBlockTransfer {
+                    source,
+                    dest,
+                    length,
+                },
+            ) => self.block_transfer(source, dest, length, AddrStep::Alternate, AddrStep::Inc),
+
+            // TST - test memory bits against an immediate mask (like BIT, but
+            // the mask comes from the instruction and neither A nor memory is
+            // modified). Z from (mask & memory); N and V from memory bits 7/6.
+            (Instruction::TST, OpInput::UseImmediateAddress { value, address }) => {
+                let m = self.memory.get_byte(address);
+                self.registers.status.set_with_mask(
+                    Status::PS_ZERO | Status::PS_NEGATIVE | Status::PS_OVERFLOW,
+                    Status::new(StatusArgs {
+                        zero: (value & m) == 0,
+                        negative: (m & 0x80) != 0,
+                        overflow: (m & 0x40) != 0,
+                        ..StatusArgs::none()
+                    }),
+                );
+            }
+
+            // ST0/ST1/ST2 - write the immediate to a VDC port. The PC Engine
+            // maps the VDC into a hardware bank; here the write is forwarded to
+            // the canonical port offset so a Bus implementation can intercept
+            // it (ST0 = address/status, ST1 = data low, ST2 = data high).
+            (Instruction::ST0, OpInput::UseImmediate(val)) => {
+                self.memory.set_byte(0x0000, val);
+            }
+            (Instruction::ST1, OpInput::UseImmediate(val)) => {
+                self.memory.set_byte(0x0002, val);
+            }
+            (Instruction::ST2, OpInput::UseImmediate(val)) => {
+                self.memory.set_byte(0x0003, val);
+            }
+
+            // CSL/CSH - select low (1.79 MHz) or high (7.16 MHz) clock speed.
+            // This changes wall-clock timing, not the per-instruction cycle
+            // counts this emulator tracks, so they are effectively no-ops.
+            (Instruction::CSL | Instruction::CSH, OpInput::UseImplied) => {}
+
+            // CLA/CLX/CLY - clear a register. Flags are left unchanged.
+            (Instruction::CLA, OpInput::UseImplied) => self.registers.accumulator = 0,
+            (Instruction::CLX, OpInput::UseImplied) => self.registers.index_x = 0,
+            (Instruction::CLY, OpInput::UseImplied) => self.registers.index_y = 0,
+
+            // SXY/SAX/SAY - swap two registers. Flags are left unchanged.
+            (Instruction::SXY, OpInput::UseImplied) => {
+                core::mem::swap(&mut self.registers.index_x, &mut self.registers.index_y);
+            }
+            (Instruction::SWAPAX, OpInput::UseImplied) => {
+                core::mem::swap(&mut self.registers.accumulator, &mut self.registers.index_x);
+            }
+            (Instruction::SAY, OpInput::UseImplied) => {
+                core::mem::swap(&mut self.registers.accumulator, &mut self.registers.index_y);
+            }
+
             (instr, input) => {
                 panic!("unimplemented or invalid instruction: {instr:?} with input {input:?}");
+            }
+        }
+    }
+
+    /// Execute a `HuC6280` block-transfer instruction (TII/TDD/TIN/TIA/TAI).
+    ///
+    /// Copies `length` bytes from `source` to `dest` within the 16-bit logical
+    /// address space, advancing each pointer according to its [`AddrStep`].
+    /// A `length` of `0` transfers the full 65536 bytes, matching the hardware.
+    ///
+    /// On real hardware these instructions cost 6 cycles per byte on top of
+    /// their fixed overhead; that per-byte cost is accounted for here because
+    /// it cannot be expressed by the fixed `base_cycles` table.
+    fn block_transfer(
+        &mut self,
+        source: u16,
+        dest: u16,
+        length: u16,
+        src_step: AddrStep,
+        dest_step: AddrStep,
+    ) {
+        let count = if length == 0 {
+            0x1_0000_u32
+        } else {
+            u32::from(length)
+        };
+
+        let mut s = source;
+        let mut d = dest;
+        let mut s_toggle = false;
+        let mut d_toggle = false;
+
+        for _ in 0..count {
+            let val = self.memory.get_byte(s);
+            self.memory.set_byte(d, val);
+            s = Self::advance_block_pointer(s, src_step, &mut s_toggle);
+            d = Self::advance_block_pointer(d, dest_step, &mut d_toggle);
+        }
+
+        // 6 cycles per byte copied (fixed overhead is in `base_cycles`).
+        self.cycles = self.cycles.wrapping_add(6 * u64::from(count));
+    }
+
+    /// Advance one block-transfer pointer by a single step.
+    ///
+    /// For [`AddrStep::Alternate`], `toggle` tracks whether the pointer is
+    /// currently at the base address (so the next access uses base + 1) or vice
+    /// versa, producing the base, base+1, base, base+1, ... pattern.
+    const fn advance_block_pointer(addr: u16, step: AddrStep, toggle: &mut bool) -> u16 {
+        match step {
+            AddrStep::Inc => addr.wrapping_add(1),
+            AddrStep::Dec => addr.wrapping_sub(1),
+            AddrStep::Fixed => addr,
+            AddrStep::Alternate => {
+                let next = if *toggle {
+                    addr.wrapping_sub(1)
+                } else {
+                    addr.wrapping_add(1)
+                };
+                *toggle = !*toggle;
+                next
             }
         }
     }
@@ -1677,7 +1954,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     }
 
     fn push_on_stack(&mut self, val: u8) {
-        let addr = self.registers.stack_pointer.to_u16();
+        let addr = self.stack_address();
         self.memory.set_byte(addr, val);
         self.registers.stack_pointer.decrement();
     }
@@ -1692,8 +1969,14 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
     fn pull_from_stack(&mut self) -> u8 {
         self.registers.stack_pointer.increment();
-        let addr = self.registers.stack_pointer.to_u16();
+        let addr = self.stack_address();
         self.memory.get_byte(addr)
+    }
+
+    /// Computes the absolute address of the current top of stack for this
+    /// variant. Standard parts use page `$01`; the `HuC6280` uses `$21`.
+    fn stack_address(&self) -> u16 {
+        V::stack_base() | u16::from(self.registers.stack_pointer.0)
     }
 
     /// Service an interrupt by pushing PC and status to stack, then jumping to the interrupt vector.
@@ -3105,6 +3388,259 @@ mod tests {
         cpu.reset(); // Reset again to jump to our new reset vector
         cpu.single_step(); // Execute LDA
         assert_eq!(cpu.registers.accumulator, 0x99);
+    }
+
+    // ==================== HuC6280 Tests ====================
+
+    #[test]
+    fn huc6280_tam_tma_roundtrip() {
+        use crate::instruction::Huc6280;
+
+        // TAM #$05 writes A into MPR0 and MPR2; TMA reads a register back.
+        let mut cpu = CPU::new(Ram::new(), Huc6280);
+        cpu.registers.accumulator = 0xF8;
+
+        // TAM #$05 (opcode 0x53)
+        cpu.memory.set_byte(0x0000, 0x53);
+        cpu.memory.set_byte(0x0001, 0x05);
+        cpu.single_step();
+        assert_eq!(cpu.registers.mpr[0], 0xF8);
+        assert_eq!(cpu.registers.mpr[1], 0x00);
+        assert_eq!(cpu.registers.mpr[2], 0xF8);
+
+        // Clobber A, then TMA #$04 should reload it from MPR2.
+        cpu.registers.accumulator = 0x00;
+        cpu.memory.set_byte(0x0002, 0x43); // TMA
+        cpu.memory.set_byte(0x0003, 0x04); // select MPR2
+        cpu.single_step();
+        assert_eq!(cpu.registers.accumulator, 0xF8);
+    }
+
+    #[test]
+    fn huc6280_physical_address_mapping() {
+        use crate::instruction::Huc6280;
+
+        let mut cpu = CPU::new(Ram::new(), Huc6280);
+        // Map logical bank 0 ($0000-$1FFF) to physical bank $80.
+        cpu.registers.mpr[0] = 0x80;
+        assert_eq!(cpu.registers.physical_address(0x0000), 0x10_0000);
+        assert_eq!(cpu.registers.physical_address(0x0123), 0x10_0123);
+        // Bank 7 ($E000-$FFFF) is unmapped (MPR7 == 0) -> identity low bits.
+        assert_eq!(cpu.registers.physical_address(0xE001), 0x0001);
+    }
+
+    #[test]
+    fn huc6280_tii_block_copy() {
+        use crate::instruction::Huc6280;
+
+        let mut cpu = CPU::new(Ram::new(), Huc6280);
+        cpu.memory.set_bytes(0x1000, &[0xDE, 0xAD, 0xBE, 0xEF]);
+
+        // TII $1000, $2000, $0004 (opcode 0x73)
+        cpu.memory
+            .set_bytes(0x0000, &[0x73, 0x00, 0x10, 0x00, 0x20, 0x04, 0x00]);
+        let cycles_before = cpu.cycles;
+        cpu.single_step();
+
+        for i in 0..4 {
+            assert_eq!(
+                cpu.memory.get_byte(0x2000 + i),
+                cpu.memory.get_byte(0x1000 + i)
+            );
+        }
+        // PC advanced past opcode + 6 operand bytes.
+        assert_eq!(cpu.registers.program_counter, 0x0007);
+        // 17 fixed cycles + 6 per byte * 4 bytes = 41.
+        assert_eq!(cpu.cycles - cycles_before, 17 + 6 * 4);
+    }
+
+    #[test]
+    fn huc6280_tdd_descending_copy() {
+        use crate::instruction::Huc6280;
+
+        let mut cpu = CPU::new(Ram::new(), Huc6280);
+        cpu.memory.set_bytes(0x1000, &[0x11, 0x22, 0x33]);
+
+        // TDD $1002, $2002, $0003 (opcode 0xC3) - copies downward.
+        cpu.memory
+            .set_bytes(0x0000, &[0xC3, 0x02, 0x10, 0x02, 0x20, 0x03, 0x00]);
+        cpu.single_step();
+
+        assert_eq!(cpu.memory.get_byte(0x2000), 0x11);
+        assert_eq!(cpu.memory.get_byte(0x2001), 0x22);
+        assert_eq!(cpu.memory.get_byte(0x2002), 0x33);
+    }
+
+    #[test]
+    fn huc6280_tin_fixed_destination() {
+        use crate::instruction::Huc6280;
+
+        let mut cpu = CPU::new(Ram::new(), Huc6280);
+        cpu.memory.set_bytes(0x1000, &[0x01, 0x02, 0x03]);
+
+        // TIN $1000, $2000, $0003 (opcode 0xD3) - destination stays fixed,
+        // so the last source byte wins.
+        cpu.memory
+            .set_bytes(0x0000, &[0xD3, 0x00, 0x10, 0x00, 0x20, 0x03, 0x00]);
+        cpu.single_step();
+
+        assert_eq!(cpu.memory.get_byte(0x2000), 0x03);
+    }
+
+    #[test]
+    fn huc6280_tia_alternating_destination() {
+        use crate::instruction::Huc6280;
+
+        let mut cpu = CPU::new(Ram::new(), Huc6280);
+        cpu.memory.set_bytes(0x1000, &[0xA0, 0xA1, 0xA2, 0xA3]);
+
+        // TIA $1000, $2000, $0004 (opcode 0xE3) - destination ping-pongs
+        // between $2000 and $2001.
+        cpu.memory
+            .set_bytes(0x0000, &[0xE3, 0x00, 0x10, 0x00, 0x20, 0x04, 0x00]);
+        cpu.single_step();
+
+        // $2000 gets bytes 0 and 2; $2001 gets bytes 1 and 3.
+        assert_eq!(cpu.memory.get_byte(0x2000), 0xA2);
+        assert_eq!(cpu.memory.get_byte(0x2001), 0xA3);
+    }
+
+    #[test]
+    fn huc6280_tst_sets_flags_without_side_effects() {
+        use crate::instruction::Huc6280;
+
+        let mut cpu = CPU::new(Ram::new(), Huc6280);
+        cpu.registers.accumulator = 0x00;
+        // Zero page lives at $2000 on the HuC6280, so $40 -> $2040.
+        cpu.memory.set_byte(0x2040, 0b1100_0001);
+
+        // TST #$01, $40 (opcode 0x83): mask bit 0 is set in memory -> Z clear;
+        // N from bit 7, V from bit 6.
+        cpu.memory.set_bytes(0x0000, &[0x83, 0x01, 0x40]);
+        cpu.single_step();
+
+        assert!(!cpu.get_flag(Status::PS_ZERO));
+        assert!(cpu.get_flag(Status::PS_NEGATIVE));
+        assert!(cpu.get_flag(Status::PS_OVERFLOW));
+        // Memory and accumulator are untouched.
+        assert_eq!(cpu.memory.get_byte(0x2040), 0b1100_0001);
+        assert_eq!(cpu.registers.accumulator, 0x00);
+
+        // TST #$02, $40: mask bit 1 is clear in memory -> Z set.
+        cpu.registers.program_counter = 0x0003;
+        cpu.memory.set_bytes(0x0003, &[0x83, 0x02, 0x40]);
+        cpu.single_step();
+        assert!(cpu.get_flag(Status::PS_ZERO));
+    }
+
+    #[test]
+    fn huc6280_register_clears_and_swaps() {
+        use crate::instruction::Huc6280;
+
+        let mut cpu = CPU::new(Ram::new(), Huc6280);
+        cpu.registers.accumulator = 0xAA;
+        cpu.registers.index_x = 0xBB;
+        cpu.registers.index_y = 0xCC;
+
+        // SAX-equivalent swap A<->X (opcode 0x22)
+        cpu.memory.set_byte(0x0000, 0x22);
+        cpu.single_step();
+        assert_eq!(cpu.registers.accumulator, 0xBB);
+        assert_eq!(cpu.registers.index_x, 0xAA);
+
+        // SXY swap X<->Y (opcode 0x02)
+        cpu.memory.set_byte(0x0001, 0x02);
+        cpu.single_step();
+        assert_eq!(cpu.registers.index_x, 0xCC);
+        assert_eq!(cpu.registers.index_y, 0xAA);
+
+        // CLA clears A (opcode 0x62)
+        cpu.memory.set_byte(0x0002, 0x62);
+        cpu.single_step();
+        assert_eq!(cpu.registers.accumulator, 0x00);
+    }
+
+    #[test]
+    fn huc6280_inherits_65c02_instructions() {
+        use crate::instruction::Huc6280;
+
+        // BRA (0x80) and PHX (0xDA) come from the 65C02 base the HuC6280
+        // builds on; confirm they still decode and run under this variant.
+        let mut cpu = CPU::new(Ram::new(), Huc6280);
+        cpu.registers.index_x = 0x77;
+        cpu.registers.stack_pointer = StackPointer(0xFF);
+
+        cpu.memory.set_byte(0x0000, 0xDA); // PHX
+        cpu.single_step();
+        // Stack lives at $2100 on the HuC6280, so SP=$FF -> $21FF.
+        assert_eq!(cpu.memory.get_byte(0x21FF), 0x77);
+
+        // BRA +4 (forward branch)
+        cpu.memory.set_bytes(0x0001, &[0x80, 0x04]);
+        cpu.single_step();
+        assert_eq!(cpu.registers.program_counter, 0x0007);
+    }
+
+    #[test]
+    fn huc6280_zero_page_relocated_to_2000() {
+        use crate::instruction::Huc6280;
+
+        // The HuC6280 reads zero page from $2000-$20FF, not $0000-$00FF.
+        let mut cpu = CPU::new(Ram::new(), Huc6280);
+        cpu.memory.set_byte(0x2042, 0x9A); // value the LDA should read
+        cpu.memory.set_byte(0x0042, 0x11); // decoy at the bare zero page
+        cpu.memory.set_bytes(0x0000, &[0xA5, 0x42]); // LDA $42
+        cpu.single_step();
+        assert_eq!(cpu.registers.accumulator, 0x9A);
+    }
+
+    #[test]
+    fn huc6280_zero_page_indirect_pointer_relocated() {
+        use crate::instruction::Huc6280;
+
+        // (zp),Y reads its pointer from the relocated zero page at $2000.
+        let mut cpu = CPU::new(Ram::new(), Huc6280);
+        cpu.registers.index_y = 0x01;
+        cpu.memory.set_bytes(0x2030, &[0x00, 0x40]); // pointer $4000 at $2030
+        cpu.memory.set_byte(0x4001, 0x5C); // target ($4000 + Y)
+        cpu.memory.set_bytes(0x0000, &[0xB1, 0x30]); // LDA ($30),Y
+        cpu.single_step();
+        assert_eq!(cpu.registers.accumulator, 0x5C);
+    }
+
+    #[test]
+    fn huc6280_jsr_rts_roundtrip_uses_2100_stack() {
+        use crate::instruction::Huc6280;
+
+        let mut cpu = CPU::new(Ram::new(), Huc6280);
+        cpu.registers.stack_pointer = StackPointer(0xFF);
+        cpu.registers.program_counter = 0x0010;
+        cpu.memory.set_bytes(0x0010, &[0x20, 0x00, 0x40]); // JSR $4000
+        cpu.single_step();
+        assert_eq!(cpu.registers.program_counter, 0x4000);
+        // Return address ($0012) pushed into the relocated stack page.
+        assert_eq!(cpu.memory.get_byte(0x21FF), 0x00);
+        assert_eq!(cpu.memory.get_byte(0x21FE), 0x12);
+
+        // RTS pulls it back from $2100.
+        cpu.memory.set_byte(0x4000, 0x60); // RTS
+        cpu.single_step();
+        assert_eq!(cpu.registers.program_counter, 0x0013);
+    }
+
+    #[test]
+    fn huc6280_brk_uses_fff6_vector() {
+        use crate::instruction::Huc6280;
+
+        let mut cpu = CPU::new(Ram::new(), Huc6280);
+        cpu.registers.stack_pointer = StackPointer(0xFF);
+        // HuC6280 fetches the BRK vector from $FFF6/$FFF7, not $FFFE/$FFFF.
+        cpu.memory.set_bytes(0xFFF6, &[0x34, 0x12]);
+        cpu.memory.set_byte(0xFFFE, 0xFF); // decoy at the standard vector
+        cpu.memory.set_byte(0xFFFF, 0xFF);
+        cpu.memory.set_byte(0x0000, 0x00); // BRK
+        cpu.single_step();
+        assert_eq!(cpu.registers.program_counter, 0x1234);
     }
 
     // ==================== Illegal Opcode Tests ====================

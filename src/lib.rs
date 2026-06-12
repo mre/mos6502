@@ -44,6 +44,9 @@
 //!   - [`instruction::W65C02S`] - Modern W65C02S, with low-power and Rockwell extensions.
 //! - **Ricoh 2A03**: Nintendo's NES variant without decimal mode
 //! - **Revision A**: Very early variant missing the ROR instruction
+//! - **`HuC6280`**: Hudson Soft/NEC variant for the TurboGrafx-16 / PC Engine,
+//!   adding an integrated MMU ([`instruction::Huc6280`]), block-transfer and
+//!   bit-test instructions on top of the 65C02 core.
 //!
 //! [variant]: crate::Variant
 
@@ -74,6 +77,12 @@ pub mod cpu;
 pub mod instruction;
 pub mod memory;
 pub mod registers;
+
+// `serde` and `serde_json` are dev-dependencies used only by the integration
+// tests under `tests/`. Reference them here so `unused_crate_dependencies` does
+// not flag them while the library itself is compiled for testing.
+#[cfg(test)]
+use {serde as _, serde_json as _};
 
 /// Output of arithmetic instructions (ADC/SBC)
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -139,6 +148,34 @@ pub trait Variant {
     #[must_use]
     fn penalty_cycles_for_indirect_jmp() -> u8 {
         0 // Default: no penalty
+    }
+
+    /// Base address of the zero page for this variant.
+    ///
+    /// Standard 6502 family parts place the zero page at `$0000`. The `HuC6280`
+    /// relocates it to `$2000` (reached through mapping register MPR1), so all
+    /// zero-page and zero-page-indirect accesses are offset by this base.
+    #[must_use]
+    fn zero_page_base() -> u16 {
+        0x0000
+    }
+
+    /// Base address of the hardware stack page for this variant.
+    ///
+    /// Standard 6502 family parts place the stack at `$0100`. The `HuC6280`
+    /// relocates it to `$2100` (reached through mapping register MPR1).
+    #[must_use]
+    fn stack_base() -> u16 {
+        0x0100
+    }
+
+    /// Address of the IRQ/BRK interrupt vector for this variant.
+    ///
+    /// Standard 6502 family parts fetch it from `$FFFE`. The `HuC6280` remaps the
+    /// software-interrupt (BRK) vector to `$FFF6`.
+    #[must_use]
+    fn brk_vector() -> u16 {
+        0xFFFE
     }
 
     /// Execute Add with Carry (ADC) in binary mode

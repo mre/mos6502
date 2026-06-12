@@ -66,3 +66,7 @@ src/.DS_Store
 tmp.*.rs
 .vscode
 Cargo.lock
+
+# Large, un-vendored HuC6280 single-step test data (SingleStepTests/huc6280).
+# See tests/single_step_huc6280.rs for how to download it.
+/tests/huc6280/
