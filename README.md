@@ -198,7 +198,7 @@ innovation:
   the core of their custom ASIC (Application-specific integrated circuit) which
   also included sound generation and other features.
 
-- **HuC6280** (1987): Hudson Soft/NEC variant at the heart of the
+- **`HuC6280`** (1987): Hudson Soft/NEC variant at the heart of the
   [TurboGrafx-16](https://en.wikipedia.org/wiki/TurboGrafx-16) / PC Engine.
   Built on the 65C02, it adds an integrated MMU that maps the 16-bit address
   space onto 2 MB of physical memory, single-instruction block-transfer

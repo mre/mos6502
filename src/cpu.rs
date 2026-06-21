@@ -103,9 +103,10 @@ where
     wait_state: WaitState,
     /// Last seen state of the NMI line for edge detection (high -> low transition)
     last_nmi_state: bool,
-    /// Phantom data to track which CPU variant is being emulated
-    /// (NMOS, CMOS, etc.)
-    variant: core::marker::PhantomData<V>,
+    /// The CPU variant being emulated (NMOS, CMOS, etc.). Stored so that
+    /// variant methods taking `&self`, such as [`Variant::zero_page_base`], can
+    /// be dispatched on a concrete instance.
+    variant: V,
 }
 
 impl<M: Bus, V: Variant> CPU<M, V> {
@@ -113,12 +114,12 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     // value avoids the borrow and improves readability when constructing the
     // CPU.
     #[allow(clippy::needless_pass_by_value)]
-    pub fn new(memory: M, _variant: V) -> CPU<M, V> {
+    pub fn new(memory: M, variant: V) -> CPU<M, V> {
         CPU {
             registers: Registers::new(),
             memory,
             cycles: 0,
-            variant: core::marker::PhantomData::<V>,
+            variant,
             wait_state: WaitState::Running,
             last_nmi_state: false,
         }
@@ -218,7 +219,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
                 let x = self.registers.index_x;
                 let y = self.registers.index_y;
-                let zp_base = V::zero_page_base();
+                let zp_base = self.variant.zero_page_base();
 
                 let memory = &mut self.memory;
 
@@ -655,9 +656,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                     relative,
                 },
             ) => {
-                let val = self
-                    .memory
-                    .get_byte(V::zero_page_base() | u16::from(zp_address));
+                let addr = self.variant.zero_page_base() | u16::from(zp_address);
+                let val = self.memory.get_byte(addr);
                 if val & (1 << bit) == 0 {
                     let addr = self.registers.program_counter.wrapping_add(relative);
                     self.registers.program_counter = addr;
@@ -671,9 +671,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                     relative,
                 },
             ) => {
-                let val = self
-                    .memory
-                    .get_byte(V::zero_page_base() | u16::from(zp_address));
+                let addr = self.variant.zero_page_base() | u16::from(zp_address);
+                let val = self.memory.get_byte(addr);
                 if val & (1 << bit) != 0 {
                     let addr = self.registers.program_counter.wrapping_add(relative);
                     self.registers.program_counter = addr;
@@ -1976,7 +1975,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     /// Computes the absolute address of the current top of stack for this
     /// variant. Standard parts use page `$01`; the `HuC6280` uses `$21`.
     fn stack_address(&self) -> u16 {
-        V::stack_base() | u16::from(self.registers.stack_pointer.0)
+        self.variant.stack_base() | u16::from(self.registers.stack_pointer.0)
     }
 
     /// Service an interrupt by pushing PC and status to stack, then jumping to the interrupt vector.
