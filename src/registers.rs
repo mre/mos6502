@@ -201,9 +201,27 @@ impl Registers {
     /// the identity mapping within the low 64 KB.
     #[must_use]
     pub const fn physical_address(&self, logical: u16) -> u32 {
-        let bank = self.mpr[(logical >> 13) as usize];
-        ((bank as u32) << 13) | (logical as u32 & 0x1FFF)
+        map_physical_address(&self.mpr, logical)
     }
+}
+
+/// Translates a 16-bit logical address into the 21-bit physical address
+/// produced by the `HuC6280` MMU for the given mapping registers (MPR0-MPR7).
+///
+/// The top three bits of `logical` select the mapping register; that register
+/// supplies bits 13-20 of the physical address while the low 13 bits pass
+/// through unchanged.
+///
+/// This is the single source of truth for the `HuC6280` address mapping.
+/// [`Registers::physical_address`] delegates to it, and a translating
+/// [`Bus`](crate::memory::Bus) that keeps its own copy of the mapping registers
+/// (for example one that mirrors them via
+/// [`Bus::set_mapping_register`](crate::memory::Bus::set_mapping_register))
+/// should call this rather than re-deriving the formula.
+#[must_use]
+pub const fn map_physical_address(mpr: &[u8; 8], logical: u16) -> u32 {
+    let bank = mpr[(logical >> 13) as usize];
+    ((bank as u32) << 13) | (logical as u32 & 0x1FFF)
 }
 
 impl Default for Registers {

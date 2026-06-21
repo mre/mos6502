@@ -156,6 +156,21 @@ pub trait Bus {
     fn irq_vector(&mut self) -> u16 {
         IRQ_INTERRUPT_VECTOR_LO
     }
+
+    /// Mirrors a write to one of the `HuC6280` MMU mapping registers (MPR0-MPR7).
+    ///
+    /// The CPU calls this from the `TAM` instruction every time a mapping
+    /// register changes, with `index` in `0..8`. The mapping registers remain
+    /// authoritative on the CPU (they are real registers, read back by `TMA`),
+    /// but a bus that performs logical-to-physical translation needs its own
+    /// up-to-date copy. Implementing this lets such a bus stay in sync
+    /// automatically instead of re-reading the registers after every step.
+    ///
+    /// The default implementation does nothing, which is correct for every
+    /// variant without an MMU.
+    fn set_mapping_register(&mut self, index: usize, value: u8) {
+        let _ = (index, value);
+    }
 }
 
 impl Memory {

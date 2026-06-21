@@ -1252,10 +1252,14 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
             // TAM - Transfer Accumulator to MMU Mapping register(s).
             // The immediate is a bitmask: every set bit i copies A into MPR[i].
+            // Each update is mirrored to the bus so a translating bus can keep
+            // its mapping in sync without re-reading the registers afterwards.
             (Instruction::TAM, OpInput::UseImmediate(mask)) => {
+                let value = self.registers.accumulator;
                 for i in 0..8 {
                     if mask & (1 << i) != 0 {
-                        self.registers.mpr[i] = self.registers.accumulator;
+                        self.registers.mpr[i] = value;
+                        self.memory.set_mapping_register(i, value);
                     }
                 }
             }
@@ -3417,6 +3421,49 @@ mod tests {
         cpu.memory.set_byte(0x0003, 0x04); // select MPR2
         cpu.single_step();
         assert_eq!(cpu.registers.accumulator, 0xF8);
+    }
+
+    #[test]
+    fn huc6280_tam_mirrors_to_bus() {
+        use crate::instruction::Huc6280;
+
+        // A bus that records the mapping-register writes pushed by TAM, so we
+        // can confirm the CPU keeps a translating bus in sync automatically.
+        struct RecordingBus {
+            ram: Ram,
+            mpr: [u8; 8],
+        }
+
+        impl Bus for RecordingBus {
+            fn get_byte(&mut self, address: u16) -> u8 {
+                self.ram.get_byte(address)
+            }
+            fn set_byte(&mut self, address: u16, value: u8) {
+                self.ram.set_byte(address, value);
+            }
+            fn set_mapping_register(&mut self, index: usize, value: u8) {
+                self.mpr[index] = value;
+            }
+        }
+
+        let mut cpu = CPU::new(
+            RecordingBus {
+                ram: Ram::new(),
+                mpr: [0; 8],
+            },
+            Huc6280,
+        );
+        cpu.registers.accumulator = 0xF8;
+
+        // TAM #$05 (opcode 0x53) -> writes MPR0 and MPR2.
+        cpu.memory.set_byte(0x0000, 0x53);
+        cpu.memory.set_byte(0x0001, 0x05);
+        cpu.single_step();
+
+        // The CPU registers remain authoritative...
+        assert_eq!(cpu.registers.mpr, [0xF8, 0, 0xF8, 0, 0, 0, 0, 0]);
+        // ...and the bus received the same updates without any manual sync.
+        assert_eq!(cpu.memory.mpr, [0xF8, 0, 0xF8, 0, 0, 0, 0, 0]);
     }
 
     #[test]

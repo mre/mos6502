@@ -47,7 +47,7 @@
 use mos6502::cpu::CPU;
 use mos6502::instruction::Huc6280;
 use mos6502::memory::Bus;
-use mos6502::registers::{StackPointer, Status};
+use mos6502::registers::{StackPointer, Status, map_physical_address};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
@@ -71,8 +71,8 @@ impl PhysBus {
     }
 
     fn phys(&self, logical: u16) -> usize {
-        let bank = self.mpr[(logical >> 13) as usize] as usize;
-        ((bank << 13) | (logical as usize & 0x1FFF)) & PHYS_MASK
+        // Reuse the core's canonical mapping formula instead of re-deriving it.
+        map_physical_address(&self.mpr, logical) as usize & PHYS_MASK
     }
 }
 
@@ -85,6 +85,11 @@ impl Bus for PhysBus {
     fn set_byte(&mut self, address: u16, value: u8) {
         let p = self.phys(address);
         self.ram[p] = value;
+    }
+
+    fn set_mapping_register(&mut self, index: usize, value: u8) {
+        // Stay in sync with TAM writes automatically; no post-step shadow copy.
+        self.mpr[index] = value;
     }
 }
 
