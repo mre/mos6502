@@ -56,9 +56,12 @@ fn address_from_bytes(lo: u8, hi: u8) -> u16 {
     u16::from(lo) + (u16::from(hi) << 8usize)
 }
 
-/// CPU wait state for instructions like WAI and STP
+/// CPU wait state for instructions like WAI and STP.
+///
+/// Exposed via [`CPU::wait_state`] so hosts that pace execution off the cycle
+/// count can react to a halted CPU (for example resetting after `STP`/`JAM`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
-enum WaitState {
+pub enum WaitState {
     /// Normal execution
     #[default]
     Running,
@@ -101,10 +104,10 @@ where
     wait_state: WaitState,
     /// Last seen state of the NMI line for edge detection (high -> low transition)
     last_nmi_state: bool,
-    /// The CPU variant being emulated (NMOS, CMOS, etc.). Stored so that
-    /// variant methods taking `&self`, such as [`Variant::zero_page_base`], can
-    /// be dispatched on a concrete instance.
-    variant: V,
+    /// Phantom data to track which CPU variant is being emulated
+    /// (NMOS, CMOS, etc.). The variant's configuration is exposed through
+    /// associated functions, so no instance needs to be stored.
+    variant: core::marker::PhantomData<V>,
 }
 
 impl<M: Bus, V: Variant> CPU<M, V> {
@@ -112,12 +115,12 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     // value avoids the borrow and improves readability when constructing the
     // CPU.
     #[allow(clippy::needless_pass_by_value)]
-    pub fn new(memory: M, variant: V) -> CPU<M, V> {
+    pub fn new(memory: M, _variant: V) -> CPU<M, V> {
         CPU {
             registers: Registers::new(),
             memory,
             cycles: 0,
-            variant,
+            variant: core::marker::PhantomData::<V>,
             wait_state: WaitState::Running,
             last_nmi_state: false,
         }
@@ -186,7 +189,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         // fetched from `(ptr + 1) & 0xFF`; it stays inside the zero page
         // rather than spilling into the next page. `zp_base` relocates the page
         // for variants whose zero page is not at $0000 (e.g. the HuC6280).
-        fn read_zp_address<M: Bus>(mem: &mut M, zp_base: u16, ptr: u8) -> [u8; 2] {
+        fn read_zero_page_addr<M: Bus>(mem: &mut M, zp_base: u16, ptr: u8) -> [u8; 2] {
             let lo = mem.get_byte(zp_base | u16::from(ptr));
             let hi = mem.get_byte(zp_base | u16::from(ptr.wrapping_add(1)));
             [lo, hi]
@@ -210,16 +213,23 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         self.memory.get_byte(data_start),
                         self.memory.get_byte(data_start.wrapping_add(1)),
                     ]
-                } else {
-                    // HuC6280 modes with more than two operand bytes (block
-                    // transfer, immediate+absolute) read their operands
-                    // directly from memory in the match below.
+                } else if matches!(
+                    am,
+                    AddressingMode::BlockTransfer
+                        | AddressingMode::ImmediateAbsolute
+                        | AddressingMode::ImmediateAbsoluteX
+                ) {
+                    // These HuC6280 modes carry more than two operand bytes and
+                    // read them directly from memory in the match below, so
+                    // `slice` is unused for them.
                     [0, 0]
+                } else {
+                    panic!("unhandled operand byte count {extra_bytes} for {am:?}");
                 };
 
                 let x = self.registers.index_x;
                 let y = self.registers.index_y;
-                let zp_base = self.variant.zero_page_base();
+                let zp_base = V::zero_page_base();
 
                 let memory = &mut self.memory;
 
@@ -353,7 +363,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // This is where the absolute (16-bit) target address is stored.
                         // (Output: a 16-bit address)
                         let start = slice[0].wrapping_add(x);
-                        let slice = read_zp_address(memory, zp_base, start);
+                        let slice = read_zero_page_addr(memory, zp_base, start);
                         OpInput::UseAddress {
                             address: address_from_bytes(slice[0], slice[1]),
                             page_crossed: false,
@@ -365,7 +375,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // Add Y register to this address to get the final address
                         // Check for page crossing
                         let start = slice[0];
-                        let slice = read_zp_address(memory, zp_base, start);
+                        let slice = read_zero_page_addr(memory, zp_base, start);
                         let base = address_from_bytes(slice[0], slice[1]);
                         let final_addr = base.wrapping_add(y.into());
                         let crossed = (base & 0xFF00) != (final_addr & 0xFF00);
@@ -379,7 +389,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // This is where the absolute (16-bit) target address is stored.
                         // (Output: a 16-bit address)
                         let start = slice[0];
-                        let slice = read_zp_address(memory, zp_base, start);
+                        let slice = read_zero_page_addr(memory, zp_base, start);
                         OpInput::UseAddress {
                             address: address_from_bytes(slice[0], slice[1]),
                             page_crossed: false,
@@ -656,7 +666,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                     relative,
                 },
             ) => {
-                let addr = self.variant.zero_page_base() | u16::from(zp_address);
+                let addr = V::zero_page_base() | u16::from(zp_address);
                 let val = self.memory.get_byte(addr);
                 if val & (1 << bit) == 0 {
                     let addr = self.registers.program_counter.wrapping_add(relative);
@@ -671,7 +681,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                     relative,
                 },
             ) => {
-                let addr = self.variant.zero_page_base() | u16::from(zp_address);
+                let addr = V::zero_page_base() | u16::from(zp_address);
                 let val = self.memory.get_byte(addr);
                 if val & (1 << bit) != 0 {
                     let addr = self.registers.program_counter.wrapping_add(relative);
@@ -1457,22 +1467,45 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                     self.check_interrupts();
                     true
                 } else {
-                    // Even if we couldn't decode the instruction, check for interrupts
-                    // This allows the CPU to potentially recover via an interrupt handler
+                    // Couldn't decode an instruction. The clock still runs, so
+                    // advance a cycle (and poll for an interrupt that might
+                    // recover the CPU) instead of stalling a host that paces
+                    // off the cycle count.
+                    self.cycles = self.cycles.wrapping_add(1);
                     self.check_interrupts();
                     false
                 }
             }
             WaitState::WaitingForInterrupt => {
-                // WAI - check for interrupts but don't execute instructions
+                // WAI - the clock keeps running while the CPU waits for an
+                // IRQ/NMI, so burn a cycle and poll for the interrupt that
+                // wakes it. Without this a host pacing off cycles never lets
+                // time advance, so the interrupt never arrives (deadlock).
+                self.cycles = self.cycles.wrapping_add(1);
                 self.check_interrupts();
                 false
             }
             WaitState::WaitingForReset => {
-                // STP - waiting for reset, do nothing
+                // STP/JAM - halted until reset. The clock still advances, so
+                // burn a cycle to keep pacing hosts progressing; use
+                // `wait_state()` to detect this and reset deliberately.
+                self.cycles = self.cycles.wrapping_add(1);
                 false
             }
         }
+    }
+
+    /// Returns the CPU's current [`WaitState`].
+    ///
+    /// A CPU in [`WaitState::WaitingForInterrupt`] (`WAI`) resumes when an
+    /// interrupt arrives; one in [`WaitState::WaitingForReset`] (`STP`/`JAM`)
+    /// resumes only after [`CPU::reset`]. While waiting, [`single_step`] does
+    /// not execute instructions but still advances [`CPU::cycles`].
+    ///
+    /// [`single_step`]: CPU::single_step
+    #[must_use]
+    pub const fn wait_state(&self) -> WaitState {
+        self.wait_state
     }
 
     pub fn run(&mut self) {
@@ -1979,7 +2012,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     /// Computes the absolute address of the current top of stack for this
     /// variant. Standard parts use page `$01`; the `HuC6280` uses `$21`.
     fn stack_address(&self) -> u16 {
-        self.variant.stack_base() | u16::from(self.registers.stack_pointer.0)
+        V::stack_base() | u16::from(self.registers.stack_pointer.0)
     }
 
     /// Service an interrupt by pushing PC and status to stack, then jumping to the interrupt vector.
@@ -4849,6 +4882,37 @@ mod cycle_timing_tests {
         // Should have serviced interrupt and cleared waiting state
         assert_eq!(cpu.wait_state, WaitState::Running);
         assert_eq!(cpu.registers.program_counter, 0x8000);
+    }
+
+    #[test]
+    fn wait_and_halt_states_still_advance_cycles() {
+        use crate::instruction::Cmos6502;
+
+        // WAI: the clock keeps running while waiting, so a host that paces off
+        // the cycle count makes progress (and time can reach the next vblank).
+        let mut cpu = CPU::new(TestMemory::new(), Cmos6502);
+        cpu.execute_instruction((
+            Instruction::WAI,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+        ));
+        assert_eq!(cpu.wait_state(), WaitState::WaitingForInterrupt);
+        let before = cpu.cycles;
+        assert!(!cpu.single_step());
+        assert!(cpu.cycles > before, "WAI should still burn cycles");
+
+        // STP: halted until reset, but the clock still advances so pacing hosts
+        // do not deadlock. They can observe the state via `wait_state()`.
+        let mut cpu = CPU::new(TestMemory::new(), Cmos6502);
+        cpu.execute_instruction((
+            Instruction::STP,
+            AddressingMode::Implied,
+            OpInput::UseImplied,
+        ));
+        assert_eq!(cpu.wait_state(), WaitState::WaitingForReset);
+        let before = cpu.cycles;
+        assert!(!cpu.single_step());
+        assert!(cpu.cycles > before, "STP should still advance the clock");
     }
 
     #[test]

@@ -155,11 +155,8 @@ pub trait Variant {
     /// Standard 6502 family parts place the zero page at `$0000`. The `HuC6280`
     /// relocates it to `$2000` (reached through mapping register MPR1), so all
     /// zero-page and zero-page-indirect accesses are offset by this base.
-    ///
-    /// Takes `&self` so variants such as the 65816, whose direct page can be
-    /// relocated anywhere in the address space at runtime, can override it.
     #[must_use]
-    fn zero_page_base(&self) -> u16 {
+    fn zero_page_base() -> u16 {
         0x0000
     }
 
@@ -167,11 +164,8 @@ pub trait Variant {
     ///
     /// Standard 6502 family parts place the stack at `$0100`. The `HuC6280`
     /// relocates it to `$2100` (reached through mapping register MPR1).
-    ///
-    /// Takes `&self` for symmetry with [`Variant::zero_page_base`] and to allow
-    /// variants that relocate the stack at runtime to override it.
     #[must_use]
-    fn stack_base(&self) -> u16 {
+    fn stack_base() -> u16 {
         0x0100
     }
 
