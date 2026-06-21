@@ -761,6 +761,185 @@ impl Instruction {
             _ => unreachable!("undecoded instruction"),
         }
     }
+
+    /// Returns the assembler mnemonic for this instruction.
+    ///
+    /// The bit-indexed Rockwell instructions render their bit number as part of
+    /// the mnemonic (`BBR3`, `SMB7`, ...). Undocumented NMOS opcodes use their
+    /// common unofficial names. Case is not significant.
+    #[must_use]
+    pub const fn mnemonic(&self) -> &'static str {
+        match self {
+            Instruction::ADC | Instruction::ADCnd => "ADC",
+            Instruction::AND => "AND",
+            Instruction::ASL => "ASL",
+            Instruction::BCC => "BCC",
+            Instruction::BCS => "BCS",
+            Instruction::BEQ => "BEQ",
+            Instruction::BIT => "BIT",
+            Instruction::BMI => "BMI",
+            Instruction::BNE => "BNE",
+            Instruction::BPL => "BPL",
+            Instruction::BRA => "BRA",
+            Instruction::BRK | Instruction::BRKcld => "BRK",
+            Instruction::BVC => "BVC",
+            Instruction::BVS => "BVS",
+            Instruction::CLC => "CLC",
+            Instruction::CLD => "CLD",
+            Instruction::CLI => "CLI",
+            Instruction::CLV => "CLV",
+            Instruction::CMP => "CMP",
+            Instruction::CPX => "CPX",
+            Instruction::CPY => "CPY",
+            Instruction::DEC => "DEC",
+            Instruction::DEX => "DEX",
+            Instruction::DEY => "DEY",
+            Instruction::EOR => "EOR",
+            Instruction::INC => "INC",
+            Instruction::INX => "INX",
+            Instruction::INY => "INY",
+            Instruction::JMP => "JMP",
+            Instruction::JSR => "JSR",
+            Instruction::BSR => "BSR",
+            Instruction::LDA => "LDA",
+            Instruction::LDX => "LDX",
+            Instruction::LDY => "LDY",
+            Instruction::LSR => "LSR",
+            Instruction::NOP
+            | Instruction::NOP1
+            | Instruction::NOPI
+            | Instruction::NOPZ
+            | Instruction::NOPZX
+            | Instruction::NOPA
+            | Instruction::NOPAX
+            | Instruction::NOPAX8 => "NOP",
+            Instruction::ORA => "ORA",
+            Instruction::PHA => "PHA",
+            Instruction::PHX => "PHX",
+            Instruction::PHY => "PHY",
+            Instruction::PHP => "PHP",
+            Instruction::PLA => "PLA",
+            Instruction::PLX => "PLX",
+            Instruction::PLY => "PLY",
+            Instruction::PLP => "PLP",
+            Instruction::ROL => "ROL",
+            Instruction::ROR => "ROR",
+            Instruction::RTI => "RTI",
+            Instruction::RTS => "RTS",
+            Instruction::SBC | Instruction::SBCnd | Instruction::USBC => "SBC",
+            Instruction::SEC => "SEC",
+            Instruction::SED => "SED",
+            Instruction::SEI => "SEI",
+            Instruction::STA => "STA",
+            Instruction::STX => "STX",
+            Instruction::STY => "STY",
+            Instruction::STZ => "STZ",
+            // The HuC6280 A<->X swap shares the canonical `SAX` mnemonic with
+            // the undocumented NMOS opcode (they never coexist in one decode
+            // table), so both render the same way.
+            Instruction::SAX | Instruction::SWAPAX => "SAX",
+            Instruction::TAX => "TAX",
+            Instruction::TAY => "TAY",
+            Instruction::TRB => "TRB",
+            Instruction::TSB => "TSB",
+            Instruction::TSX => "TSX",
+            Instruction::TXA => "TXA",
+            Instruction::TXS => "TXS",
+            Instruction::TYA => "TYA",
+            Instruction::WAI => "WAI",
+            Instruction::STP => "STP",
+            Instruction::BBR(bit) => match *bit & 0x07 {
+                0 => "BBR0",
+                1 => "BBR1",
+                2 => "BBR2",
+                3 => "BBR3",
+                4 => "BBR4",
+                5 => "BBR5",
+                6 => "BBR6",
+                _ => "BBR7",
+            },
+            Instruction::BBS(bit) => match *bit & 0x07 {
+                0 => "BBS0",
+                1 => "BBS1",
+                2 => "BBS2",
+                3 => "BBS3",
+                4 => "BBS4",
+                5 => "BBS5",
+                6 => "BBS6",
+                _ => "BBS7",
+            },
+            Instruction::RMB(bit) => match *bit & 0x07 {
+                0 => "RMB0",
+                1 => "RMB1",
+                2 => "RMB2",
+                3 => "RMB3",
+                4 => "RMB4",
+                5 => "RMB5",
+                6 => "RMB6",
+                _ => "RMB7",
+            },
+            Instruction::SMB(bit) => match *bit & 0x07 {
+                0 => "SMB0",
+                1 => "SMB1",
+                2 => "SMB2",
+                3 => "SMB3",
+                4 => "SMB4",
+                5 => "SMB5",
+                6 => "SMB6",
+                _ => "SMB7",
+            },
+            Instruction::XAA => "XAA",
+            Instruction::ALR => "ALR",
+            Instruction::ANC => "ANC",
+            Instruction::ARR => "ARR",
+            Instruction::DCP => "DCP",
+            Instruction::ISC => "ISC",
+            Instruction::JAM => "JAM",
+            Instruction::LAS => "LAS",
+            Instruction::LAX => "LAX",
+            Instruction::RLA => "RLA",
+            Instruction::RRA => "RRA",
+            Instruction::SBX => "SBX",
+            Instruction::SLO => "SLO",
+            Instruction::SRE => "SRE",
+            Instruction::TAM => "TAM",
+            Instruction::TMA => "TMA",
+            Instruction::TII => "TII",
+            Instruction::TDD => "TDD",
+            Instruction::TIN => "TIN",
+            Instruction::TIA => "TIA",
+            Instruction::TAI => "TAI",
+            Instruction::TST => "TST",
+            Instruction::ST0 => "ST0",
+            Instruction::ST1 => "ST1",
+            Instruction::ST2 => "ST2",
+            Instruction::CSL => "CSL",
+            Instruction::CSH => "CSH",
+            Instruction::CLA => "CLA",
+            Instruction::CLX => "CLX",
+            Instruction::CLY => "CLY",
+            Instruction::SXY => "SXY",
+            Instruction::SAY => "SAY",
+        }
+    }
+}
+
+impl Display for Instruction {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        f.write_str(self.mnemonic())
+    }
+}
+
+/// Sign-extend an 8-bit branch offset to a 16-bit value, encoded as an unsigned
+/// `u16` so it can be added to the program counter with wrapping arithmetic.
+///
+/// Shared by the executing decoder (`CPU::fetch_next_and_decode`) and the
+/// non-mutating disassembler (`disassemble_one`) so the two cannot disagree on
+/// branch arithmetic.
+#[must_use]
+pub(crate) const fn sign_extend_offset(offset: u8) -> u16 {
+    let sign_extend = if offset & 0x80 == 0x80 { 0xffu8 } else { 0x00 };
+    u16::from_le_bytes([offset, sign_extend])
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -817,7 +996,7 @@ impl Display for OpInput {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AddressingMode {
     // work directly on accumulator, e. g. `lsr a`.
     Accumulator,
@@ -920,6 +1099,183 @@ impl AddressingMode {
 /// A decoded instruction containing the instruction type, addressing mode, operand data,
 /// and whether a page boundary was crossed during address calculation (used for cycle counting).
 pub type DecodedInstr = (Instruction, AddressingMode, OpInput);
+
+/// A single instruction decoded by [`disassemble_one`].
+///
+/// Requires the `alloc` feature (enabled by default) because [`Self::text`] is
+/// an owned [`String`].
+#[cfg(feature = "alloc")]
+#[derive(Clone, Debug)]
+pub struct DisasmInstr {
+    /// Total size of the instruction in bytes (`1..=7`), equal to
+    /// `1 + mode.extra_bytes()`.
+    pub length: u16,
+    /// The raw opcode byte.
+    pub opcode: u8,
+    /// The decoded instruction (or [`Instruction::JAM`] for an illegal opcode).
+    pub instruction: Instruction,
+    /// The addressing mode.
+    pub mode: AddressingMode,
+    /// Statically-resolved operand.
+    ///
+    /// Branch targets are resolved to absolute addresses. Indexed and indirect
+    /// operands hold the base address/operand exactly as encoded: register
+    /// offsets are not applied and pointers are not dereferenced. Combine
+    /// [`Self::mode`] with this value to compute an effective address.
+    pub operand: OpInput,
+    /// Rendered assembly text, e.g. `"LDA $0069"`, `"BBR3 $12,$D94F"`, or
+    /// `".db $FF"` for an illegal opcode.
+    pub text: alloc::string::String,
+}
+
+/// Decode the instruction at `pc` without executing it, using the full
+/// `HuC6280` superset decode table.
+///
+/// `read` is a side-effect-free byte fetch; it is only ever called for the
+/// instruction's own bytes (`pc ..= pc + length - 1`). This makes the function
+/// safe to drive from a peek-style bus: it never advances the program counter
+/// and never touches operand targets.
+///
+/// Branch targets ([`AddressingMode::Relative`] and
+/// [`AddressingMode::ZeroPageRelative`]) are resolved to absolute addresses. All
+/// other operands are statically resolved as encoded; see
+/// [`DisasmInstr::operand`].
+///
+/// Unknown opcodes never panic: they decode to a one-byte
+/// [`Instruction::JAM`] with `text` set to a `.db $XX` data directive.
+///
+/// Requires the `alloc` feature (enabled by default).
+#[cfg(feature = "alloc")]
+#[must_use]
+pub fn disassemble_one(pc: u16, read: impl Fn(u16) -> u8) -> DisasmInstr {
+    use alloc::format;
+    use alloc::string::ToString;
+
+    let opcode = read(pc);
+
+    let Some((instruction, mode)) = <Huc6280 as crate::Variant>::decode(opcode) else {
+        // Unknown / illegal opcode: emit a one-byte data directive. Never panic.
+        return DisasmInstr {
+            length: 1,
+            opcode,
+            instruction: Instruction::JAM,
+            mode: AddressingMode::Implied,
+            operand: OpInput::UseImplied,
+            text: format!(".db ${opcode:02X}"),
+        };
+    };
+
+    let length = 1 + mode.extra_bytes();
+
+    // Read the `i`-th operand byte (0-based, after the opcode). Only the
+    // instruction's own bytes are ever fetched.
+    let op = |i: u16| read(pc.wrapping_add(1 + i));
+
+    let operand = build_static_operand(pc, length, mode, &op);
+
+    let operand_text = operand.to_string();
+    let mnemonic = instruction.mnemonic();
+    let text = if operand_text.is_empty() {
+        mnemonic.to_string()
+    } else {
+        format!("{mnemonic} {operand_text}")
+    };
+
+    DisasmInstr {
+        length,
+        opcode,
+        instruction,
+        mode,
+        operand,
+        text,
+    }
+}
+
+/// Build the statically-resolved [`OpInput`] for a disassembled instruction.
+///
+/// This is the disassembly counterpart to the effective-address resolution in
+/// `CPU::fetch_next_and_decode`. The two intentionally differ: execution
+/// resolves effective addresses (applying register offsets, the variant's
+/// zero-page base, and dereferencing indirect pointers), whereas disassembly
+/// keeps operands static so it stays side-effect-free and only reads the
+/// instruction's own bytes. The shared `HuC6280` decode table and
+/// [`AddressingMode::extra_bytes`] keep the opcode/length mapping in lockstep,
+/// and [`sign_extend_offset`] keeps branch arithmetic identical.
+#[cfg(feature = "alloc")]
+fn build_static_operand(
+    pc: u16,
+    length: u16,
+    mode: AddressingMode,
+    op: &impl Fn(u16) -> u8,
+) -> OpInput {
+    const fn addr16(lo: u8, hi: u8) -> u16 {
+        u16::from_le_bytes([lo, hi])
+    }
+
+    // Absolute target of a relative branch: address of the following
+    // instruction plus the sign-extended 8-bit offset.
+    let branch_target = |offset: u8| {
+        pc.wrapping_add(length)
+            .wrapping_add(sign_extend_offset(offset))
+    };
+
+    match mode {
+        AddressingMode::Accumulator | AddressingMode::Implied => OpInput::UseImplied,
+        AddressingMode::Immediate => OpInput::UseImmediate(op(0)),
+
+        // Single-byte operand addresses, kept exactly as encoded. Register
+        // offsets and zero-page relocation are intentionally NOT applied; a
+        // caller that needs an effective address combines `mode` + `operand`.
+        AddressingMode::ZeroPage
+        | AddressingMode::ZeroPageX
+        | AddressingMode::ZeroPageY
+        | AddressingMode::IndexedIndirectX
+        | AddressingMode::IndirectIndexedY
+        | AddressingMode::ZeroPageIndirect => OpInput::UseAddress {
+            address: u16::from(op(0)),
+            page_crossed: false,
+        },
+
+        // Two-byte operand addresses. Indirect pointers are reported as their
+        // base address (not dereferenced), since `read` must not stray outside
+        // the instruction's own bytes.
+        AddressingMode::Absolute
+        | AddressingMode::AbsoluteX
+        | AddressingMode::AbsoluteY
+        | AddressingMode::Indirect
+        | AddressingMode::BuggyIndirect
+        | AddressingMode::AbsoluteIndexedIndirect => OpInput::UseAddress {
+            address: addr16(op(0), op(1)),
+            page_crossed: false,
+        },
+
+        AddressingMode::Relative => OpInput::UseRelative(branch_target(op(0))),
+
+        AddressingMode::ZeroPageRelative => OpInput::UseBitBranch {
+            zp_address: op(0),
+            relative: branch_target(op(1)),
+        },
+
+        AddressingMode::BlockTransfer => OpInput::UseBlockTransfer {
+            source: addr16(op(0), op(1)),
+            dest: addr16(op(2), op(3)),
+            length: addr16(op(4), op(5)),
+        },
+
+        AddressingMode::ImmediateZeroPage | AddressingMode::ImmediateZeroPageX => {
+            OpInput::UseImmediateAddress {
+                value: op(0),
+                address: u16::from(op(1)),
+            }
+        }
+        AddressingMode::ImmediateAbsolute | AddressingMode::ImmediateAbsoluteX => {
+            OpInput::UseImmediateAddress {
+                value: op(0),
+                address: addr16(op(1), op(2)),
+            }
+        }
+    }
+}
 
 /// The NMOS 6502 variant. This one is present in the Commodore 64, early Apple IIs, etc.
 #[derive(Copy, Clone, Debug, Default)]
