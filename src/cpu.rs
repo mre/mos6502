@@ -830,6 +830,19 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 self.jump(addr);
             }
 
+            // BSR - HuC6280 relative branch-to-subroutine (opcode $44). Pushes
+            // the return address (PC of the operand byte, i.e. PC-1, matching
+            // JSR/RTS) then jumps PC-relative. Cost is the fixed 8 cycles from
+            // the cycle table, so this uses `jump` rather than `branch` (which
+            // would add the taken/page-cross penalty branches incur).
+            (Instruction::BSR, OpInput::UseRelative(rel)) => {
+                for b in self.registers.program_counter.wrapping_sub(1).to_be_bytes() {
+                    self.push_on_stack(b);
+                }
+                let addr = self.registers.program_counter.wrapping_add(rel);
+                self.jump(addr);
+            }
+
             (Instruction::LDA, OpInput::UseImmediate(val)) => {
                 log::debug!("load A immediate: {val}");
                 self.load_accumulator(val);
@@ -1413,6 +1426,20 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             u32::from(length)
         };
 
+        // The HuC6280 block-transfer microcode saves Y, A and X on the stack
+        // for the duration of the copy and restores them (into X, A, Y) when it
+        // finishes. This is observable: if the transfer's destination range
+        // overwrites the stack page, the bytes read back are the *transferred*
+        // data, not the original registers, so A/X/Y are clobbered. SF2's boot
+        // RNG seed depends on exactly this quirk (a `TII $2000,$2001,$1FFF`
+        // smears work RAM over the stack, zeroing the loop counter in X).
+        let saved_y = self.registers.index_y;
+        let saved_a = self.registers.accumulator;
+        let saved_x = self.registers.index_x;
+        self.push_on_stack(saved_y);
+        self.push_on_stack(saved_a);
+        self.push_on_stack(saved_x);
+
         let mut s = source;
         let mut d = dest;
         let mut s_toggle = false;
@@ -1424,6 +1451,13 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             s = Self::advance_block_pointer(s, src_step, &mut s_toggle);
             d = Self::advance_block_pointer(d, dest_step, &mut d_toggle);
         }
+
+        // Restore in reverse order (X, A, Y), reading whatever now lives on the
+        // stack page so an overlapping transfer corrupts the registers exactly
+        // as hardware does. SetValue-style assignment: no flags are affected.
+        self.registers.index_x = self.pull_from_stack();
+        self.registers.accumulator = self.pull_from_stack();
+        self.registers.index_y = self.pull_from_stack();
 
         // 6 cycles per byte copied (fixed overhead is in `base_cycles`).
         self.cycles = self.cycles.wrapping_add(6 * u64::from(count));
@@ -1462,9 +1496,18 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         match self.wait_state {
             WaitState::Running => {
                 // Normal execution
+                // Sample the IRQ mask *before* executing: hardware recognises
+                // an IRQ at the end of an instruction using the I-flag value
+                // from before it ran, so CLI/SEI/PLP are delayed by one
+                // instruction (SF2 relies on this when it CLIs then JMPs into
+                // the handler's resume point).
+                let irq_enabled = !self
+                    .registers
+                    .status
+                    .contains(Status::PS_DISABLE_INTERRUPTS);
                 if let Some(decoded_instr) = self.fetch_next_and_decode() {
                     self.execute_instruction(decoded_instr);
-                    self.check_interrupts();
+                    self.check_interrupts(irq_enabled);
                     true
                 } else {
                     // Couldn't decode an instruction. The clock still runs, so
@@ -1472,7 +1515,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                     // recover the CPU) instead of stalling a host that paces
                     // off the cycle count.
                     self.cycles = self.cycles.wrapping_add(1);
-                    self.check_interrupts();
+                    self.check_interrupts(irq_enabled);
                     false
                 }
             }
@@ -1482,7 +1525,11 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 // wakes it. Without this a host pacing off cycles never lets
                 // time advance, so the interrupt never arrives (deadlock).
                 self.cycles = self.cycles.wrapping_add(1);
-                self.check_interrupts();
+                let irq_enabled = !self
+                    .registers
+                    .status
+                    .contains(Status::PS_DISABLE_INTERRUPTS);
+                self.check_interrupts(irq_enabled);
                 false
             }
             WaitState::WaitingForReset => {
@@ -2077,13 +2124,10 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     /// This method checks both conditions.
     ///
     /// Returns true if IRQ should be serviced.
-    fn is_irq_triggered(&mut self) -> bool {
-        let irq_pending = self.memory.irq_pending();
-        let irq_enabled = !self
-            .registers
-            .status
-            .contains(Status::PS_DISABLE_INTERRUPTS);
-        irq_pending && irq_enabled
+    fn is_irq_triggered(&mut self, irq_enabled: bool) -> bool {
+        // `irq_enabled` is the I-flag state sampled *before* the current
+        // instruction executed, implementing the one-instruction CLI/SEI delay.
+        self.memory.irq_pending() && irq_enabled
     }
 
     /// Check for pending interrupts and service them if appropriate.
@@ -2100,7 +2144,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     /// # References
     ///
     /// - [W65C02S Datasheet, Section 3.4 (IRQB) and 3.6 (NMIB)](https://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
-    fn check_interrupts(&mut self) -> bool {
+    fn check_interrupts(&mut self, irq_enabled: bool) -> bool {
         if self.is_nmi_triggered() {
             log::debug!("NMI triggered");
             self.wait_state = WaitState::Running; // Clear WAI state
@@ -2108,7 +2152,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
             return true;
         }
 
-        if self.is_irq_triggered() {
+        if self.is_irq_triggered(irq_enabled) {
             log::debug!("IRQ triggered");
             self.wait_state = WaitState::Running; // Clear WAI state
             // The vector is chosen by the bus's interrupt controller; on a plain

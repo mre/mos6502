@@ -127,6 +127,9 @@ pub enum Instruction {
     // Jump to SubRoutine
     JSR,
 
+    // Branch to SubRoutine (HuC6280: relative JSR, opcode $44)
+    BSR,
+
     // LoaD Accumulator
     LDA,
 
@@ -412,6 +415,9 @@ impl Instruction {
 
             // BRA - Branch Always (65C02 only) - 3 cycles, +1 if page crossed
             (BRA, Relative) => 3,
+
+            // BSR - Branch to SubRoutine (HuC6280) - fixed 8 cycles
+            (BSR, Relative) => 8,
 
             // BIT - Bit Test (2-4 cycles)
             (BIT, ZeroPage) => 3,
@@ -1890,6 +1896,9 @@ const fn huc6280_decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
         0x43 => Some((Instruction::TMA, AddressingMode::Immediate)),
         0x53 => Some((Instruction::TAM, AddressingMode::Immediate)),
 
+        // Branch to subroutine (relative JSR)
+        0x44 => Some((Instruction::BSR, AddressingMode::Relative)),
+
         // CPU clock speed select
         0x54 => Some((Instruction::CSL, AddressingMode::Implied)),
         0xD4 => Some((Instruction::CSH, AddressingMode::Implied)),
@@ -1931,6 +1940,8 @@ const fn huc6280_decode(opcode: u8) -> Option<(Instruction, AddressingMode)> {
 ///   disturbing the accumulator.
 /// - Helper opcodes: `CLA/CLX/CLY` (clear register), `SXY/SAX/SAY` (swap
 ///   registers), `ST0/ST1/ST2` (VDC port writes), and `CSL/CSH` (clock speed).
+/// - `BSR` (opcode `$44`): a relative branch-to-subroutine, i.e. a PC-relative
+///   `JSR`.
 ///
 /// # Unmodelled hardware
 ///
