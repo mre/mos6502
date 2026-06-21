@@ -202,22 +202,6 @@ pub trait Variant {
         0xFFFA
     }
 
-    /// Address of the (hardware) IRQ vector for this variant.
-    ///
-    /// Standard 6502 family parts fetch it from `$FFFE`.
-    ///
-    /// The `HuC6280` keeps the default `$FFFE` here on purpose: it actually has
-    /// several maskable interrupt sources (IRQ1/VDC at `$FFF8`, the timer/TIQ at
-    /// `$FFFA`, and IRQ2/BRK at `$FFF6`) that the CPU selects between based on
-    /// which source is pending. The core only models a single IRQ line, so that
-    /// priority resolution has to be handled by the [`Bus`](memory::Bus)
-    /// implementation (for example by steering the `$FFFE` fetch to the correct
-    /// vector).
-    #[must_use]
-    fn irq_vector() -> u16 {
-        0xFFFE
-    }
-
     /// Execute Add with Carry (ADC) in binary mode
     ///
     /// # Arguments

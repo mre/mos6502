@@ -2074,7 +2074,11 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         if self.is_irq_triggered() {
             log::debug!("IRQ triggered");
             self.wait_state = WaitState::Running; // Clear WAI state
-            self.service_interrupt(V::irq_vector());
+            // The vector is chosen by the bus's interrupt controller; on a plain
+            // 6502 this is always $FFFE, but the HuC6280 steers it to the
+            // highest-priority pending source.
+            let vector = self.memory.irq_vector();
+            self.service_interrupt(vector);
             return true;
         }
 
@@ -4660,6 +4664,7 @@ mod cycle_timing_tests {
         ram: Ram,
         nmi: bool,
         irq: bool,
+        irq_vector: u16,
     }
 
     impl TestMemory {
@@ -4668,6 +4673,7 @@ mod cycle_timing_tests {
                 ram: Ram::new(),
                 nmi: false,
                 irq: false,
+                irq_vector: IRQ_INTERRUPT_VECTOR_LO,
             }
         }
     }
@@ -4687,6 +4693,10 @@ mod cycle_timing_tests {
 
         fn irq_pending(&mut self) -> bool {
             self.irq
+        }
+
+        fn irq_vector(&mut self) -> u16 {
+            self.irq_vector
         }
     }
 
@@ -4716,6 +4726,28 @@ mod cycle_timing_tests {
         assert_eq!(cpu.registers.program_counter, 0x8000);
         assert!(cpu.registers.status.contains(Status::PS_DISABLE_INTERRUPTS));
         assert_eq!(cpu.registers.stack_pointer.0, initial_sp.wrapping_sub(3));
+    }
+
+    #[test]
+    fn test_irq_vector_chosen_by_bus() {
+        use crate::instruction::Nmos6502;
+
+        let mut cpu = CPU::new(TestMemory::new(), Nmos6502);
+
+        // The bus steers the IRQ to a non-standard vector (as the HuC6280's
+        // interrupt controller does), and the CPU must honor it rather than the
+        // fixed $FFFE.
+        cpu.memory.irq_vector = 0xFFF8;
+        cpu.memory.set_word(0xFFF8, 0x9ABC);
+        cpu.memory.set_word(IRQ_INTERRUPT_VECTOR_LO, 0x0000); // decoy at $FFFE
+
+        cpu.registers.program_counter = 0x0200;
+        cpu.registers.status.remove(Status::PS_DISABLE_INTERRUPTS);
+        cpu.memory.irq = true;
+        cpu.memory.set_byte(0x0200, 0xEA); // NOP
+        cpu.single_step();
+
+        assert_eq!(cpu.registers.program_counter, 0x9ABC);
     }
 
     #[test]

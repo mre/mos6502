@@ -141,6 +141,21 @@ pub trait Bus {
     fn irq_pending(&mut self) -> bool {
         false
     }
+
+    /// Returns the address of the vector to use when servicing a maskable IRQ.
+    ///
+    /// On a plain 6502 the maskable IRQ always vectors through `$FFFE`, which is
+    /// the default. Parts with an on-chip interrupt controller drive the vector
+    /// from the controller's runtime state, so they override this. The `HuC6280`,
+    /// for example, has several prioritized sources (timer/TIQ at `$FFFA`,
+    /// IRQ1/VDC at `$FFF8`, and IRQ2 at `$FFF6`) and steers the fetch to the
+    /// highest-priority pending source (TIQ > IRQ1 > IRQ2).
+    ///
+    /// This is only consulted while [`Bus::irq_pending`] reports a pending IRQ,
+    /// so it always has a well-defined answer.
+    fn irq_vector(&mut self) -> u16 {
+        IRQ_INTERRUPT_VECTOR_LO
+    }
 }
 
 impl Memory {
