@@ -1993,4 +1993,8 @@ impl crate::Variant for Huc6280 {
     fn brk_vector() -> u16 {
         0xFFF6 // HuC6280 software-interrupt (BRK) vector
     }
+
+    fn reset_vector() -> u16 {
+        0xFFFE // HuC6280 relocates RESET to $FFFE
+    }
 }

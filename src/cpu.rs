@@ -48,9 +48,7 @@
 
 use crate::Variant;
 use crate::instruction::{AddressingMode, DecodedInstr, Instruction, OpInput};
-use crate::memory::{
-    Bus, IRQ_INTERRUPT_VECTOR_LO, NMI_INTERRUPT_VECTOR_LO, RESET_VECTOR_HI, RESET_VECTOR_LO,
-};
+use crate::memory::Bus;
 
 use crate::registers::{Registers, StackPointer, Status, StatusArgs};
 
@@ -160,9 +158,11 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         // Set interrupt disable flag (all variants)
         self.registers.status.insert(Status::PS_DISABLE_INTERRUPTS);
 
-        // Read reset vector: low byte at $FFFC, high byte at $FFFD
-        let reset_vector_low = self.memory.get_byte(RESET_VECTOR_LO);
-        let reset_vector_high = self.memory.get_byte(RESET_VECTOR_HI);
+        // Read reset vector (variant-aware): $FFFC on standard parts, $FFFE on
+        // the HuC6280. High byte follows immediately after the low byte.
+        let reset_vector = V::reset_vector();
+        let reset_vector_low = self.memory.get_byte(reset_vector);
+        let reset_vector_high = self.memory.get_byte(reset_vector.wrapping_add(1));
         self.registers.program_counter = u16::from_le_bytes([reset_vector_low, reset_vector_high]);
     }
 
@@ -1992,7 +1992,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     ///
     /// # Arguments
     ///
-    /// * `vector_addr` - Address of the interrupt vector (e.g., [`NMI_INTERRUPT_VECTOR_LO`] for NMI, [`IRQ_INTERRUPT_VECTOR_LO`] for IRQ)
+    /// * `vector_addr` - Address of the interrupt vector (e.g., [`NMI_INTERRUPT_VECTOR_LO`](crate::memory::NMI_INTERRUPT_VECTOR_LO) for NMI, [`IRQ_INTERRUPT_VECTOR_LO`](crate::memory::IRQ_INTERRUPT_VECTOR_LO) for IRQ)
     ///
     /// # References
     ///
@@ -2067,14 +2067,14 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         if self.is_nmi_triggered() {
             log::debug!("NMI triggered");
             self.wait_state = WaitState::Running; // Clear WAI state
-            self.service_interrupt(NMI_INTERRUPT_VECTOR_LO);
+            self.service_interrupt(V::nmi_vector());
             return true;
         }
 
         if self.is_irq_triggered() {
             log::debug!("IRQ triggered");
             self.wait_state = WaitState::Running; // Clear WAI state
-            self.service_interrupt(IRQ_INTERRUPT_VECTOR_LO);
+            self.service_interrupt(V::irq_vector());
             return true;
         }
 
@@ -3642,6 +3642,19 @@ mod tests {
         assert_eq!(cpu.registers.program_counter, 0x1234);
     }
 
+    #[test]
+    fn huc6280_reset_uses_fffe_vector() {
+        use crate::instruction::Huc6280;
+
+        let mut cpu = CPU::new(Ram::new(), Huc6280);
+        // HuC6280 fetches the RESET vector from $FFFE/$FFFF, not $FFFC/$FFFD.
+        cpu.memory.set_bytes(0xFFFE, &[0x34, 0x12]);
+        cpu.memory.set_byte(0xFFFC, 0xFF); // decoy at the standard reset vector
+        cpu.memory.set_byte(0xFFFD, 0xFF);
+        cpu.reset();
+        assert_eq!(cpu.registers.program_counter, 0x1234);
+    }
+
     // ==================== Illegal Opcode Tests ====================
 
     /// Execute instruction with zero-page addressing
@@ -4374,6 +4387,7 @@ mod cycle_timing_tests {
     use super::*;
     use crate::instruction::{Cmos6502, Instruction, Nmos6502};
     use crate::memory::Memory as Ram;
+    use crate::memory::{IRQ_INTERRUPT_VECTOR_LO, NMI_INTERRUPT_VECTOR_LO};
 
     #[test]
     fn test_basic_cycle_counting() {
