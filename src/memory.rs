@@ -141,6 +141,36 @@ pub trait Bus {
     fn irq_pending(&mut self) -> bool {
         false
     }
+
+    /// Returns the address of the vector to use when servicing a maskable IRQ.
+    ///
+    /// On a plain 6502 the maskable IRQ always vectors through `$FFFE`, which is
+    /// the default. Parts with an on-chip interrupt controller drive the vector
+    /// from the controller's runtime state, so they override this. The `HuC6280`,
+    /// for example, has several prioritized sources (timer/TIQ at `$FFFA`,
+    /// IRQ1/VDC at `$FFF8`, and IRQ2 at `$FFF6`) and steers the fetch to the
+    /// highest-priority pending source (TIQ > IRQ1 > IRQ2).
+    ///
+    /// This is only consulted while [`Bus::irq_pending`] reports a pending IRQ,
+    /// so it always has a well-defined answer.
+    fn irq_vector(&mut self) -> u16 {
+        IRQ_INTERRUPT_VECTOR_LO
+    }
+
+    /// Mirrors a write to one of the `HuC6280` MMU mapping registers (MPR0-MPR7).
+    ///
+    /// The CPU calls this from the `TAM` instruction every time a mapping
+    /// register changes, with `index` in `0..8`. The mapping registers remain
+    /// authoritative on the CPU (they are real registers, read back by `TMA`),
+    /// but a bus that performs logical-to-physical translation needs its own
+    /// up-to-date copy. Implementing this lets such a bus stay in sync
+    /// automatically instead of re-reading the registers after every step.
+    ///
+    /// The default implementation does nothing, which is correct for every
+    /// variant without an MMU.
+    fn set_mapping_register(&mut self, index: usize, value: u8) {
+        let _ = (index, value);
+    }
 }
 
 impl Memory {
