@@ -47,7 +47,10 @@
 //! For other 6502 variants (65C02, RP2A03), see variant-specific instruction handling.
 
 use crate::Variant;
-use crate::instruction::{AddressingMode, DecodedInstr, Instruction, OpInput};
+use crate::instruction::{
+    AddressingMode, DecodedInstr, Huc6280, Instruction, Mos65C02, Nmos6502, OpInput, RevisionA,
+    Ricoh2a03,
+};
 use crate::memory::Bus;
 
 use crate::registers::{Registers, StackPointer, Status, StatusArgs};
@@ -108,6 +111,50 @@ where
     /// (NMOS, CMOS, etc.). The variant's configuration is exposed through
     /// associated functions, so no instance needs to be stored.
     variant: core::marker::PhantomData<V>,
+}
+
+/// Convenience constructors for the built-in CPU variants.
+///
+/// These are thin wrappers around [`CPU::new`] that let you write
+/// `Huc6280::new(bus)` instead of `CPU::new(bus, Huc6280)`.
+impl Nmos6502 {
+    /// Create a CPU emulating the NMOS 6502 (Commodore 64, early Apple II, etc.).
+    pub fn new<M: Bus>(memory: M) -> CPU<M, Self> {
+        CPU::new(memory, Self)
+    }
+}
+
+impl Ricoh2a03 {
+    /// Create a CPU emulating the Ricoh 2A03/2A07 (NES); like the NMOS 6502 but
+    /// without decimal mode.
+    pub fn new<M: Bus>(memory: M) -> CPU<M, Self> {
+        CPU::new(memory, Self)
+    }
+}
+
+impl RevisionA {
+    /// Create a CPU emulating an early "Revision A" NMOS 6502 (e.g. some KIM-1s)
+    /// that lacks the ROR instruction.
+    pub fn new<M: Bus>(memory: M) -> CPU<M, Self> {
+        CPU::new(memory, Self)
+    }
+}
+
+impl<const ROCKWELL: bool, const WDC: bool> Mos65C02<ROCKWELL, WDC> {
+    /// Create a CPU emulating a 65C02. The const generic parameters select the
+    /// Rockwell and WDC extension sets; the [`Cmos6502`](tyalias@crate::instruction::Cmos6502)
+    /// and [`W65C02S`](tyalias@crate::instruction::W65C02S) aliases give you
+    /// `Cmos6502::new(bus)` and `W65C02S::new(bus)` for the common configurations.
+    pub fn new<M: Bus>(memory: M) -> CPU<M, Self> {
+        CPU::new(memory, Self)
+    }
+}
+
+impl Huc6280 {
+    /// Create a CPU emulating the Hudson Soft `HuC6280` (TurboGrafx-16 / PC Engine).
+    pub fn new<M: Bus>(memory: M) -> CPU<M, Self> {
+        CPU::new(memory, Self)
+    }
 }
 
 impl<M: Bus, V: Variant> CPU<M, V> {
