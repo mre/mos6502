@@ -72,6 +72,9 @@
 #![allow(clippy::too_many_lines)]
 #![no_std]
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 #[doc = include_str!("../README.md")]
 pub mod cpu;
 pub mod instruction;

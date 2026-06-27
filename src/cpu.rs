@@ -322,9 +322,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // (interpret as relative...)
                         // (This is sign extended to a 16-but data type, but an unsigned one: u16. It's a
                         // little weird, but it's so we can add the PC and the offset easily)
-                        let offset = slice[0];
-                        let sign_extend = if offset & 0x80 == 0x80 { 0xffu8 } else { 0x0 };
-                        let rel = u16::from_le_bytes([offset, sign_extend]);
+                        let rel = crate::instruction::sign_extend_offset(slice[0]);
                         OpInput::UseRelative(rel)
                     }
                     AddressingMode::Absolute => {
@@ -447,9 +445,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         // slice[0] = zero-page address to test
                         // slice[1] = signed relative branch offset
                         let zp_address = slice[0];
-                        let offset = slice[1];
-                        let sign_extend = if offset & 0x80 == 0x80 { 0xffu8 } else { 0x00 };
-                        let relative = u16::from_le_bytes([offset, sign_extend]);
+                        let relative = crate::instruction::sign_extend_offset(slice[1]);
                         OpInput::UseBitBranch {
                             zp_address,
                             relative,

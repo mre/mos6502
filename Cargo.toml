@@ -39,6 +39,14 @@ edition = "2024"
 # This will look in src/lib.rs
 name = "mos6502"
 
+[features]
+# `alloc` is required by the single-instruction disassembler
+# (`instruction::disassemble_one`), which builds an owned `String` for the
+# rendered instruction text. It is enabled by default; disable it
+# (`default-features = false`) for bare-metal targets without an allocator.
+default = ["alloc"]
+alloc = []
+
 [dependencies]
 bitflags = "2.9.1"
 log = "0.4.27"
