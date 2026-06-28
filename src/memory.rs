@@ -77,6 +77,13 @@ impl Default for Memory {
 /// assert_eq!(memory.get_byte(0x0000), 0x12);
 /// ```
 pub trait Bus {
+    /// Called whenever the CPU advances by `cycles`.
+    ///
+    /// Most memory implementations can ignore this. Systems with devices on the
+    /// CPU bus can override it to keep timers, video chips, or DMA engines in
+    /// sync with instruction execution.
+    fn tick(&mut self, _cycles: u64) {}
+
     /// Returns the byte at the given address.
     fn get_byte(&mut self, address: u16) -> u8;
 

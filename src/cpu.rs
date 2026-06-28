@@ -173,6 +173,11 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         }
     }
 
+    fn add_cycles(&mut self, cycles: u64) {
+        self.cycles = self.cycles.wrapping_add(cycles);
+        self.memory.tick(cycles);
+    }
+
     /// Perform the 6502 reset sequence
     ///
     /// The reset sequence on a 6502 is an 8-cycle process that simulates the same sequence
@@ -593,7 +598,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         // Calculate and track cycles for this instruction
         let total_cycles =
             Self::calculate_instruction_cycles(instr, mode, operand.page_crossed(), self.registers);
-        self.cycles = self.cycles.wrapping_add(u64::from(total_cycles));
+        self.add_cycles(u64::from(total_cycles));
 
         match (instr, operand) {
             (Instruction::ADC, OpInput::UseImmediate(val)) => {
@@ -1495,6 +1500,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         for _ in 0..count {
             let val = self.memory.get_byte(s);
             self.memory.set_byte(d, val);
+            self.add_cycles(6);
             s = Self::advance_block_pointer(s, src_step, &mut s_toggle);
             d = Self::advance_block_pointer(d, dest_step, &mut d_toggle);
         }
@@ -1505,9 +1511,6 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         self.registers.index_x = self.pull_from_stack();
         self.registers.accumulator = self.pull_from_stack();
         self.registers.index_y = self.pull_from_stack();
-
-        // 6 cycles per byte copied (fixed overhead is in `base_cycles`).
-        self.cycles = self.cycles.wrapping_add(6 * u64::from(count));
     }
 
     /// Advance one block-transfer pointer by a single step.
@@ -1561,7 +1564,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                     // advance a cycle (and poll for an interrupt that might
                     // recover the CPU) instead of stalling a host that paces
                     // off the cycle count.
-                    self.cycles = self.cycles.wrapping_add(1);
+                    self.add_cycles(1);
                     self.check_interrupts(irq_enabled);
                     false
                 }
@@ -1571,7 +1574,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 // IRQ/NMI, so burn a cycle and poll for the interrupt that
                 // wakes it. Without this a host pacing off cycles never lets
                 // time advance, so the interrupt never arrives (deadlock).
-                self.cycles = self.cycles.wrapping_add(1);
+                self.add_cycles(1);
                 let irq_enabled = !self
                     .registers
                     .status
@@ -1583,7 +1586,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 // STP/JAM - halted until reset. The clock still advances, so
                 // burn a cycle to keep pacing hosts progressing; use
                 // `wait_state()` to detect this and reset deliberately.
-                self.cycles = self.cycles.wrapping_add(1);
+                self.add_cycles(1);
                 false
             }
         }
@@ -2000,9 +2003,10 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     }
 
     fn branch(&mut self, addr: u16) {
-        // +1 cycle for branch taken, +1 more if page boundary crossed
-        let page_crossed = (self.registers.program_counter ^ addr) & 0xFF00 != 0;
-        self.cycles += 1 + u64::from(page_crossed);
+        self.add_cycles(V::branch_taken_extra_cycles(
+            self.registers.program_counter,
+            addr,
+        ));
         self.registers.program_counter = addr;
     }
 
@@ -2129,6 +2133,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
     ///
     /// - [W65C02S Datasheet, Section 3.4 (IRQB) and 3.6 (NMIB)](https://www.westerndesigncenter.com/wdc/documentation/w65c02s.pdf)
     fn service_interrupt(&mut self, vector_addr: u16) {
+        self.add_cycles(V::interrupt_dispatch_cycles());
+
         // Push PC high byte, then low byte
         self.push_address(self.registers.program_counter);
 
