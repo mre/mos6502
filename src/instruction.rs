@@ -1993,6 +1993,14 @@ impl crate::Variant for Huc6280 {
         1 // Fixes the NMOS page-crossing bug and takes 6 cycles like the 65C02
     }
 
+    fn branch_taken_extra_cycles(_from: u16, _to: u16) -> u64 {
+        2
+    }
+
+    fn interrupt_dispatch_cycles() -> u64 {
+        8
+    }
+
     fn zero_page_base() -> u16 {
         0x2000 // Zero page lives at $2000-$20FF (via MPR1)
     }
