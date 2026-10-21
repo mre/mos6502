@@ -25,101 +25,90 @@ Source: [Wikipedia](https://en.wikipedia.org/wiki/MOS_Technology_6502)
 
 ## How to use this library
 
-```rust
-use mos6502::memory::Bus;
-use mos6502::memory::Memory;
-use mos6502::instruction::Nmos6502;
-use mos6502::cpu;
+### Run an assembly program
 
-fn main() {
-    // Calculate the greatest common divisor of 56 and 49
-    // using Euclid's algorithm.
-    let zero_page_data = [56, 49];
+This program computes the greatest common divisor of two numbers using Euclid's
+algorithm. The inputs live at memory addresses `$00` and `$01`; the result ends up
+in the accumulator. Use positive integers below 128 for this example.
 
-    let program = [
-        // (F)irst | (S)econd
-        // .algo
-        0xa5, 0x00,       // Load from F to A
-        // .algo_
-        0x38,             // Set carry flag
-        0xe5, 0x01,       // Substract S from number in A (from F)
-        0xf0, 0x07,       // Jump to .end if diff is zero
-        0x30, 0x08,       // Jump to .swap if diff is negative
-        0x85, 0x00,       // Load A to F
-        0x4c, 0x12, 0x00, // Jump to .algo_
-        // .end
-        0xa5, 0x00,       // Load from S to A
-        0x02,             // JAM - halt CPU to end program
-        // .swap
-        0xa6, 0x00,       // load F to X
-        0xa4, 0x01,       // load S to Y
-        0x86, 0x01,       // Store X to F
-        0x84, 0x00,       // Store Y to S
-        0x4c, 0x10, 0x00, // Jump to .algo
-    ];
+Here is the assembly from [`euclid.ca65`](examples/asm/euclid/euclid.ca65):
 
-    let mut cpu = cpu::CPU::new(Memory::new(), Nmos6502);
+```asm
+.segment "CODE"
 
-    cpu.memory.set_bytes(0x00, &zero_page_data);
-    cpu.memory.set_bytes(0x10, &program);
-    cpu.registers.program_counter = 0x10;
+algo:
+    LDA $00       ; Load the first number
+algo_:
+    SEC           ; Subtract without an incoming borrow
+    SBC $01       ; Subtract the second number
+    BEQ end       ; Equal? We found the GCD
+    BMI swap      ; First number smaller? Swap them
+    STA $00       ; Otherwise, keep the difference
+    JMP algo_
 
-    cpu.run();
+end:
+    LDA $00       ; Leave the GCD in the accumulator
+    .byte $02     ; JAM - halt the NMOS 6502
 
-    // The expected GCD is 7
-    assert_eq!(7, cpu.registers.accumulator);
-}
+swap:
+    LDX $00
+    LDY $01
+    STX $01
+    STY $00
+    JMP algo
 ```
 
-The same can be achieved, by compiling the euclid example yourself.
-
-First install a 6502 assembler and linker, e.g. [cc65](https://cc65.github.io/cc65/).
+The emulator executes machine code, not assembly text. To turn this source into
+bytes, install [cc65](https://cc65.github.io/cc65/), which includes the `ca65`
+assembler and `ld65` linker. On macOS:
 
 ```sh
 brew install cc65
 ```
 
-Then compile and link the assembly file:
+From the root of this repository, assemble, link, and run the example:
 
 ```sh
-cd examples/asm/euclid
-ca65 euclid.a65
-ld65 -C ../linker.cfg -o euclid.bin euclid.o
+ca65 examples/asm/euclid/euclid.ca65 -o examples/asm/euclid/euclid.o
+ld65 -C examples/asm/linker.cfg \
+    -o examples/asm/euclid/euclid.bin examples/asm/euclid/euclid.o
+cargo run --example euclid
 ```
 
-This will create a binary file `euclid.bin` that you can load into the emulator:
+Enter `56 49` at the prompt:
+
+```text
+Enter two numbers (< 128) separated by a space to know their GCD.
+56 49
+GCD is 7
+```
+
+The binary is also checked in, so you can skip the assembly steps if you just
+want to run it. Rebuild it whenever you change the assembly source.
+
+### Load the program in Rust
+
+The linker places the code at `$0010`. Load the binary at that same address,
+set the program counter, and let the CPU run:
 
 ```rust
-use mos6502::memory::Bus;
-use mos6502::memory::Memory;
+use mos6502::cpu::CPU;
 use mos6502::instruction::Nmos6502;
-use mos6502::cpu;
-use std::fs::read;
+use mos6502::memory::{Bus, Memory};
 
-fn main() {
-    // Calculate the greatest common divisor of 56 and 49
-    // using Euclid's algorithm.
-    let zero_page_data = [56, 49];
+fn main() -> std::io::Result<()> {
+    let program = std::fs::read("examples/asm/euclid/euclid.bin")?;
+    let mut cpu = CPU::new(Memory::new(), Nmos6502);
 
-    // Load the binary file from disk
-    let program = match read("examples/asm/euclid/euclid.bin") {
-        Ok(data) => data,
-        Err(err) => {
-            println!("Error reading euclid.bin: {}", err);
-            return;
-        }
-    };
-
-    let mut cpu = cpu::CPU::new(Memory::new(), Nmos6502);
-
-    cpu.memory.set_bytes(0x00, &zero_page_data);
+    cpu.memory.set_bytes(0x00, &[56, 49]);
     cpu.memory.set_bytes(0x10, &program);
     cpu.registers.program_counter = 0x10;
 
+    // JAM ends this program; BRK would invoke an interrupt, not halt the CPU.
     cpu.run();
 
-    // The expected GCD is 7
-    assert_eq!(7, cpu.registers.accumulator);
+    assert_eq!(cpu.registers.accumulator, 7);
+    Ok(())
 }
 ```
 
