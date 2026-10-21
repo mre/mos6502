@@ -153,6 +153,23 @@ pub trait Variant {
         0 // Default: no penalty
     }
 
+    /// Extra cycles charged after a relative branch is taken.
+    #[must_use]
+    fn branch_taken_extra_cycles(from: u16, to: u16) -> u64 {
+        1 + u64::from((from ^ to) & 0xFF00 != 0)
+    }
+
+    /// Time the CPU needs to save its place and jump to the code that handles
+    /// an interrupt. These cycles are spent doing that work, not waiting to start.
+    /// Running the interrupt-handling code takes additional cycles.
+    ///
+    /// By default, this time is not counted, matching the existing behavior.
+    /// This does not mean real hardware takes zero cycles.
+    #[must_use]
+    fn interrupt_dispatch_cycles() -> u64 {
+        0
+    }
+
     /// Base address of the zero page for this variant.
     ///
     /// Standard 6502 family parts place the zero page at `$0000`. The `HuC6280`

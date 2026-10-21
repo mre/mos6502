@@ -77,6 +77,21 @@ impl Default for Memory {
 /// assert_eq!(memory.get_byte(0x0000), 0x12);
 /// ```
 pub trait Bus {
+    /// Tell timers, video chips, and other devices how much CPU time has passed.
+    ///
+    /// Counting memory reads and writes is not enough: this emulator skips some
+    /// reads that real hardware performs. For example, NOP takes two CPU cycles
+    /// but calls `get_byte` only once.
+    ///
+    /// One call can report several cycles. It does not tell you exactly when
+    /// each memory read or write happened. Long block transfers call this after
+    /// each byte copied so devices can keep running during the transfer.
+    ///
+    /// If you use this to advance devices, don't also advance them on memory
+    /// accesses or changes to `CPU::cycles`, or time will be counted twice.
+    /// Plain memory can leave this method empty.
+    fn tick(&mut self, _cycles: u64) {}
+
     /// Returns the byte at the given address.
     fn get_byte(&mut self, address: u16) -> u8;
 
