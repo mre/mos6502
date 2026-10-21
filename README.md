@@ -58,9 +58,9 @@ swap:
     JMP algo
 ```
 
-The emulator executes machine code, not assembly text. To turn this source into
-bytes, install [cc65](https://cc65.github.io/cc65/), which includes the `ca65`
-assembler and `ld65` linker. On macOS:
+The emulator executes machine code, not assembly text. To turn assembly into
+bytes, use a 6502 assembler such as [cc65](https://cc65.github.io/cc65/)'s `ca65`.
+This example uses `ca65` and the `ld65` linker, both included in cc65. On macOS:
 
 ```sh
 brew install cc65
