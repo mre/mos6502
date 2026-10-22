@@ -29,6 +29,24 @@ jobs:
       - name: Run tests
         run: cargo test
 
+  single-step-nmos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/cache@v4
+        with:
+          path: target/nmos6502/v1
+          key: nmos-fixtures-${{ hashFiles('tests/assets/nmos6502/REVISION', 'tests/assets/nmos6502/opcodes.json') }}
+
+      - name: Check fixture tooling
+        run: cargo test --manifest-path xtask/Cargo.toml
+      - name: Fetch pinned NMOS fixtures
+        run: cargo xtask fetch-nmos
+      - name: Run all documented NMOS instruction cases
+        run: cargo test --release --test single_step_nmos nmos_single_step_full -- --ignored
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -41,6 +59,10 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Run cargo clippy (deny warnings)
         run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Check xtask formatting and lints
+        run: |
+          cargo fmt --manifest-path xtask/Cargo.toml -- --check
+          cargo clippy --manifest-path xtask/Cargo.toml --all-targets -- -D warnings
 
   audit:
     runs-on: ubuntu-latest
@@ -70,6 +92,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     needs:
       - test
+      - single-step-nmos
       - lint
       - audit
       - publish-check

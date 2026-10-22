@@ -216,12 +216,17 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         self.registers.program_counter = u16::from_le_bytes([reset_vector_low, reset_vector_high]);
     }
 
-    /// Get the next byte from memory and decode it into an instruction and addressing mode.
+    /// Fetch and decode the next instruction, advancing the program counter.
+    /// Returns `None` if the opcode is not recognized.
+    ///
+    /// JSR returns [`OpInput::UseJsr`] rather than [`OpInput::UseAddress`]: its
+    /// high operand byte is read during execution, after the stack writes.
+    /// Consumers inspecting decoded call targets must handle this deferred
+    /// operand; the non-mutating disassembler still displays the static target.
     ///
     /// # Panics
     ///
-    /// This function will panic if the instruction is not recognized
-    /// (i.e. the opcode is invalid or has not been implemented).
+    /// Panics if the decoded addressing mode has an unsupported operand byte count.
     pub fn fetch_next_and_decode(&mut self) -> Option<DecodedInstr> {
         // Helper function to read a 16-bit address from memory
         fn read_address<M: Bus>(mem: &mut M, addr: u16) -> [u8; 2] {
@@ -253,7 +258,7 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
                 let slice = if extra_bytes == 0 {
                     [0, 0]
-                } else if extra_bytes == 1 {
+                } else if extra_bytes == 1 || instr == Instruction::JSR {
                     [self.memory.get_byte(data_start), 0]
                 } else if extra_bytes == 2 {
                     [
@@ -321,6 +326,10 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                         let rel = crate::instruction::sign_extend_offset(slice[0]);
                         OpInput::UseRelative(rel)
                     }
+                    AddressingMode::Absolute if instr == Instruction::JSR => OpInput::UseJsr {
+                        low: slice[0],
+                        high_address: data_start.wrapping_add(1),
+                    },
                     AddressingMode::Absolute => {
                         // Use [u8, ..2] from instruction as address
                         // (Output: a 16-bit address)
@@ -538,12 +547,20 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         page_crossed: bool,
         registers: Registers,
     ) -> u8 {
-        use Instruction::{STA, STX, STY, STZ};
+        use Instruction::{
+            ASL, DCP, DEC, INC, ISC, LSR, RLA, ROL, ROR, RRA, SLO, SRE, STA, STX, STY, STZ,
+        };
 
         let base_cycles = instr.base_cycles(mode);
 
-        // Page crossing penalty: +1 cycle for loads (not stores!)
-        let page_penalty = u8::from(page_crossed && !matches!(instr, STA | STX | STY | STZ));
+        // Indexed stores and read-modify-write instructions already include
+        // the extra address-calculation cycle in their fixed base timing.
+        let is_store = matches!(instr, STA | STX | STY | STZ);
+        let is_read_modify_write = matches!(
+            instr,
+            ASL | LSR | ROL | ROR | INC | DEC | DCP | ISC | RLA | RRA | SLO | SRE
+        );
+        let page_penalty = u8::from(page_crossed && !is_store && !is_read_modify_write);
 
         // Decimal mode penalty: variant-specific (e.g., +1 for ADC/SBC on 65C02 when D flag is set)
         let decimal_penalty = Self::decimal_mode_penalty_for_variant(instr, registers);
@@ -862,10 +879,17 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
             (Instruction::JMP, OpInput::UseAddress { address: addr, .. }) => self.jump(addr),
 
-            (Instruction::JSR, OpInput::UseAddress { address: addr, .. }) => {
+            (Instruction::JSR, OpInput::UseAddress { .. } | OpInput::UseJsr { .. }) => {
                 for b in self.registers.program_counter.wrapping_sub(1).to_be_bytes() {
                     self.push_on_stack(b);
                 }
+                let addr = match operand {
+                    OpInput::UseJsr { low, high_address } => {
+                        u16::from_le_bytes([low, self.memory.get_byte(high_address)])
+                    }
+                    OpInput::UseAddress { address, .. } => address,
+                    _ => unreachable!(),
+                };
                 self.jump(addr);
             }
 
@@ -1740,37 +1764,9 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
     /// Executes the following calculation: A + M + C (Add with Carry)
     ///
-    /// This implementation follows the NMOS 6502 behavior as documented in authoritative sources.
-    ///
-    /// ## Decimal Mode Behavior (NMOS 6502)
-    ///
-    /// In decimal mode, this instruction performs Binary Coded Decimal (BCD) arithmetic
-    /// where each nibble represents a decimal digit (0-9). However, flag behavior differs
-    /// significantly from binary mode:
-    ///
-    /// - **Carry Flag (C)**: Correctly set when BCD addition overflows (> 99)
-    /// - **Overflow Flag (V)**: Calculated from the binary addition result, not the BCD result.
-    ///   The meaning is effectively undocumented in decimal mode since BCD is unsigned arithmetic.
-    /// - **Negative Flag (N)**: Set from the BCD result but may not match expected 10's complement behavior
-    /// - **Zero Flag (Z)**: Set from the BCD result but may not always be correct on NMOS 6502
-    ///
-    /// ## Invalid BCD Values
-    ///
-    /// When either nibble contains values A-F (invalid BCD), the NMOS 6502 behavior is
-    /// undefined. This implementation treats them as valid binary values, which produces
-    /// deterministic results but may not match all real hardware variants.
-    ///
-    /// ## References
-    ///
-    /// - [6502.org Decimal Mode Tutorial](http://www.6502.org/tutorials/decimal_mode.html)
-    /// - [NESdev Wiki 6502 Decimal Mode](https://www.nesdev.org/wiki/Visual6502wiki/6502DecimalMode)
-    /// - Bruce Clark's comprehensive decimal mode test programs
-    ///
-    /// ## Variant Differences
-    ///
-    /// - **NMOS 6502**: Only carry flag is reliable in decimal mode
-    /// - **65C02**: N and Z flags are valid, V flag still undocumented, +1 cycle in decimal mode
-    /// - **RP2A03** (NES): Decimal mode completely disabled in hardware
+    /// Arithmetic and flags are supplied by the variant. In NMOS decimal mode,
+    /// Z comes from the binary sum and N/V from the intermediate sum before
+    /// high-digit correction, not from the final BCD result.
     fn add_with_carry(&mut self, value: u8) {
         let carry_set = self.get_flag(Status::PS_CARRY);
         let decimal_mode = self.get_flag(Status::PS_DECIMAL_MODE);
@@ -1869,34 +1865,8 @@ impl<M: Bus, V: Variant> CPU<M, V> {
 
     /// Executes the following calculation: A - M - (1 - C) (Subtract with Carry)
     ///
-    /// This implementation follows the NMOS 6502 behavior as documented in authoritative sources.
-    ///
-    /// ## Decimal Mode Behavior (NMOS 6502)
-    ///
-    /// In decimal mode, this instruction performs Binary Coded Decimal (BCD) arithmetic
-    /// where each nibble represents a decimal digit (0-9). Flag behavior matches ADC:
-    ///
-    /// - **Carry Flag (C)**: Correctly set (inverse of borrow) for BCD subtraction
-    /// - **Overflow Flag (V)**: Disabled in decimal mode (always false) to match real hardware
-    /// - **Negative Flag (N)**: Set from the BCD result but behavior is undocumented
-    /// - **Zero Flag (Z)**: Set from the BCD result but may not always be correct on NMOS 6502
-    ///
-    /// ## Invalid BCD Values
-    ///
-    /// When either nibble contains values A-F (invalid BCD), the NMOS 6502 behavior is
-    /// undefined. This implementation handles them deterministically but results may vary
-    /// from real hardware.
-    ///
-    /// ## References
-    ///
-    /// - [6502.org Decimal Mode Tutorial](http://www.6502.org/tutorials/decimal_mode.html)
-    /// - [NESdev Wiki 6502 Decimal Mode](https://www.nesdev.org/wiki/Visual6502wiki/6502DecimalMode)
-    ///
-    /// ## Variant Differences
-    ///
-    /// - **NMOS 6502**: Only carry flag is reliable in decimal mode
-    /// - **65C02**: N and Z flags are valid, V flag still undocumented
-    /// - **RP2A03** (NES): Decimal mode completely disabled in hardware
+    /// Arithmetic and flags are supplied by the variant. NMOS decimal SBC
+    /// derives N/Z/V from the binary difference, before decimal correction.
     fn subtract_with_carry(&mut self, value: u8) {
         let carry_set = self.get_flag(Status::PS_CARRY);
         let decimal_mode = self.get_flag(Status::PS_DECIMAL_MODE);
@@ -2264,8 +2234,8 @@ mod tests {
         cpu.add_with_carry(0x48);
         assert_eq!(cpu.registers.accumulator, 0x00);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
-        assert!(cpu.registers.status.contains(Status::PS_ZERO));
-        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
         // Overflow: 0x52 + 0x48 = 0x9A (binary), both positive, result negative
         assert!(cpu.registers.status.contains(Status::PS_OVERFLOW));
     }
@@ -2350,8 +2320,8 @@ mod tests {
         cpu.add_with_carry(0x50);
         assert_eq!(cpu.registers.accumulator, 0x00);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
-        assert!(cpu.registers.status.contains(Status::PS_ZERO));
-        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+        assert!(!cpu.registers.status.contains(Status::PS_ZERO));
+        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
 
         // Test case 6: 99 + 01 with carry set (decimal)
         cpu.registers.accumulator = 0x99;
@@ -2360,7 +2330,7 @@ mod tests {
         assert_eq!(cpu.registers.accumulator, 0x01);
         assert!(cpu.registers.status.contains(Status::PS_CARRY));
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
-        assert!(!cpu.registers.status.contains(Status::PS_NEGATIVE));
+        assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
 
         // Additional test cases for comprehensive verification
 
@@ -2809,6 +2779,25 @@ mod tests {
         assert!(!cpu.registers.status.contains(Status::PS_ZERO));
         assert!(cpu.registers.status.contains(Status::PS_NEGATIVE));
         assert!(!cpu.registers.status.contains(Status::PS_OVERFLOW));
+    }
+
+    #[test]
+    fn jsr_reads_high_operand_after_stack_writes() {
+        let mut cpu = CPU::new(Ram::new(), Nmos6502);
+        // The return-address pushes overwrite both operand bytes. JSR must
+        // retain the original low byte, but read the newly written high byte.
+        cpu.memory.set_bytes(0x017B, &[0x20, 0x55, 0x13]);
+        cpu.registers.program_counter = 0x017B;
+        cpu.registers.stack_pointer = StackPointer(0x7D);
+        let decoded = cpu.fetch_next_and_decode().unwrap();
+        assert_eq!(cpu.registers.stack_pointer, StackPointer(0x7D));
+        assert_eq!(cpu.memory.get_byte(0x017D), 0x13);
+        cpu.execute_instruction(decoded);
+        assert_eq!(cpu.registers.program_counter, 0x0155);
+        assert_eq!(cpu.registers.stack_pointer, StackPointer(0x7B));
+        assert_eq!(cpu.memory.get_byte(0x017D), 0x01);
+        assert_eq!(cpu.memory.get_byte(0x017C), 0x7D);
+        assert_eq!(cpu.cycles, 6);
     }
 
     #[test]
