@@ -3,19 +3,20 @@
 //! accesses are not compared; the number of reference cycles is still checked.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use mos6502::cpu::CPU;
 use mos6502::instruction::Nmos6502;
 use mos6502::memory::Bus;
 use mos6502::registers::{StackPointer, Status};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 const REVISION: &str = include_str!("assets/nmos6502/REVISION");
 const OPCODES: &str = include_str!("assets/nmos6502/opcodes.json");
 const SAMPLE: &str = include_str!("assets/nmos6502/sample.json");
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 struct State {
     pc: u16,
     s: u8,
@@ -26,7 +27,7 @@ struct State {
     ram: Vec<(u16, u8)>,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 struct Test {
     name: String,
     initial: State,
@@ -179,19 +180,89 @@ fn nmos_single_step_sample() {
     assert_eq!(check_cases(&tests), 0, "Bundled NMOS cases failed");
 }
 
+fn parse_fixture(data: &[u8], expected_opcode: u8) -> Result<Vec<Test>, String> {
+    let tests: Vec<Test> = serde_json::from_slice(data).map_err(|error| error.to_string())?;
+    if tests.len() != 10_000 {
+        return Err(format!("Expected 10,000 cases, got {}", tests.len()));
+    }
+    if tests.iter().any(|test| {
+        !test
+            .initial
+            .ram
+            .contains(&(test.initial.pc, expected_opcode))
+    }) {
+        return Err(format!("Wrong or missing opcode {expected_opcode:02x}"));
+    }
+    Ok(tests)
+}
+
+fn load_fixture(dir: &Path, opcode: u8) -> Vec<Test> {
+    let path = dir.join(format!("{opcode:02x}.json"));
+    if let Ok(data) = std::fs::read(&path) {
+        match parse_fixture(&data, opcode) {
+            Ok(tests) => return tests,
+            Err(error) => eprintln!("{}: {error}; downloading again", path.display()),
+        }
+    }
+    let url = format!(
+        "https://raw.githubusercontent.com/SingleStepTests/65x02/{}/6502/v1/{opcode:02x}.json",
+        REVISION.trim()
+    );
+    eprintln!("Downloading {url}");
+    let output = Command::new("curl")
+        .args([
+            "--fail",
+            "--silent",
+            "--show-error",
+            "--location",
+            "--retry",
+            "3",
+            "--connect-timeout",
+            "30",
+            "--max-time",
+            "120",
+        ])
+        .arg(&url)
+        .output()
+        .expect("Downloading NMOS fixtures requires curl on PATH");
+    assert!(
+        output.status.success(),
+        "Download failed for {url}: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let tests =
+        parse_fixture(&output.stdout, opcode).unwrap_or_else(|error| panic!("{url}: {error}"));
+    // Publish only complete, validated downloads so interrupted runs can resume.
+    let temporary = path.with_extension(format!("{}.tmp", std::process::id()));
+    std::fs::write(&temporary, &output.stdout).expect("Write downloaded fixture");
+    std::fs::rename(&temporary, &path).expect("Cache downloaded fixture");
+    tests
+}
+
 #[test]
-#[ignore = "downloads required: python3 scripts/fetch_nmos_tests.py; then run with --ignored"]
+#[ignore = "downloads about 618 MB of pinned fixtures using curl; run explicitly with --ignored"]
 fn nmos_single_step_full() {
     let dir = std::env::var_os("NMOS6502_TESTS").map_or_else(
         || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/nmos6502/v1"),
         PathBuf::from,
     );
-    let revision = std::fs::read_to_string(dir.join("REVISION")).unwrap_or_else(|error| {
-        panic!(
-            "Missing fixture revision at {}: {error}. Run python3 scripts/fetch_nmos_tests.py",
+    std::fs::create_dir_all(&dir).expect("Create fixture directory");
+    let revision_path = dir.join("REVISION");
+    if !revision_path.exists() {
+        assert!(
+            !std::fs::read_dir(&dir).unwrap().any(|entry| {
+                entry
+                    .unwrap()
+                    .path()
+                    .extension()
+                    .is_some_and(|ext| ext == "json")
+            }),
+            "Fixtures without REVISION in {}; use a fresh NMOS6502_TESTS directory",
             dir.display()
-        )
-    });
+        );
+        std::fs::write(&revision_path, REVISION).expect("Write fixture revision");
+    }
+    let revision = std::fs::read_to_string(&revision_path).expect("Read fixture revision");
     assert_eq!(
         revision.trim(),
         REVISION.trim(),
@@ -199,18 +270,10 @@ fn nmos_single_step_full() {
     );
     let mut failures = 0;
     let mut total = 0;
+    let mut sample = Vec::new();
     for opcode in documented_opcodes() {
-        let path = dir.join(format!("{opcode:02x}.json"));
-        let data =
-            std::fs::read(&path).unwrap_or_else(|error| panic!("{}: {error}", path.display()));
-        let tests: Vec<Test> = serde_json::from_slice(&data)
-            .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
-        assert_eq!(tests.len(), 10_000, "Incomplete fixture {}", path.display());
-        assert!(
-            tests.iter().all(|test| self::opcode(test) == opcode),
-            "Wrong opcode in {}",
-            path.display()
-        );
+        let tests = load_fixture(&dir, opcode);
+        sample.extend(tests.iter().take(8).cloned());
         let failed = check_cases(&tests);
         eprintln!(
             "{opcode:02x}: {}/{} passed",
@@ -222,6 +285,25 @@ fn nmos_single_step_full() {
     }
     assert_eq!(total, 1_510_000);
     assert_eq!(failures, 0, "{failures}/{total} NMOS cases failed");
+    if let Some(path) = std::env::var_os("NMOS6502_SAMPLE_OUTPUT") {
+        let cases: Vec<String> = sample
+            .iter()
+            .map(|test| serde_json::to_string(test).unwrap())
+            .collect();
+        std::fs::write(path, format!("[\n{}\n]\n", cases.join(",\n")))
+            .expect("Write regenerated sample");
+    }
+}
+
+#[test]
+fn fixture_validation_rejects_invalid_data() {
+    assert!(parse_fixture(b"not json", 0xA9).is_err());
+    assert!(parse_fixture(SAMPLE.as_bytes(), 0xA9).is_err());
+    let tests: Vec<Test> = serde_json::from_str(SAMPLE).unwrap();
+    let test = tests.iter().find(|test| opcode(test) == 0xA9).unwrap();
+    let data = serde_json::to_vec(&vec![test; 10_000]).unwrap();
+    assert!(parse_fixture(&data, 0xA9).is_ok());
+    assert!(parse_fixture(&data, 0xA2).is_err());
 }
 
 #[test]

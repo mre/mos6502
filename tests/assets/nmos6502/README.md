@@ -11,16 +11,18 @@ written to the stack are checked in full.
 To run all 1,510,000 cases (about 618 MB of downloaded JSON):
 
 ```sh
-python3 scripts/fetch_nmos_tests.py
 cargo test --release --test single_step_nmos nmos_single_step_full -- --ignored
 ```
 
-CI runs the full suite. Locally it is explicitly ignored unless requested;
-missing, incomplete, or wrong-revision fixtures fail rather than silently skip.
-Set `NMOS6502_TESTS` to use a fixture directory other than `target/nmos6502/v1`.
+CI runs the full suite. Locally it is explicitly ignored unless requested.
+The full test uses `curl` (required on PATH) to download missing or invalid files
+and caches validated downloads for later runs. Normal `cargo test` stays offline.
+Wrong-revision fixtures, or JSON files without a revision marker, fail rather
+than being reused. Set `NMOS6502_TESTS` to use a fresh fixture directory instead
+of `target/nmos6502/v1`.
 
 To regenerate the bundled sample from the pinned data:
 
 ```sh
-python3 scripts/fetch_nmos_tests.py --sample-output tests/assets/nmos6502/sample.json
+NMOS6502_SAMPLE_OUTPUT=tests/assets/nmos6502/sample.json cargo test --release --test single_step_nmos nmos_single_step_full -- --ignored
 ```
