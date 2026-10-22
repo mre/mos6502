@@ -11,12 +11,15 @@ written to the stack are checked in full.
 To run all 1,510,000 cases (about 618 MB of downloaded JSON):
 
 ```sh
+cargo xtask fetch-nmos
 cargo test --release --test single_step_nmos nmos_single_step_full -- --ignored
 ```
 
 CI runs the full suite. Locally it is explicitly ignored unless requested.
-The full test uses `curl` (required on PATH) to download missing or invalid files
-and caches validated downloads for later runs. Normal `cargo test` stays offline.
+The xtask downloads missing or invalid files over HTTPS using a Rust HTTP client
+and caches validated downloads for later runs. No external downloader is needed.
+Both the sample and full tests stay offline and never modify fixtures; missing or
+invalid files fail the test.
 Wrong-revision fixtures, or JSON files without a revision marker, fail rather
 than being reused. Set `NMOS6502_TESTS` to use a fresh fixture directory instead
 of `target/nmos6502/v1`.
@@ -24,5 +27,5 @@ of `target/nmos6502/v1`.
 To regenerate the bundled sample from the pinned data:
 
 ```sh
-NMOS6502_SAMPLE_OUTPUT=tests/assets/nmos6502/sample.json cargo test --release --test single_step_nmos nmos_single_step_full -- --ignored
+cargo xtask fetch-nmos --sample-output tests/assets/nmos6502/sample.json
 ```
