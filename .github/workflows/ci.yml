@@ -29,6 +29,21 @@ jobs:
       - name: Run tests
         run: cargo test
 
+  single-step-nmos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/cache@v4
+        with:
+          path: target/nmos6502/v1
+          key: nmos-fixtures-${{ hashFiles('tests/assets/nmos6502/REVISION', 'tests/assets/nmos6502/opcodes.json') }}
+      - name: Fetch pinned NMOS fixtures
+        run: python3 scripts/fetch_nmos_tests.py
+      - name: Run all documented NMOS instruction cases
+        run: cargo test --release --test single_step_nmos nmos_single_step_full -- --ignored
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -70,6 +85,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     needs:
       - test
+      - single-step-nmos
       - lint
       - audit
       - publish-check

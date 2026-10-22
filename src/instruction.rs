@@ -942,13 +942,32 @@ pub enum OpInput {
     UseImplied,
     UseImmediate(u8),
     UseRelative(u16),
-    UseAddress { address: u16, page_crossed: bool },
+    UseAddress {
+        address: u16,
+        page_crossed: bool,
+    },
+    /// JSR reads the target's high byte after pushing its return address.
+    /// Deferring that read preserves behavior when code overlaps the stack.
+    UseJsr {
+        low: u8,
+        high_address: u16,
+    },
     // BBR/BBS: zero-page address to test, plus sign-extended relative offset
-    UseBitBranch { zp_address: u8, relative: u16 },
+    UseBitBranch {
+        zp_address: u8,
+        relative: u16,
+    },
     // HuC6280 block transfer (TII/TDD/TIN/TIA/TAI): source, destination, length.
-    UseBlockTransfer { source: u16, dest: u16, length: u16 },
+    UseBlockTransfer {
+        source: u16,
+        dest: u16,
+        length: u16,
+    },
     // HuC6280 TST: an immediate test mask plus the target memory address.
-    UseImmediateAddress { value: u8, address: u16 },
+    UseImmediateAddress {
+        value: u8,
+        address: u16,
+    },
 }
 
 impl OpInput {
@@ -971,6 +990,9 @@ impl Display for OpInput {
             OpInput::UseImmediate(v) => write!(f, "#${v:02X}"),
             OpInput::UseRelative(v) => write!(f, "${v:04X}"),
             OpInput::UseAddress { address, .. } => write!(f, "${address:04X}"),
+            OpInput::UseJsr { low, high_address } => {
+                write!(f, "low=${low:02X}, high=mem[${high_address:04X}]")
+            }
             OpInput::UseBitBranch {
                 zp_address,
                 relative,
@@ -1598,15 +1620,15 @@ impl crate::Variant for Nmos6502 {
     ///
     /// - Binary Coded Decimal (BCD) arithmetic using 4-bit decimal digits
     /// - Each nibble represents a digit from 0-9
-    /// - In decimal mode: N and Z flags are unreliable/undefined
-    /// - In decimal mode: V flag calculated from binary result (documented behavior)
+    /// - Z reflects the binary sum, not the decimal result
+    /// - N and V reflect the sum after the low-digit carry, before high-digit correction
     ///
     /// # References
     ///
     /// - [6502.org ADC documentation](http://www.6502.org/tutorials/decimal_mode.html)
     /// - [NESdev 6502 reference](https://www.nesdev.org/obelisk-6502-guide/reference.html#ADC)
     fn adc_decimal(accumulator: u8, value: u8, carry_set: bool) -> ArithmeticOutput {
-        // Perform binary addition first for overflow calculation
+        // Z is sampled from the unadjusted binary sum.
         let carry = u8::from(carry_set);
         let temp_result = accumulator.wrapping_add(value).wrapping_add(carry);
 
@@ -1635,12 +1657,13 @@ impl crate::Variant for Nmos6502 {
 
         let result = (adjusted_high << 4) | (low_nibble & 0x0f);
 
-        // Calculate overflow from binary result (even in decimal mode)
-        let overflow = (!(accumulator ^ value) & (accumulator ^ temp_result)) & 0x80 != 0;
-
-        // Calculate other flags from final result
-        let negative = (result & 0x80) != 0;
-        let zero = result == 0;
+        // Sample N/V after the low-digit carry but before high-digit correction.
+        // Even invalid low digits produce only one carry into the high nibble.
+        // See Bruce Clark's decimal-mode tutorial, Appendix A, ADC sequence 2.
+        let intermediate = high_nibble << 4;
+        let overflow = (!(accumulator ^ value) & (accumulator ^ intermediate)) & 0x80 != 0;
+        let negative = (intermediate & 0x80) != 0;
+        let zero = temp_result == 0;
 
         ArithmeticOutput {
             result,
@@ -1691,8 +1714,7 @@ impl crate::Variant for Nmos6502 {
     ///
     /// - Binary Coded Decimal (BCD) subtraction using 4-bit decimal digits
     /// - Each nibble represents a digit from 0-9
-    /// - In decimal mode: N and Z flags are unreliable/undefined (NMOS behavior)
-    /// - V flag calculated from binary result (even in decimal mode)
+    /// - N, V, and Z reflect the binary difference, not the decimal result
     ///
     /// # References
     ///
@@ -1733,9 +1755,9 @@ impl crate::Variant for Nmos6502 {
         // Calculate overflow from binary result (even in decimal mode)
         let overflow = (accumulator ^ value) & (accumulator ^ temp_result) & 0x80 != 0;
 
-        // Calculate other flags from final result
-        let negative = (result & 0x80) != 0;
-        let zero = result == 0;
+        // Unlike ADC, NMOS SBC samples N/V/Z before either decimal correction.
+        let negative = (temp_result & 0x80) != 0;
+        let zero = temp_result == 0;
 
         ArithmeticOutput {
             result,
