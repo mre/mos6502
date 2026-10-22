@@ -42,16 +42,15 @@ the GPL-3.0 license.
 The `6502_timing_test.bin` file is from the dp111/6502Timing project:
 https://github.com/dp111/6502Timing
 
-This ROM tests cycle counts for documented and undocumented NMOS 6502
-instructions, excluding BRK and JAM/HALT. It does not check bus-cycle accuracy.
+This test ROM validates instruction cycle timing for the 6502 processor.
 
-This test runs as part of `cargo test`. To see the ROM's output:
+The ROM includes undocumented/illegal 6502 instructions which are not
+implemented in this emulator. Therefore, it cannot run successfully yet. 
 
-```sh
-cargo test --test timing_test timing_test_6502 -- --nocapture
-```
+The timing test ROM is kept here for reference and potential future use if
+undocumented instruction support is added.
 
 ## Credits
 
-Created by Dominic Plunkett (dp111). The upstream project provides a
-[GPL-3.0 license](https://github.com/dp111/6502Timing/blob/main/LICENSE).
+Created by dp111, licensed under the 3-Clause BSD License.
+```

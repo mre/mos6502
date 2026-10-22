@@ -256,30 +256,6 @@ pub enum Instruction {
     // Set Memory Bit (65C02 only) - SMBn zp
     SMB(u8),
 
-    /// Unstable NMOS SHA/AHX: store `A & X & (base_high + 1)`.
-    ///
-    /// SHA, SHX, SHY and TAS use the high byte BEFORE indexing, with wrapping
-    /// byte addition. On a page crossing, the stored byte also replaces the
-    /// destination high byte; otherwise the normal indexed address is used.
-    /// Flags are unchanged. This is a deterministic compatibility model, not
-    /// a guarantee for every silicon revision or RDY/DMA bus condition; the
-    /// hardware can lose the high-byte mask. Dummy bus reads are not modeled.
-    ///
-    /// References: <https://www.nesdev.org/6502_cpu.txt> (undocumented commands)
-    /// and the SHA/SHS/SHX/SHY cases in the Frodo-derived core:
-    /// <https://github.com/wavemotion-dave/GimliDS/blob/1bec316f/arm9/source/CPU_emulline.h>.
-    SHA,
-
-    /// Store `X & (base_high + 1)`; see [`Instruction::SHA`] for instability.
-    SHX,
-
-    /// Store `Y & (base_high + 1)`; see [`Instruction::SHA`] for instability.
-    SHY,
-
-    /// TAS/SHS: set SP to `A & X`, then store `SP & (base_high + 1)`.
-    /// The stack pointer is NOT high-byte masked. See [`Instruction::SHA`].
-    TAS,
-
     // XAA, (transfer X to A, and then ANDs the accumulator with an immediate value)
     XAA,
 
@@ -304,11 +280,7 @@ pub enum Instruction {
     // LAS (LAR), (ANDs memory with SP, loads result into A, X, and SP)
     LAS,
 
-    /// LAX loads both A and X from memory or an immediate operand.
-    ///
-    /// Immediate `$AB` (also called LXA) is unstable on NMOS silicon:
-    /// `A = X = (A | magic) & operand`, with a chip/environment-dependent magic.
-    /// We use `magic = $FF`, i.e. `A = X = operand`, as a deterministic approximation.
+    // LAX, (Loads both A and X with the same value from memory)
     LAX,
 
     // NOP with addressing modes (reads memory but does nothing)
@@ -663,10 +635,6 @@ impl Instruction {
             (SAX, Absolute) => 4,
             (SAX, IndexedIndirectX) => 6,
 
-            // Unstable stores have fixed timing, including page crossings.
-            (SHA, IndirectIndexedY) => 6,
-            (SHA | SHX | TAS, AbsoluteY) | (SHY, AbsoluteX) => 5,
-
             // Illegal opcodes - XAA (Transfer X to A, then AND)
             (XAA, Immediate) => 2,
 
@@ -704,7 +672,6 @@ impl Instruction {
             (LAS, AbsoluteY) => 4, // +1 if page crossed
 
             // Illegal opcodes - LAX (Load A and X)
-            (LAX, Immediate) => 2,
             (LAX, ZeroPage) => 3,
             (LAX, ZeroPageY) => 4,
             (LAX, Absolute) => 4,
@@ -866,10 +833,6 @@ impl Instruction {
             Instruction::STX => "stx",
             Instruction::STY => "sty",
             Instruction::STZ => "stz",
-            Instruction::SHA => "sha",
-            Instruction::SHX => "shx",
-            Instruction::SHY => "shy",
-            Instruction::TAS => "tas",
             // Both the HuC6280 A/X swap and the NMOS store instruction use `sax`.
             Instruction::SAX | Instruction::SWAPAX => "sax",
             Instruction::TAX => "tax",
@@ -1485,7 +1448,7 @@ impl crate::Variant for Nmos6502 {
             0x90 => Some((Instruction::BCC, AddressingMode::Relative)),
             0x91 => Some((Instruction::STA, AddressingMode::IndirectIndexedY)),
             0x92 => Some((Instruction::JAM, AddressingMode::Implied)),
-            0x93 => Some((Instruction::SHA, AddressingMode::IndirectIndexedY)),
+            0x93 => None, // SHA (zp),Y - unstable, skip
             0x94 => Some((Instruction::STY, AddressingMode::ZeroPageX)),
             0x95 => Some((Instruction::STA, AddressingMode::ZeroPageX)),
             0x96 => Some((Instruction::STX, AddressingMode::ZeroPageY)),
@@ -1493,11 +1456,11 @@ impl crate::Variant for Nmos6502 {
             0x98 => Some((Instruction::TYA, AddressingMode::Implied)),
             0x99 => Some((Instruction::STA, AddressingMode::AbsoluteY)),
             0x9a => Some((Instruction::TXS, AddressingMode::Implied)),
-            0x9b => Some((Instruction::TAS, AddressingMode::AbsoluteY)),
-            0x9c => Some((Instruction::SHY, AddressingMode::AbsoluteX)),
+            0x9b => None, // TAS abs,Y - unstable, skip
+            0x9c => None, // SHY abs,X - unstable, skip
             0x9d => Some((Instruction::STA, AddressingMode::AbsoluteX)),
-            0x9e => Some((Instruction::SHX, AddressingMode::AbsoluteY)),
-            0x9f => Some((Instruction::SHA, AddressingMode::AbsoluteY)),
+            0x9e => None, // SHX abs,Y - unstable, skip
+            0x9f => None, // SHA abs,Y - unstable, skip
             0xa0 => Some((Instruction::LDY, AddressingMode::Immediate)),
             0xa1 => Some((Instruction::LDA, AddressingMode::IndexedIndirectX)),
             0xa2 => Some((Instruction::LDX, AddressingMode::Immediate)),
@@ -1509,7 +1472,7 @@ impl crate::Variant for Nmos6502 {
             0xa8 => Some((Instruction::TAY, AddressingMode::Implied)),
             0xa9 => Some((Instruction::LDA, AddressingMode::Immediate)),
             0xaa => Some((Instruction::TAX, AddressingMode::Implied)),
-            0xab => Some((Instruction::LAX, AddressingMode::Immediate)),
+            0xab => None, // LXA #imm - unstable, skip
             0xac => Some((Instruction::LDY, AddressingMode::Absolute)),
             0xad => Some((Instruction::LDA, AddressingMode::Absolute)),
             0xae => Some((Instruction::LDX, AddressingMode::Absolute)),
@@ -2074,15 +2037,7 @@ impl<const ROCKWELL: bool, const WDC: bool> crate::Variant for Mos65C02<ROCKWELL
                     None
                 }
             })
-            .or_else(|| {
-                // Do not inherit newly supported NMOS unstable stores into CMOS.
-                Nmos6502::decode(opcode).filter(|(instr, _)| {
-                    !matches!(
-                        instr,
-                        Instruction::SHA | Instruction::SHX | Instruction::SHY | Instruction::TAS
-                    )
-                })
-            })
+            .or_else(|| Nmos6502::decode(opcode))
     }
 
     /// 65C02 (CMOS) ADC implementation in binary mode
