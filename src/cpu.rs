@@ -538,12 +538,21 @@ impl<M: Bus, V: Variant> CPU<M, V> {
         page_crossed: bool,
         registers: Registers,
     ) -> u8 {
-        use Instruction::{STA, STX, STY, STZ};
+        use Instruction::{
+            ASL, DCP, DEC, INC, ISC, LSR, RLA, ROL, ROR, RRA, SHA, SHX, SHY, SLO, SRE, STA, STX,
+            STY, STZ, TAS,
+        };
 
         let base_cycles = instr.base_cycles(mode);
 
-        // Page crossing penalty: +1 cycle for loads (not stores!)
-        let page_penalty = u8::from(page_crossed && !matches!(instr, STA | STX | STY | STZ));
+        // Indexed stores and read-modify-write instructions already include
+        // the extra address-calculation cycle in their fixed base timing.
+        let is_store = matches!(instr, STA | STX | STY | STZ | SHA | SHX | SHY | TAS);
+        let is_read_modify_write = matches!(
+            instr,
+            ASL | LSR | ROL | ROR | INC | DEC | DCP | ISC | RLA | RRA | SLO | SRE
+        );
+        let page_penalty = u8::from(page_crossed && !is_store && !is_read_modify_write);
 
         // Decimal mode penalty: variant-specific (e.g., +1 for ADC/SBC on 65C02 when D flag is set)
         let decimal_penalty = Self::decimal_mode_penalty_for_variant(instr, registers);
@@ -1241,6 +1250,30 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 CPU::<M, V>::set_flags_from_u8(&mut self.registers.status, val);
             }
 
+            (
+                Instruction::SHA | Instruction::SHX | Instruction::SHY | Instruction::TAS,
+                OpInput::UseAddress {
+                    address,
+                    page_crossed,
+                },
+            ) => {
+                let source = match instr {
+                    Instruction::SHX => self.registers.index_x,
+                    Instruction::SHY => self.registers.index_y,
+                    _ => self.registers.accumulator & self.registers.index_x,
+                };
+                if instr == Instruction::TAS {
+                    self.registers.stack_pointer = StackPointer(source);
+                }
+                self.store_high_masked(address, page_crossed, source);
+            }
+
+            // Deterministic immediate LAX (Load Accumulator and X); see Instruction::LAX for caveats.
+            (Instruction::LAX, OpInput::UseImmediate(val)) => {
+                self.load_accumulator(val);
+                self.load_x_register(val);
+            }
+
             // LAX - Load A and X with the same value from memory
             (Instruction::LAX, OpInput::UseAddress { address: addr, .. }) => {
                 let val = self.memory.get_byte(addr);
@@ -1440,6 +1473,21 @@ impl<M: Bus, V: Variant> CPU<M, V> {
                 panic!("unimplemented or invalid instruction: {instr:?} with input {input:?}");
             }
         }
+    }
+
+    /// Deterministic unstable-store model documented on [`Instruction::SHA`].
+    fn store_high_masked(&mut self, address: u16, page_crossed: bool, source: u8) {
+        let [low, high] = address.to_le_bytes();
+        // Indexing can carry at most once. Undo that carry to recover the
+        // pre-index high byte, including the $FFFF -> $0000 wraparound.
+        let base_high = high.wrapping_sub(u8::from(page_crossed));
+        let value = source & base_high.wrapping_add(1);
+        let destination = if page_crossed {
+            u16::from_le_bytes([low, value])
+        } else {
+            address
+        };
+        self.memory.set_byte(destination, value);
     }
 
     /// Execute a `HuC6280` block-transfer instruction (TII/TDD/TIN/TIA/TAI).
@@ -3875,6 +3923,217 @@ mod tests {
     }
 
     #[test]
+    fn unstable_stores_decode_and_timing() {
+        use crate::instruction::{Cmos6502, RevisionA, Ricoh2a03};
+
+        for (opcode, instr, mode, cycles, cmos) in [
+            (
+                0x93,
+                Instruction::SHA,
+                AddressingMode::IndirectIndexedY,
+                6,
+                Some((Instruction::NOP1, AddressingMode::Implied)),
+            ),
+            (
+                0x9B,
+                Instruction::TAS,
+                AddressingMode::AbsoluteY,
+                5,
+                Some((Instruction::NOP1, AddressingMode::Implied)),
+            ),
+            (
+                0x9C,
+                Instruction::SHY,
+                AddressingMode::AbsoluteX,
+                5,
+                Some((Instruction::STZ, AddressingMode::Absolute)),
+            ),
+            (
+                0x9E,
+                Instruction::SHX,
+                AddressingMode::AbsoluteY,
+                5,
+                Some((Instruction::STZ, AddressingMode::AbsoluteX)),
+            ),
+            (0x9F, Instruction::SHA, AddressingMode::AbsoluteY, 5, None),
+        ] {
+            assert_eq!(Nmos6502::decode(opcode), Some((instr, mode)));
+            assert_eq!(RevisionA::decode(opcode), Some((instr, mode)));
+            assert_eq!(Ricoh2a03::decode(opcode), Some((instr, mode)));
+            assert_eq!(Cmos6502::decode(opcode), cmos);
+            assert_eq!(instr.base_cycles(mode), cycles);
+        }
+        assert_eq!(
+            crate::instruction::W65C02S::decode(0x9F),
+            Some((Instruction::BBS(1), AddressingMode::ZeroPageRelative))
+        );
+        assert_eq!(
+            crate::instruction::Huc6280::decode(0x9F),
+            Some((Instruction::BBS(1), AddressingMode::ZeroPageRelative))
+        );
+        for opcode in 0..=u8::MAX {
+            assert!(Nmos6502::decode(opcode).is_some(), "opcode ${opcode:02X}");
+        }
+    }
+
+    #[test]
+    fn unstable_stores_execution() {
+        struct RecordingBus {
+            ram: Ram,
+            writes: usize,
+            last_write: Option<(u16, u8)>,
+        }
+        impl Bus for RecordingBus {
+            fn get_byte(&mut self, address: u16) -> u8 {
+                self.ram.get_byte(address)
+            }
+            fn set_byte(&mut self, address: u16, value: u8) {
+                self.writes += 1;
+                self.last_write = Some((address, value));
+                self.ram.set_byte(address, value);
+            }
+        }
+
+        for opcode in [0x93, 0x9B, 0x9C, 0x9E, 0x9F] {
+            // All register sources below produce $A5. Literal expectations
+            // distinguish pre-index masking from post-index masking and cover
+            // zero/high-bit results, index zero, and both kinds of $FF wrap.
+            for (base, index, destination, value) in [
+                (0x12D0_u16, 0x20, 0x12F0, 0x01),
+                (0x12F0, 0x20, 0x0110, 0x01),
+                (0x34F0, 0x20, 0x2510, 0x25),
+                (0x01F0, 0x20, 0x0010, 0x00),
+                (0x7FF0, 0x20, 0x8010, 0x80),
+                (0xFFD0, 0x20, 0xFFF0, 0x00),
+                (0xFFF0, 0x20, 0x0010, 0x00),
+                (0x12FF, 0x00, 0x12FF, 0x01),
+            ] {
+                for status in [Status::empty(), Status::all()] {
+                    let bus = RecordingBus {
+                        ram: Ram::new(),
+                        writes: 0,
+                        last_write: None,
+                    };
+                    let mut cpu = CPU::new(bus, Nmos6502);
+                    let (a, x, y) = match opcode {
+                        0x9C => (0x5A, index, 0xA5),
+                        0x9E => (0x5A, 0xA5, index),
+                        _ => (0xED, 0xB7, index), // $ED & $B7 = $A5
+                    };
+                    cpu.registers.accumulator = a;
+                    cpu.registers.index_x = x;
+                    cpu.registers.index_y = y;
+                    cpu.registers.status = status;
+                    cpu.registers.stack_pointer = StackPointer(0x68);
+                    cpu.registers.program_counter = 0x4000;
+                    let [low, high] = base.to_le_bytes();
+                    let length = if opcode == 0x93 {
+                        cpu.memory.ram.set_bytes(0x4000, &[opcode, 0xFF]);
+                        // The indirect pointer's high byte must wrap in zero page.
+                        cpu.memory.ram.set_byte(0x00FF, low);
+                        cpu.memory.ram.set_byte(0x0000, high);
+                        cpu.memory.ram.set_byte(0x0100, 0x56);
+                        2
+                    } else {
+                        cpu.memory.ram.set_bytes(0x4000, &[opcode, low, high]);
+                        3
+                    };
+
+                    assert!(cpu.single_step());
+
+                    assert_eq!(cpu.memory.writes, 1);
+                    assert_eq!(
+                        cpu.memory.last_write,
+                        Some((destination, value)),
+                        "opcode ${opcode:02X}, base ${base:04X}, index ${index:02X}"
+                    );
+                    assert_eq!(cpu.memory.ram.get_byte(destination), value);
+                    assert_eq!(cpu.registers.accumulator, a);
+                    assert_eq!(cpu.registers.index_x, x);
+                    assert_eq!(cpu.registers.index_y, y);
+                    assert_eq!(cpu.registers.status, status);
+                    assert_eq!(
+                        cpu.registers.stack_pointer,
+                        StackPointer(if opcode == 0x9B { 0xA5 } else { 0x68 })
+                    );
+                    assert_eq!(cpu.registers.program_counter, 0x4000 + length);
+                    assert_eq!(cpu.cycles, if opcode == 0x93 { 6 } else { 5 });
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn unstable_stores_disassembly() {
+        use crate::instruction::disassemble_one;
+
+        for (opcode, text, length) in [
+            (0x93, "sha  ($34),y", 2),
+            (0x9B, "tas  $1234,y", 3),
+            (0x9C, "shy  $1234,x", 3),
+            (0x9E, "shx  $1234,y", 3),
+            (0x9F, "sha  $1234,y", 3),
+        ] {
+            let bytes = [opcode, 0x34, 0x12];
+            let decoded = disassemble_one::<Nmos6502>(0, |addr| bytes[usize::from(addr)]);
+            assert_eq!(decoded.text, text);
+            assert_eq!(decoded.length, length);
+        }
+    }
+
+    #[test]
+    fn lax_immediate_decode_and_timing() {
+        use crate::instruction::{Cmos6502, RevisionA, Ricoh2a03};
+
+        let expected = Some((Instruction::LAX, AddressingMode::Immediate));
+        assert_eq!(Nmos6502::decode(0xAB), expected);
+        assert_eq!(RevisionA::decode(0xAB), expected);
+        assert_eq!(Ricoh2a03::decode(0xAB), expected);
+        assert_eq!(Instruction::LAX.base_cycles(AddressingMode::Immediate), 2);
+        assert_eq!(AddressingMode::Immediate.extra_bytes(), 1);
+        assert_eq!(
+            Cmos6502::decode(0xAB),
+            Some((Instruction::NOP1, AddressingMode::Implied))
+        );
+    }
+
+    #[test]
+    fn lax_immediate_execution() {
+        // Test the chosen magic=$FF approximation, not a universal silicon result.
+        for operand in 0..=u8::MAX {
+            for initial_status in [Status::empty(), Status::all()] {
+                let mut cpu = CPU::new(Ram::new(), Nmos6502);
+                cpu.registers.program_counter = 0x3F48;
+                cpu.registers.accumulator = !operand;
+                cpu.registers.index_x = !operand;
+                cpu.registers.index_y = 0x42;
+                cpu.registers.status = initial_status;
+                let stack_pointer = cpu.registers.stack_pointer;
+                cpu.memory.set_bytes(0x3F48, &[0xAB, operand, 0xEA]);
+
+                cpu.single_step();
+
+                let mut expected_status = initial_status;
+                expected_status.set(Status::PS_ZERO, operand == 0);
+                expected_status.set(Status::PS_NEGATIVE, operand & 0x80 != 0);
+                assert_eq!(cpu.registers.accumulator, operand);
+                assert_eq!(cpu.registers.index_x, operand);
+                assert_eq!(cpu.registers.index_y, 0x42);
+                assert_eq!(cpu.registers.stack_pointer, stack_pointer);
+                assert_eq!(cpu.registers.status, expected_status);
+                assert_eq!(cpu.registers.program_counter, 0x3F4A);
+                assert_eq!(cpu.cycles, 2);
+                assert_eq!(cpu.memory.get_byte(0x3F49), operand);
+
+                cpu.single_step(); // The following NOP must remain aligned.
+                assert_eq!(cpu.registers.program_counter, 0x3F4B);
+                assert_eq!(cpu.cycles, 4);
+            }
+        }
+    }
+
+    #[test]
     fn lax_test() {
         let mut cpu = CPU::new(Ram::new(), Nmos6502);
 
@@ -4555,6 +4814,59 @@ mod cycle_timing_tests {
     use crate::instruction::{Cmos6502, Instruction, Nmos6502};
     use crate::memory::Memory as Ram;
     use crate::memory::{IRQ_INTERRUPT_VECTOR_LO, NMI_INTERRUPT_VECTOR_LO};
+
+    #[test]
+    fn indexed_read_modify_write_cycles_are_fixed() {
+        // Each tuple is an opcode and its fixed instruction-cycle total.
+        // We check that crossing a page must not add a cycle to these
+        // instructions.
+        for (opcode, cycles) in [
+            (0x1E, 7),
+            (0x5E, 7),
+            (0x3E, 7),
+            (0x7E, 7),
+            (0xFE, 7),
+            (0xDE, 7),
+            (0xDF, 7),
+            (0xDB, 7),
+            (0xD3, 8),
+            (0xFF, 7),
+            (0xFB, 7),
+            (0xF3, 8),
+            (0x3F, 7),
+            (0x3B, 7),
+            (0x33, 8),
+            (0x7F, 7),
+            (0x7B, 7),
+            (0x73, 8),
+            (0x1F, 7),
+            (0x1B, 7),
+            (0x13, 8),
+            (0x5F, 7),
+            (0x5B, 7),
+            (0x53, 8),
+        ] {
+            for base in [0x12FE_u16, 0x12FF] {
+                let mut cpu = CPU::new(Ram::new(), Nmos6502);
+                cpu.registers.index_x = 1;
+                cpu.registers.index_y = 1;
+                cpu.registers.program_counter = 0x4000;
+                let [low, high] = base.to_le_bytes();
+                let length = if opcode & 0x0F == 3 {
+                    cpu.memory.set_bytes(0x4000, &[opcode, 0x80]);
+                    cpu.memory.set_bytes(0x80, &[low, high]);
+                    2
+                } else {
+                    cpu.memory.set_bytes(0x4000, &[opcode, low, high]);
+                    3
+                };
+                cpu.memory.set_byte(base + 1, 0x42);
+                assert!(cpu.single_step());
+                assert_eq!(cpu.registers.program_counter, 0x4000 + length);
+                assert_eq!(cpu.cycles, cycles, "opcode ${opcode:02X}, base ${base:04X}");
+            }
+        }
+    }
 
     #[test]
     fn test_basic_cycle_counting() {
